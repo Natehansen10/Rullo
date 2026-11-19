@@ -11,6 +11,10 @@ export interface RideRow {
   startedAt: number
   endedAt?: number
   status: 'active' | 'ended'
+  /** Course ridden, or undefined for a free ride. */
+  courseId?: string
+  /** Where on the course the ride started, meters along the slope. */
+  startOffsetM?: number
 }
 
 export interface SampleRow {
@@ -22,11 +26,23 @@ export interface SampleRow {
   speedMps: number
   /** Cumulative distance in meters. */
   distanceM: number
+  /** Course rides only: position on the course (m) and elevation (m). */
+  courseM?: number
+  altitudeM?: number
+}
+
+/** A GPX the rider imported. Rebuilt into a Course on load. */
+export interface ImportedCourseRow {
+  id: string
+  name: string
+  gpx: string
+  addedAt: number
 }
 
 class WeemWattsDB extends Dexie {
   rides!: EntityTable<RideRow, 'id'>
   samples!: Table<SampleRow, [number, number]>
+  courses!: EntityTable<ImportedCourseRow, 'id'>
 
   constructor() {
     super('weem-watts')
@@ -34,13 +50,43 @@ class WeemWattsDB extends Dexie {
       rides: '++id, status',
       samples: '[rideId+t], rideId',
     })
+    this.version(2).stores({
+      rides: '++id, status, courseId',
+      samples: '[rideId+t], rideId',
+      courses: 'id, addedAt',
+    })
   }
 }
 
 const db = new WeemWattsDB()
 
-export async function startRide(startedAt: number): Promise<number> {
-  return db.rides.add({ startedAt, status: 'active' } as RideRow)
+export async function startRide(startedAt: number, courseId?: string, startOffsetM?: number): Promise<number> {
+  return db.rides.add({ startedAt, status: 'active', courseId, startOffsetM } as RideRow)
+}
+
+/** Where the most recent ride on this course ended (m along the course), if any. */
+export async function lastPositionOn(courseId: string): Promise<number | null> {
+  const rides = await db.rides.where('courseId').equals(courseId).sortBy('startedAt')
+  for (let i = rides.length - 1; i >= 0; i--) {
+    const last = await db.samples
+      .where('[rideId+t]')
+      .between([rides[i].id, Dexie.minKey], [rides[i].id, Dexie.maxKey])
+      .last()
+    if (last?.courseM !== undefined) return last.courseM
+  }
+  return null
+}
+
+export async function saveImportedCourse(row: ImportedCourseRow): Promise<void> {
+  await db.courses.put(row)
+}
+
+export async function listImportedCourses(): Promise<ImportedCourseRow[]> {
+  return db.courses.orderBy('addedAt').toArray()
+}
+
+export async function deleteImportedCourse(id: string): Promise<void> {
+  await db.courses.delete(id)
 }
 
 export async function recordSample(s: SampleRow): Promise<void> {

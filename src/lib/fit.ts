@@ -1,7 +1,9 @@
 /**
  * Minimal FIT activity file writer (Garmin FIT protocol 2.0).
  * Messages: file_id, event (timer start), record x N, event (timer stop),
- * lap, session, activity. Sport cycling, sub-sport indoor cycling.
+ * lap, session, activity. Sport cycling; sub-sport indoor cycling for a free
+ * ride, virtual activity (Strava: Virtual Ride) for a course ride, which also
+ * gets altitude on every record and total ascent.
  * Written from the FIT protocol docs. Structure informed by GPX Rider fit.mjs (MIT).
  * No code copied.
  */
@@ -27,6 +29,7 @@ const MESG_ACTIVITY = 34
 
 const SPORT_CYCLING = 2
 const SUB_SPORT_INDOOR_CYCLING = 6
+const SUB_SPORT_VIRTUAL_ACTIVITY = 58
 const EVENT_TIMER = 0
 const EVENT_SESSION = 8
 const EVENT_LAP = 9
@@ -129,6 +132,17 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
       cadenceCount++
     }
   })
+  const onCourse = samples.some((s) => s.altitudeM !== undefined)
+  const subSport = onCourse ? SUB_SPORT_VIRTUAL_ACTIVITY : SUB_SPORT_INDOOR_CYCLING
+  let ascentM = 0
+  if (onCourse) {
+    let prev: number | undefined
+    for (const s of samples) {
+      if (s.altitudeM === undefined) continue
+      if (prev !== undefined && s.altitudeM > prev) ascentM += s.altitudeM - prev
+      prev = s.altitudeM
+    }
+  }
   const elapsedMs = last.t - first.t + 1000
   const distanceM = last.distanceM
   const avgPower = powerSum / samples.length
@@ -153,19 +167,27 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
   ])
   w.write(1, [fitTime(first.t), EVENT_TIMER, EVENT_TYPE_START])
 
-  w.define(2, MESG_RECORD, [
+  const recordFields: Field[] = [
     [253, UINT32],
     [7, UINT16], // power, W
     [4, UINT8], // cadence, rpm
     [6, UINT16], // speed, m/s * 1000
     [5, UINT32], // distance, m * 100
-  ])
+  ]
+  if (onCourse) recordFields.push([2, UINT16]) // altitude, (m + 500) * 5
+  w.define(2, MESG_RECORD, recordFields)
   let lastWritten = -1
+  let lastAlt = samples.find((s) => s.altitudeM !== undefined)?.altitudeM ?? 0
   for (const s of samples) {
     const ts = fitTime(s.t)
     if (ts === lastWritten) continue // one record per second
     lastWritten = ts
-    w.write(2, [ts, s.powerW, Math.min(254, s.cadenceRpm), s.speedMps * 1000, s.distanceM * 100])
+    const values = [ts, s.powerW, Math.min(254, s.cadenceRpm), s.speedMps * 1000, s.distanceM * 100]
+    if (onCourse) {
+      if (s.altitudeM !== undefined) lastAlt = s.altitudeM
+      values.push((lastAlt + 500) * 5)
+    }
+    w.write(2, values)
   }
 
   w.write(1, [fitTime(last.t), EVENT_TIMER, EVENT_TYPE_STOP_ALL])
@@ -185,6 +207,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [18, UINT8], // max_cadence
     [19, UINT16], // avg_power
     [20, UINT16], // max_power
+    [21, UINT16], // total_ascent, m
     [25, ENUM], // sport
     [39, ENUM], // sub_sport
   ])
@@ -203,8 +226,9 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     Math.min(254, maxCadence),
     avgPower,
     maxPower,
+    ascentM,
     SPORT_CYCLING,
-    SUB_SPORT_INDOOR_CYCLING,
+    subSport,
   ])
 
   w.define(4, MESG_SESSION, [
@@ -224,6 +248,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [19, UINT8], // max_cadence
     [20, UINT16], // avg_power
     [21, UINT16], // max_power
+    [22, UINT16], // total_ascent, m
     [25, UINT16], // first_lap_index
     [26, UINT16], // num_laps
   ])
@@ -234,7 +259,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     EVENT_TYPE_STOP,
     fitTime(first.t),
     SPORT_CYCLING,
-    SUB_SPORT_INDOOR_CYCLING,
+    subSport,
     elapsedMs,
     timerMs,
     distanceM * 100,
@@ -244,6 +269,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     Math.min(254, maxCadence),
     avgPower,
     maxPower,
+    ascentM,
     0,
     1,
   ])

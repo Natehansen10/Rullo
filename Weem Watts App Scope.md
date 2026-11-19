@@ -51,12 +51,17 @@ Ride in one gear and change resistance by hand, the way Nate rides indoors.
 
 ### v2: Race course
 
-- Elevation profile with a moving position dot as the main view; a 2D map is optional
-- Import any GPX. Use an unofficial Montana file until IRONMAN posts its map (112-mile single loop from Great Falls, about 3,000 ft of climbing, race Aug 15, 2027)
+- Course picker before connecting: Free ride (flat road, as in v1) or a course. Each course shows distance and climbing
+- Built-in courses ship with the app (`public/courses/`). Start with a generated "Test Hills" course; add an unofficial Montana file when one is found (112-mile single loop from Great Falls, about 3,000 ft of climbing, race Aug 15, 2027)
+- Import any GPX from the computer; imported courses are saved in the browser and listed next time
+- Elevation profile with a moving position dot as the main course view, plus current grade, miles to go and climbing done
 - Speed from power and grade, and distance that accounts for elevation
-- Smooth elevation over 50 to 100 m so grades don't spike
-- Resume anywhere: "continue from mile 47 tomorrow"
-- No trainer control yet
+- Smooth elevation over about 75 m so grades don't spike
+- Resume anywhere: pick a start mile, defaulting to where the last ride on that course ended ("continue from mile 47 tomorrow")
+- FIT file gets altitude and the virtual sub-sport (Strava: Virtual Ride). No GPS positions yet
+- Manual resistance stays as in v1.5. Climbs slow the on-screen speed but the trainer does not change resistance
+- **Cut:** 2D map, GPS in the FIT file, trainer control from grade (v4)
+- **Done when:** pick Test Hills, ride it with the fake trainer and the Kickr, watch the dot move and speed drop on climbs, stop mid-course, resume from that mile the next ride, and download a FIT that Strava shows as a Virtual Ride with elevation
 
 ### v3: Race Rehearsal (the main feature)
 

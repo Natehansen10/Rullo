@@ -8,7 +8,7 @@ Source: [Weem Watts Design System](https://claude.ai/artifact/MwUnE5KEPgbmD8FAai
 
 - **One big number.** Live power is the hero. Everything else supports it.
 - **Color means something.** Chrome is neutral graphite. Color appears only for an action, a channel, or a state.
-- **Ember is rare.** `accent` has three jobs: the primary action, live power, and route progress. It never fills anything bigger than a button.
+- **Ember is rare.** `accent` has three jobs: the primary action, live power, and route progress (the ridden stretch and position dot on the elevation profile). It never fills anything bigger than a button.
 - **Calm while riding.** Numbers update in place. Nothing jumps, bounces, or flashes.
 - **Never show frozen numbers as live.** Stale data turns `fg-subtle` and the StatusPill says "Reconnecting".
 - **Units are lb and miles.** Never show kg or km.
@@ -44,6 +44,7 @@ Dark only. No light theme.
   - Power: 144px in `accent` (96px under 1200px wide).
   - Other tiles: 56 to 64px in `fg`.
   - Control values (resistance level): 40px in `fg` (`.ww-num-control`).
+  - Course stats (grade, elevation, climbed, to go): 28px in `fg` (`.ww-num-sm`).
   - Units: 40% of the number size, `fg-muted`, 4px after the number (`.ww-unit`).
 - **Labels:** 12px, weight 500, uppercase, letter-spacing 0.06em, `fg-muted` (`.ww-label`).
 - Never Inter or Geist.
@@ -65,7 +66,9 @@ Dark only. No light theme.
 ## Layout
 
 - **Top bar:** "Weem Watts" wordmark left. StatusPill and the Connect / End Ride button right.
-- **One panel:** hero power tile on the left, 2x2 grid of cadence, speed, distance, time on the right, split by `line` hairlines. A full-width resistance row sits along the bottom of the same panel, above a hairline.
+- **Course picker:** its own panel above the ride panel, shown only before a ride starts. Rows split by hairlines; the selected row is `raised`.
+- **One ride panel:** hero power tile on the left, 2x2 grid of cadence, speed, distance, time on the right, split by `line` hairlines. On a course, a full-width elevation profile row comes next. A full-width resistance row sits along the bottom. All rows are in the same panel, split by hairlines.
+- **Fit a laptop:** at 1280x720 the resistance row must stay on screen during a course ride.
 - Left-aligned. No centered hero layouts.
 
 ## Components (`src/components`)
@@ -76,9 +79,11 @@ Dark only. No light theme.
 | `StatusPill` | Connection state. Tones: `on`, `warn`, `error`, `idle`. |
 | `Button` | `primary` (Ember, one per screen), `secondary`, `danger` (confirm End Ride). |
 | `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. |
+| `ElevationProfile` | Course stats row plus an SVG profile: `raised` fill, `fg-subtle` line, Ember for the stretch ridden and the position dot. Mile ticks in mono. |
+| `CoursePicker` | Free ride or a course (radio rows), Import GPX, and the start-mile input. |
 | `Stepper` | Value flanked by direct step buttons (largest step outside: -10 -5 -1 value +1 +5 +10), 48px tall, for adjusting from the saddle. Status text after, key hint in mono on the right. |
 
-Build new UI from these. Add a component here before using a new pattern.
+Inputs use `raised` with a `line-strong` border and `radius-md`. Build new UI from these. Add a component here before using a new pattern.
 
 ## Banned
 

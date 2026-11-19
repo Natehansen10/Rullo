@@ -17,7 +17,7 @@ interface MetricTileProps {
 export function MetricTile({ label, value, unit, size = 'lg', dim = false, action, className = '' }: MetricTileProps) {
   const color = dim ? 'text-fg-subtle' : size === 'hero' ? 'text-accent' : 'text-fg'
   return (
-    <div className={`flex min-w-0 flex-col justify-between gap-6 ${className}`}>
+    <div className={`flex min-w-0 flex-col justify-between gap-4 ${className}`}>
       <div className="flex min-h-8 items-center justify-between gap-3">
         <span className="ww-label">{label}</span>
         {action}

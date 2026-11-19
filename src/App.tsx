@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from './components/Button'
+import { CoursePicker } from './components/CoursePicker'
+import { ElevationProfile } from './components/ElevationProfile'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
@@ -138,7 +140,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col gap-6 p-8">
+      <main className="flex flex-1 flex-col gap-6 px-8 py-6">
         {!s.supported && (
           <Notice title="This browser can't connect to your trainer">
             Web Bluetooth is not available here. Open Weem Watts in Chrome or Edge on a desktop computer.
@@ -147,7 +149,7 @@ export default function App() {
         {s.connection.kind === 'failed' && (
           <Notice title={live ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
         )}
-        {s.recovery && s.phase === 'idle' && !s.resuming && (
+        {s.recovery && s.coursesLoaded && s.phase === 'idle' && !s.resuming && (
           <Notice
             title="Unfinished ride found"
             actions={
@@ -164,10 +166,25 @@ export default function App() {
           <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
         )}
         {s.notice && <Notice title={s.notice} />}
+        {s.canChooseCourse && (
+          <CoursePicker
+            courses={s.courses}
+            loaded={s.coursesLoaded}
+            selected={s.course}
+            onSelect={(id) => void ride.selectCourse(id)}
+            onStartMi={ride.setStartMi}
+            onImport={(f) => void ride.importCourse(f)}
+            onRemove={(id) => void ride.removeCourse(id)}
+          />
+        )}
 
         <section
           aria-label="Live ride data"
-          className="grid flex-1 grid-cols-1 grid-rows-[1fr_auto_auto] rounded-lg border border-line bg-surface xl:grid-cols-2 xl:grid-rows-[1fr_auto]"
+          className={`grid flex-1 grid-cols-1 rounded-lg border border-line bg-surface xl:grid-cols-2 ${
+            s.course
+              ? 'grid-rows-[1fr_auto_auto_auto] xl:grid-rows-[1fr_auto_auto]'
+              : 'grid-rows-[1fr_auto_auto] xl:grid-rows-[1fr_auto]'
+          }`}
         >
           <MetricTile
             size="hero"
@@ -215,6 +232,13 @@ export default function App() {
               className="p-6"
             />
           </div>
+          {s.course && (
+            <ElevationProfile
+              live={s.course}
+              dim={s.phase === 'riding' ? s.stale : true}
+              className="border-t border-line p-6 xl:col-span-2"
+            />
+          )}
           <Stepper
             label="Resistance"
             value={String(s.resistancePct)}

@@ -98,6 +98,13 @@
   .ww-num-lg {
     font-size: clamp(var(--ww-num-md), 4.5vw, var(--ww-num-lg));
   }
+  .ww-num-sm {
+    font-size: var(--ww-num-sm);
+    line-height: 1;
+  }
+  .ww-profile {
+    height: var(--ww-profile-height);
+  }
   .ww-num-control {
     font-size: var(--ww-num-control);
     min-width: 4.5ch;

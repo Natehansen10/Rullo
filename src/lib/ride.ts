@@ -12,9 +12,11 @@ import {
   type SmoothingSeconds,
 } from '../config'
 import { bluetoothSupported, createBleTrainer } from './ble'
+import { elevationAt, gradeAt, type Course } from './course'
+import { importGpxFile, loadCourses, removeImportedCourse } from './courses'
 import { createFakeTrainer, isFakeMode } from './fakeTrainer'
 import { downloadFit } from './fit'
-import { METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
+import { FEET_PER_METER, METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
 import * as recorder from './recorder'
 import { PowerSmoother } from './smoothing'
 import type { ConnectionStatus, ResistanceResult, Trainer, TrainerReading } from './types'
@@ -27,6 +29,26 @@ export type Phase = 'idle' | 'ready' | 'riding' | 'ended'
 export type ResistanceState = 'idle' | 'sending' | ResistanceResult
 
 const RESISTANCE_KEY = 'ww.resistancePct'
+const COURSE_KEY = 'ww.courseId'
+/** A saved position this close to the finish starts the next ride from mile 0. */
+const NEAR_FINISH_M = 160
+
+function storageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function storageSet(key: string, value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(key)
+    else localStorage.setItem(key, value)
+  } catch {
+    // storage unavailable
+  }
+}
 
 function loadResistance(): number {
   try {
@@ -42,6 +64,29 @@ export interface Recovery {
   startedAt: number
   distanceMi: number
   lastAt: number
+}
+
+export interface CourseOption {
+  id: string
+  name: string
+  source: Course['source']
+  description?: string
+  lengthMi: number
+  ascentFt: number
+}
+
+export interface CourseLive {
+  course: Course
+  /** Where this ride starts (or started) on the course. */
+  startMi: number
+  /** Where the last ride on this course ended, if any. */
+  lastEndMi: number | null
+  positionMi: number
+  toGoMi: number
+  gradePct: number
+  elevationFt: number
+  climbedFt: number
+  finished: boolean
 }
 
 export interface RideSnapshot {
@@ -64,6 +109,12 @@ export interface RideSnapshot {
   notice: string | null
   resistancePct: number
   resistanceState: ResistanceState
+  courses: CourseOption[]
+  coursesLoaded: boolean
+  /** Selected course, or null for a free ride. */
+  course: CourseLive | null
+  /** Course selection and start mile can change only before a ride starts. */
+  canChooseCourse: boolean
 }
 
 const TICK_MS = 250
@@ -97,6 +148,13 @@ export class RideController {
   private resistanceInFlight = false
   private resistanceDirty = false
 
+  private courses: Course[] = []
+  private coursesLoaded = false
+  private course: Course | null = null
+  private startOffsetM = 0
+  private lastEndM: number | null = null
+  private climbedM = 0
+
   constructor() {
     const handlers = {
       onReading: (r: TrainerReading) => this.onReading(r),
@@ -106,6 +164,7 @@ export class RideController {
     this.snapshot = this.build()
     setInterval(() => this.emit(), TICK_MS)
     void this.checkRecovery()
+    void this.initCourses()
   }
 
   // --- store plumbing for useSyncExternalStore ---
@@ -166,6 +225,38 @@ export class RideController {
       notice: this.notice,
       resistancePct: this.resistancePct,
       resistanceState: this.resistanceState,
+      courses: this.courses.map((c) => ({
+        id: c.id,
+        name: c.name,
+        source: c.source,
+        description: c.description,
+        lengthMi: c.lengthM / METERS_PER_MILE,
+        ascentFt: c.ascentM * FEET_PER_METER,
+      })),
+      coursesLoaded: this.coursesLoaded,
+      course: this.courseLive(),
+      canChooseCourse: this.phase === 'idle' && this.rideId === null,
+    }
+  }
+
+  private positionM(): number {
+    return this.course ? Math.min(this.course.lengthM, this.startOffsetM + this.distanceM) : 0
+  }
+
+  private courseLive(): CourseLive | null {
+    const c = this.course
+    if (!c) return null
+    const pos = this.positionM()
+    return {
+      course: c,
+      startMi: this.startOffsetM / METERS_PER_MILE,
+      lastEndMi: this.lastEndM === null ? null : this.lastEndM / METERS_PER_MILE,
+      positionMi: pos / METERS_PER_MILE,
+      toGoMi: Math.max(0, c.lengthM - pos) / METERS_PER_MILE,
+      gradePct: gradeAt(c, pos) * 100,
+      elevationFt: elevationAt(c, pos) * FEET_PER_METER,
+      climbedFt: this.climbedM * FEET_PER_METER,
+      finished: pos >= c.lengthM,
     }
   }
 
@@ -207,7 +298,16 @@ export class RideController {
       if (this.phase === 'riding') {
         const gap = this.lastPhysicsAt ? r.t - this.lastPhysicsAt : 0
         const dtS = gap > 0 && gap <= MAX_SAMPLE_GAP_MS ? gap / 1000 : 0
-        this.distanceM += this.speed.step(power, dtS)
+        const c = this.course
+        if (c) {
+          const before = this.positionM()
+          const eleBefore = elevationAt(c, before)
+          this.distanceM += this.speed.step(power, dtS, gradeAt(c, before))
+          const rise = elevationAt(c, this.positionM()) - eleBefore
+          if (rise > 0) this.climbedM += rise
+        } else {
+          this.distanceM += this.speed.step(power, dtS)
+        }
       }
       this.lastPhysicsAt = r.t
     }
@@ -222,7 +322,8 @@ export class RideController {
     this.distanceM = 0
     this.speed.reset()
     this.lastRecordedSec = -1
-    this.rideId = recorder.startRide(t)
+    this.climbedM = 0
+    this.rideId = recorder.startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined)
   }
 
   /** One sample per wall-clock second. */
@@ -236,6 +337,9 @@ export class RideController {
       cadenceRpm: Math.round(this.cadenceRpm),
       speedMps: this.speed.speedMps,
       distanceM: this.distanceM,
+      ...(this.course
+        ? { courseM: this.positionM(), altitudeM: elevationAt(this.course, this.positionM()) }
+        : {}),
     }
     void this.rideId.then((rideId) => recorder.recordSample({ rideId, ...sample }))
   }
@@ -338,8 +442,78 @@ export class RideController {
     this.cadenceRpm = 0
     this.lastPowerW = 0
     this.notice = null
+    this.climbedM = 0
     this.smoother.clear()
     this.speed.reset()
+    if (this.course) void this.selectCourse(this.course.id)
+    this.emit()
+  }
+
+  // --- courses ---
+
+  private async initCourses() {
+    try {
+      this.courses = await loadCourses()
+    } catch (err) {
+      console.error('Courses failed to load:', err)
+    }
+    this.coursesLoaded = true
+    const saved = storageGet(COURSE_KEY)
+    if (saved && this.canChoose()) await this.selectCourse(saved)
+    this.emit()
+  }
+
+  private canChoose(): boolean {
+    return this.phase === 'idle' && this.rideId === null
+  }
+
+  /** Pick a course (or null for a free ride). Start defaults to where the last ride on it ended. */
+  selectCourse = async (id: string | null) => {
+    if (!this.canChoose()) return
+    const c = id ? (this.courses.find((x) => x.id === id) ?? null) : null
+    this.course = c
+    this.startOffsetM = 0
+    this.lastEndM = null
+    storageSet(COURSE_KEY, c?.id ?? null)
+    this.emit()
+    if (!c) return
+    try {
+      const last = await recorder.lastPositionOn(c.id)
+      if (this.course !== c) return
+      this.lastEndM = last
+      if (last !== null && last < c.lengthM - NEAR_FINISH_M) this.startOffsetM = last
+    } catch (err) {
+      console.error('Could not read last position:', err)
+    }
+    this.emit()
+  }
+
+  /** Set the start mile for the next ride on the selected course. */
+  setStartMi = (mi: number) => {
+    if (!this.course || !this.canChoose() || !Number.isFinite(mi)) return
+    const m = mi * METERS_PER_MILE
+    this.startOffsetM = Math.min(Math.max(0, m), Math.max(0, this.course.lengthM - NEAR_FINISH_M))
+    this.emit()
+  }
+
+  importCourse = async (file: File) => {
+    try {
+      const c = await importGpxFile(file)
+      this.courses = [...this.courses, c]
+      this.notice = null
+      await this.selectCourse(c.id)
+    } catch (err) {
+      this.notice = err instanceof Error ? `Import failed: ${err.message}` : 'Import failed.'
+      this.emit()
+    }
+  }
+
+  removeCourse = async (id: string) => {
+    const c = this.courses.find((x) => x.id === id)
+    if (!c || c.source !== 'imported' || !this.canChoose()) return
+    await removeImportedCourse(id)
+    this.courses = this.courses.filter((x) => x.id !== id)
+    if (this.course?.id === id) await this.selectCourse(null)
     this.emit()
   }
 
@@ -364,6 +538,17 @@ export class RideController {
     this.lastRecordedSec = Math.floor(rec.last.t / 1000)
     this.speed.reset()
     this.recovery = null
+    this.course = null
+    this.startOffsetM = 0
+    if (rec.ride.courseId) {
+      const c = this.courses.find((x) => x.id === rec.ride.courseId) ?? null
+      if (c) {
+        this.course = c
+        this.startOffsetM = rec.ride.startOffsetM ?? 0
+      } else {
+        this.notice = 'That ride\'s course is no longer available. Continuing as a free ride.'
+      }
+    }
     this.emit()
   }
 
