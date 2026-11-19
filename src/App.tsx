@@ -67,7 +67,7 @@ function controlStatus(s: RideSnapshot): string | null {
     return erg ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
   }
   if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
-  if (erg && s.workout) return `Intensity · ${s.ergTargetW} W now`
+  if (erg && s.workout) return 'Intensity, every target'
   if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
   if (s.controlState === 'sending') return 'Setting'
   return null
@@ -342,7 +342,7 @@ export default function App() {
                 atMin={s.workout.intensityPct <= INTENSITY_MIN_PCT}
                 atMax={s.workout.intensityPct >= INTENSITY_MAX_PCT}
                 status={controlStatus(s)}
-                hint="intensity ↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
+                hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
                 className="border-t border-line p-6 xl:col-span-2"
               />
             ) : s.mode === 'erg' ? (
