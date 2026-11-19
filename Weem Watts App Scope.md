@@ -65,6 +65,7 @@ Ride in one gear and change resistance by hand, the way Nate rides indoors.
 
 ### v3: Race Rehearsal (the main feature)
 
+- Rider profile, saved in the browser (no account): rider weight (lb), bike weight (lb), riding position (hoods, drops or aero, which sets drag) and FTP (W). Replaces the constants in `src/config.ts`; speed, distance and the predicted bike split read from it. Changing it never rewrites past rides
 - Build, adjust and run ERG workouts; import ZWO files
 - ERG on the course with a race power plan: different targets by section
 - Ahead or behind plan, plus a predicted bike split
