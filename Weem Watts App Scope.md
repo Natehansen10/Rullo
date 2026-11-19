@@ -1,0 +1,140 @@
+# Weem Watts App Scope
+
+A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to replace a Zwift subscription and to train on the Ironman Montana bike course at home.
+
+## Why it exists
+
+- Ride the real bike indoors with clip-in shoes instead of the Peloton
+- No Zwift ($19.99/mo) and no ROUVY ($19.99/mo), which holds the official IRONMAN course deal
+- Fill the open gap: no free tool lets you rehearse a specific race course, run ERG on that course, or float course-aware numbers over a movie
+- Long-term: "I want to ride my Ironman course on my Wahoo, for free"
+
+## Build decisions
+
+- **Platform:** Web app hosted on Vercel, opened in Chrome or Edge on desktop
+- **Stack:** Vite + React + TypeScript + Tailwind, with shadcn/ui restyled to the design system. Plain HTML ruled out (rebuild later); Next.js ruled out until server features are needed.
+- **Connection:** Web Bluetooth over FTMS, with Cycling Power as a fallback. No Wahoo proprietary protocol.
+- **Repo:** GitHub repo "weem-watts" connected to Vercel
+- **Design system:** [Weem Watts Design System](https://claude.ai/artifact/MwUnE5KEPgbmD8FAaiLfcs). Claude Code reads its README and tokens before writing any UI. The design prompt also writes DESIGN.md into the repo, and CLAUDE.md points to it.
+- **Design rules in short:** dark graphite only, Archivo for everything, live power as the one big number in Ember (#FF6A3D), color only for actions, channels and states, no gradients, blur, purple or emoji.
+- **Code reuse:** borrow only from MIT or Apache-2.0 repos (GPX Rider, Croissant Ride, serpentine). Read AGPL code (Auuki, OpenRadlr) and unlicensed code (ride-hud) for ideas only.
+- **Units:** Miles
+- **Not building:** 3D worlds, multiplayer, accounts
+- **Approach:** Build for personal use first. No accounts or sharing until it has been used through the winter.
+
+## Phases
+
+### v1: Live numbers (target: Nov 19, 2026)
+
+- Connect to the Kickr over FTMS: Request Control, then Reset
+- Live power with a 1s / 3s / 10s toggle (3s default), cadence, speed, distance in miles, elapsed time
+- Speed calculated from power on a flat road, so it stays consistent in any gear
+- Auto-reconnect every 2 seconds, up to 30 tries. Gray out the numbers and show "Reconnecting" instead of freezing them
+- Screen wake lock, a sample saved every second to IndexedDB, and FIT file download
+- Time from timestamps, not timers, so a background tab doesn't drift
+- A fake trainer for building without the bike
+- **Cut:** accounts, heart rate, settings pages, themes, Strava
+- **Done when:** open the link, connect the Kickr, ride 10 minutes with every number updating, and download the ride as a FIT file
+
+### v1.5: Movie Mode overlay
+
+- Floating always-on-top window using Chrome's Document Picture-in-Picture: watts, cadence, miles
+- "Hide numbers" toggle that keeps recording
+- **Test first:** does the window float over fullscreen Netflix on Windows
+
+### v2: Race course
+
+- Elevation profile with a moving position dot as the main view; a 2D map is optional
+- Import any GPX. Use an unofficial Montana file until IRONMAN posts its map (112-mile single loop from Great Falls, about 3,000 ft of climbing, race Aug 15, 2027)
+- Speed from power and grade, and distance that accounts for elevation
+- Smooth elevation over 50 to 100 m so grades don't spike
+- Resume anywhere: "continue from mile 47 tomorrow"
+- No trainer control yet
+
+### v3: Race Rehearsal (the main feature)
+
+- Build, adjust and run ERG workouts; import ZWO files
+- ERG on the course with a race power plan: different targets by section
+- Ahead or behind plan, plus a predicted bike split
+- Ghost of your last attempt on the same course
+- ERG releases below 50 rpm for 3 seconds and re-engages at 60 rpm, plus a one-tap ERG toggle
+- Strava auto-upload through a Vercel function (VirtualRide, trainer=1). Single Player Mode covers personal use
+
+### v4: Real climbs
+
+- SIM mode: grade averaged over 2 seconds and clamped to 0 to 16% (the Core 2 limit), with a "gradient feel" slider
+- Descents use calculated speed, since the Core 2 can't simulate downhill
+- No app-side gearing needed: the Kickr has a regular cassette, so shifting works normally in SIM mode
+
+## Research takeaways
+
+The angle is open: no free tool rehearses a specific race course. ROUVY holds the IRONMAN course deal behind $19.99/mo and no Montana course was found there.
+
+- **Closest products:** MINI WATT ($1.99/mo desktop overlay) and Croissant Ride (free browser app with a mini window). Neither knows the course. Cycloscape's race pacing is paid only.
+- **Top complaints to avoid:** frozen numbers after a dropout, ERG spirals at low cadence, competing connections (close the Wahoo app first), noisy GPX grades.
+- **Chrome limit:** after a page reload the rider has to pick the trainer again. Reconnecting without a reload works.
+- **Strava rules:** the client secret stays in a Vercel function, and Strava data can't be used with AI.
+- **Open questions:** Does the overlay float over fullscreen Netflix? Does ROUVY have Montana somewhere?
+
+### Code to borrow
+
+| Pattern | Source | License |
+| --- | --- | --- |
+| FTMS data parsing | serpentine ftms.ts, GPX Rider trainer.mjs | MIT |
+| Request Control, Reset, one write at a time | GPX Rider, Croissant Ride ftms.ts | MIT / Apache-2.0 |
+| Reconnect loop and re-send target | Croissant Ride ble.ts, trainer.ts | Apache-2.0 |
+| Movie Mode window | Croissant Ride mini.ts | Apache-2.0 |
+| Low-cadence ERG release | Croissant Ride main.ts | Apache-2.0 |
+| Per-second autosave | Croissant Ride recorder.ts, Dexie for IndexedDB | Apache-2.0 |
+| Speed from power and grade | serpentine physics.ts | MIT |
+| GPX parsing and grade smoothing | GPX Rider route.mjs, @tmcw/togeojson | MIT / BSD-2 |
+| FIT file writer | GPX Rider fit.mjs, Croissant Ride fit.ts | MIT / Apache-2.0 |
+| Fake trainer | wklenk demo service | Apache-2.0 |
+
+Keep Apache-2.0 notices in copied files.
+
+## Stretch features (if it goes public)
+
+Not in scope now. This is the ceiling for how big it could get.
+
+### Courses
+
+- Library of Ironman and 70.3 bike courses ready to ride
+- Upload any GPX or pick a course from Strava or Ride with GPS
+- Street View or photo images along the route at your current position
+- Elevation profile with upcoming climbs called out
+
+### Training
+
+- Drag-and-drop workout builder
+- Import workouts from common file formats used by other training apps
+- FTP test built in, with power zones set automatically
+- Training plans that build toward a race date
+- Race-day pacing plan for a specific course based on FTP
+
+### Smart coaching
+
+- AI coach that adjusts the day's workout based on HRV, resting heart rate, and sleep
+- Post-ride summary with what went well and what to change
+- Heart rate strap support with heart rate zones
+
+### Social
+
+- Ride a course live with a friend and see each other on the map
+- Course leaderboards and personal bests per segment
+- Share a ride summary card
+
+### Platform
+
+- User accounts and cloud ride history
+- Auto-upload to Strava, Garmin, and TrainingPeaks
+- Support for other smart trainers beyond Wahoo
+- Installable app on desktop and tablet. iPhone and iPad support so other people can connect their Kickr (Web Bluetooth does not work there, so this needs a native app or a workaround browser like Bluefy). Mac already works in Chrome or Edge; Safari users would need a prompt to switch browsers
+
+## Scope guardrails
+
+- Ship each phase before starting the next
+- Every stretch feature has to earn its place after real use
+- If a feature needs servers or accounts, it waits until going public is a real decision
+- Never copy AGPL or unlicensed code into the repo
+- No AI features built on Strava data
