@@ -34,3 +34,7 @@ export const CONTROL_POINT_TIMEOUT_MS = 3000
 export const SMOOTHING_OPTIONS = [1, 3, 10] as const
 export type SmoothingSeconds = (typeof SMOOTHING_OPTIONS)[number]
 export const DEFAULT_SMOOTHING: SmoothingSeconds = 3
+
+/** Manual resistance, as % of the trainer's range. */
+export const RESISTANCE_STEP_PCT = 5
+export const DEFAULT_RESISTANCE_PCT = 20

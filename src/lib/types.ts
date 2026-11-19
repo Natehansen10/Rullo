@@ -20,9 +20,13 @@ export interface TrainerHandlers {
   onStatus: (s: ConnectionStatus) => void
 }
 
+export type ResistanceResult = 'ok' | 'unsupported' | 'failed'
+
 export interface Trainer {
   /** Must be called from a user gesture the first time (device picker). */
   connect(): Promise<void>
   /** User-initiated disconnect. Stops any reconnect loop. */
   disconnect(): void
+  /** Set resistance as 0 to 100% of the trainer's range. Only call while connected. */
+  setResistance(pct: number): Promise<ResistanceResult>
 }

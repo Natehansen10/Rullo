@@ -24,7 +24,7 @@ A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to re
 
 ## Phases
 
-### v1: Live numbers (target: Nov 19, 2026)
+### v1: Live numbers (shipped Nov 19, 2026)
 
 - Connect to the Kickr over FTMS: Request Control, then Reset
 - Live power with a 1s / 3s / 10s toggle (3s default), cadence, speed, distance in miles, elapsed time
@@ -35,6 +35,19 @@ A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to re
 - A fake trainer for building without the bike
 - **Cut:** accounts, heart rate, settings pages, themes, Strava
 - **Done when:** open the link, connect the Kickr, ride 10 minutes with every number updating, and download the ride as a FIT file
+
+### v1.5: Manual resistance
+
+Ride in one gear and change resistance by hand, the way Nate rides indoors.
+
+- FTMS Set Target Resistance Level (0x04): Request Control again after Reset, read the trainer's supported range (0x2AD6), and map it to 0 to 100%
+- Minus / plus buttons on the ride screen in 5% steps, plus Arrow Up / Arrow Down keys
+- Show the current level. Re-send it after every reconnect, and only send the latest level when the rider taps quickly
+- Remember the last level between rides
+- A clear message if the trainer doesn't support resistance control (Cycling Power fallback can't)
+- The fake trainer responds to resistance so it can be built without the bike
+- **Cut:** ERG, workouts, SIM, resistance in the FIT file
+- **Done when:** in one gear, tapping plus makes the pedals noticeably harder within a second, and power rises at the same cadence
 
 ### v2: Race course
 

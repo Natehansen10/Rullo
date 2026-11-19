@@ -98,6 +98,10 @@
   .ww-num-lg {
     font-size: clamp(var(--ww-num-md), 4.5vw, var(--ww-num-lg));
   }
+  .ww-num-control {
+    font-size: var(--ww-num-control);
+    min-width: 4.5ch;
+  }
   @media (max-width: 1199px) {
     .ww-num-hero {
       font-size: var(--ww-num-hero-compact);

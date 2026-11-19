@@ -3,6 +3,7 @@ import { Button } from './components/Button'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
+import { Stepper } from './components/Stepper'
 import { SMOOTHING_OPTIONS } from './config'
 import { ride, useRide } from './hooks/useRide'
 import type { RideSnapshot } from './lib/ride'
@@ -37,6 +38,14 @@ function status(s: RideSnapshot): { tone: StatusTone; label: string } {
   return { tone: 'idle', label: 'Not connected' }
 }
 
+function resistanceStatus(s: RideSnapshot): string | null {
+  if (s.resistanceState === 'unsupported') return "This trainer doesn't accept resistance control"
+  if (s.resistanceState === 'failed') return "Trainer didn't take the change. Tap again."
+  if (s.connection.kind !== 'connected' || s.phase === 'ended') return 'Applies when connected'
+  if (s.resistanceState === 'sending') return 'Setting'
+  return null
+}
+
 function Notice({ title, children, actions }: { title: string; children?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4">
@@ -52,6 +61,19 @@ function Notice({ title, children, actions }: { title: string; children?: ReactN
 export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
+
+  // Arrow Up / Arrow Down (or + / -) change resistance from the saddle.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'ArrowUp' || e.key === '+' || e.key === '=') ride.stepResistance(1)
+      else if (e.key === 'ArrowDown' || e.key === '-' || e.key === '_') ride.stepResistance(-1)
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     if (!confirmEnd) return
@@ -142,7 +164,7 @@ export default function App() {
 
         <section
           aria-label="Live ride data"
-          className="grid flex-1 grid-cols-1 rounded-lg border border-line bg-surface grid-rows-[1fr_auto] xl:grid-cols-2 xl:grid-rows-1"
+          className="grid flex-1 grid-cols-1 grid-rows-[1fr_auto_auto] rounded-lg border border-line bg-surface xl:grid-cols-2 xl:grid-rows-[1fr_auto]"
         >
           <MetricTile
             size="hero"
@@ -190,6 +212,21 @@ export default function App() {
               className="p-6"
             />
           </div>
+          <Stepper
+            label="Resistance"
+            value={String(s.resistancePct)}
+            unit="%"
+            onDecrement={() => ride.stepResistance(-1)}
+            onIncrement={() => ride.stepResistance(1)}
+            decrementLabel="Decrease resistance"
+            incrementLabel="Increase resistance"
+            disabled={s.resistanceState === 'unsupported'}
+            atMin={s.resistancePct <= 0}
+            atMax={s.resistancePct >= 100}
+            status={resistanceStatus(s)}
+            hint="↑ ↓ keys"
+            className="border-t border-line p-6 xl:col-span-2"
+          />
         </section>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 font-mono text-mono text-fg-subtle">

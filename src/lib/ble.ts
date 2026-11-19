@@ -9,14 +9,25 @@ import { RECONNECT_INTERVAL_MS, RECONNECT_MAX_TRIES } from '../config'
 import { CYCLING_POWER_MEASUREMENT, CYCLING_POWER_SERVICE, CyclingPowerParser } from './cyclingPower'
 import {
   CONTROL_POINT,
+  ControlPointError,
+  DEFAULT_RESISTANCE_RANGE,
+  encodeResistance,
   FTMS_SERVICE,
   FtmsControlPoint,
   INDOOR_BIKE_DATA,
   OP_REQUEST_CONTROL,
   OP_RESET,
+  OP_SET_TARGET_RESISTANCE,
   parseIndoorBikeData,
+  parseResistanceRange,
+  percentToLevel,
+  RESULT_CONTROL_NOT_PERMITTED,
+  RESULT_INVALID_PARAMETER,
+  RESULT_NOT_SUPPORTED,
+  SUPPORTED_RESISTANCE_RANGE,
+  type ResistanceRange,
 } from './ftms'
-import type { Trainer, TrainerHandlers } from './types'
+import type { ResistanceResult, Trainer, TrainerHandlers } from './types'
 
 const GATT_CONNECT_TIMEOUT_MS = 10000
 
@@ -48,6 +59,9 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
   let userClosed = false
   let generation = 0
   let controlPoint: FtmsControlPoint | null = null
+  let resistanceRange: ResistanceRange = DEFAULT_RESISTANCE_RANGE
+  let resistanceFormat: 'sint16' | 'uint8' = 'sint16'
+  let formatSettled = false
   const cps = new CyclingPowerParser()
 
   const onDisconnected = () => {
@@ -79,7 +93,17 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
       })
       await data.startNotifications()
 
-      // Request Control, then Reset. One write at a time, each waits for its reply.
+      try {
+        const range = parseResistanceRange(
+          await (await ftms.getCharacteristic(SUPPORTED_RESISTANCE_RANGE)).readValue(),
+        )
+        if (range) resistanceRange = range
+      } catch {
+        resistanceRange = DEFAULT_RESISTANCE_RANGE
+      }
+
+      // Request Control, then Reset, then Request Control again (Reset releases
+      // control). One write at a time, each waits for its reply.
       // Failure here is not fatal: live data still flows without control.
       try {
         const cp = new FtmsControlPoint(await ftms.getCharacteristic(CONTROL_POINT))
@@ -87,6 +111,7 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
         controlPoint = cp
         await cp.send(OP_REQUEST_CONTROL)
         await cp.send(OP_RESET)
+        await cp.send(OP_REQUEST_CONTROL)
       } catch (err) {
         console.warn('FTMS control point:', err)
       }
@@ -156,6 +181,37 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
             'Could not connect. Close the Wahoo app (and Zwift) on your phone and computer, then try again.',
         })
       }
+    },
+    async setResistance(pct: number): Promise<ResistanceResult> {
+      const cp = controlPoint
+      if (!cp) return 'unsupported'
+      const level = percentToLevel(pct, resistanceRange)
+      const send = () => cp.send(OP_SET_TARGET_RESISTANCE, encodeResistance(level, resistanceFormat))
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await send()
+          formatSettled = true
+          return 'ok'
+        } catch (err) {
+          const code = err instanceof ControlPointError ? err.code : undefined
+          if (code === RESULT_NOT_SUPPORTED) return 'unsupported'
+          if (code === RESULT_INVALID_PARAMETER && !formatSettled && resistanceFormat === 'sint16') {
+            resistanceFormat = 'uint8'
+            continue
+          }
+          if (code === RESULT_CONTROL_NOT_PERMITTED) {
+            try {
+              await cp.send(OP_REQUEST_CONTROL)
+            } catch {
+              return 'failed'
+            }
+            continue
+          }
+          console.warn('Set resistance failed:', err)
+          return 'failed'
+        }
+      }
+      return 'failed'
     },
     disconnect() {
       userClosed = true

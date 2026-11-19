@@ -4,8 +4,10 @@
  * so a throttled background tab does not drift.
  */
 import {
+  DEFAULT_RESISTANCE_PCT,
   DEFAULT_SMOOTHING,
   MAX_SAMPLE_GAP_MS,
+  RESISTANCE_STEP_PCT,
   SMOOTHING_OPTIONS,
   STALE_AFTER_MS,
   type SmoothingSeconds,
@@ -16,11 +18,26 @@ import { downloadFit } from './fit'
 import { METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
 import * as recorder from './recorder'
 import { PowerSmoother } from './smoothing'
-import type { ConnectionStatus, Trainer, TrainerReading } from './types'
+import type { ConnectionStatus, ResistanceResult, Trainer, TrainerReading } from './types'
 import { keepAwake } from './wakeLock'
 
 /** idle: no ride. ready: connected, waiting for the first pedal stroke. */
 export type Phase = 'idle' | 'ready' | 'riding' | 'ended'
+
+/** idle: nothing sent yet. sending: a write is in flight. */
+export type ResistanceState = 'idle' | 'sending' | ResistanceResult
+
+const RESISTANCE_KEY = 'ww.resistancePct'
+
+function loadResistance(): number {
+  try {
+    const v = Number(localStorage.getItem(RESISTANCE_KEY))
+    if (Number.isFinite(v) && v >= 0 && v <= 100 && localStorage.getItem(RESISTANCE_KEY) !== null) return v
+  } catch {
+    // storage unavailable
+  }
+  return DEFAULT_RESISTANCE_PCT
+}
 
 export interface Recovery {
   startedAt: number
@@ -46,6 +63,8 @@ export interface RideSnapshot {
   resuming: boolean
   canDownload: boolean
   notice: string | null
+  resistancePct: number
+  resistanceState: ResistanceState
 }
 
 const TICK_MS = 250
@@ -74,6 +93,10 @@ export class RideController {
   private lastRecordedSec = -1
   private recovery: recorder.UnfinishedRide | null = null
   private notice: string | null = null
+  private resistancePct = loadResistance()
+  private resistanceState: ResistanceState = 'idle'
+  private resistanceInFlight = false
+  private resistanceDirty = false
 
   constructor() {
     const handlers = {
@@ -142,6 +165,8 @@ export class RideController {
       resuming: this.phase === 'idle' && this.rideId !== null,
       canDownload: this.phase === 'ended' && this.rideId !== null,
       notice: this.notice,
+      resistancePct: this.resistancePct,
+      resistanceState: this.resistanceState,
     }
   }
 
@@ -151,6 +176,9 @@ export class RideController {
     this.connection = s
     if (s.kind === 'connected') {
       this.notice = null
+      // Apply the current level on every connect and reconnect.
+      this.resistanceState = 'idle'
+      this.pushResistance()
       if (this.phase === 'idle') {
         this.phase = this.rideId ? 'riding' : 'ready'
         this.lastDataAt = 0
@@ -212,6 +240,46 @@ export class RideController {
     }
     void this.rideId.then((rideId) => recorder.recordSample({ rideId, ...sample }))
   }
+
+  // --- resistance ---
+
+  /** Send the latest level. Taps during a write coalesce into one follow-up write. */
+  private pushResistance() {
+    if (this.connection.kind !== 'connected') return
+    if (this.resistanceInFlight) {
+      this.resistanceDirty = true
+      return
+    }
+    this.resistanceInFlight = true
+    this.resistanceDirty = false
+    this.resistanceState = 'sending'
+    const pct = this.resistancePct
+    void this.trainer
+      .setResistance(pct)
+      .catch((): ResistanceResult => 'failed')
+      .then((result) => {
+        this.resistanceInFlight = false
+        this.resistanceState = result
+        if (this.resistanceDirty && result !== 'unsupported') this.pushResistance()
+        this.emit()
+      })
+    this.emit()
+  }
+
+  setResistance = (pct: number) => {
+    const next = Math.min(100, Math.max(0, Math.round(pct / RESISTANCE_STEP_PCT) * RESISTANCE_STEP_PCT))
+    if (next === this.resistancePct) return
+    this.resistancePct = next
+    try {
+      localStorage.setItem(RESISTANCE_KEY, String(next))
+    } catch {
+      // storage unavailable; level still applies this session
+    }
+    if (this.resistanceState !== 'unsupported') this.pushResistance()
+    this.emit()
+  }
+
+  stepResistance = (dir: 1 | -1) => this.setResistance(this.resistancePct + dir * RESISTANCE_STEP_PCT)
 
   // --- actions ---
 

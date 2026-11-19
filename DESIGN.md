@@ -43,6 +43,7 @@ Dark only. No light theme.
 - **Live numbers:** weight 600, `font-stretch: 112%`, `tabular-nums`, line-height 0.9 (`.ww-num`).
   - Power: 144px in `accent` (96px under 1200px wide).
   - Other tiles: 56 to 64px in `fg`.
+  - Control values (resistance level): 40px in `fg` (`.ww-num-control`).
   - Units: 40% of the number size, `fg-muted`, 4px after the number (`.ww-unit`).
 - **Labels:** 12px, weight 500, uppercase, letter-spacing 0.06em, `fg-muted` (`.ww-label`).
 - Never Inter or Geist.
@@ -64,7 +65,7 @@ Dark only. No light theme.
 ## Layout
 
 - **Top bar:** "Weem Watts" wordmark left. StatusPill and the Connect / End Ride button right.
-- **One panel:** hero power tile on the left, 2x2 grid of cadence, speed, distance, time on the right, split by `line` hairlines.
+- **One panel:** hero power tile on the left, 2x2 grid of cadence, speed, distance, time on the right, split by `line` hairlines. A full-width resistance row sits along the bottom of the same panel, above a hairline.
 - Left-aligned. No centered hero layouts.
 
 ## Components (`src/components`)
@@ -75,6 +76,7 @@ Dark only. No light theme.
 | `StatusPill` | Connection state. Tones: `on`, `warn`, `error`, `idle`. |
 | `Button` | `primary` (Ember, one per screen), `secondary`, `danger` (confirm End Ride). |
 | `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. |
+| `Stepper` | Minus / value / plus with 48px buttons, for adjusting from the saddle (resistance). Status text after the value, key hint in mono on the right. |
 
 Build new UI from these. Add a component here before using a new pattern.
 
