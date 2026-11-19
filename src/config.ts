@@ -6,7 +6,11 @@
 /** Rider profile defaults. The rider edits these in the Profile panel (src/lib/profile.ts). */
 export const DEFAULT_RIDER_WEIGHT_LB = 185
 export const DEFAULT_BIKE_WEIGHT_LB = 18
-export const DEFAULT_FTP_W = 200
+/**
+ * Starting FTP until a ramp test sets it. Zwift lists 249 W, but the best
+ * 20 minutes on record is 222 W (about 211 W FTP), so this sits between.
+ */
+export const DEFAULT_FTP_W = 220
 
 export const POSITIONS = ['hoods', 'drops', 'aero'] as const
 export type Position = (typeof POSITIONS)[number]

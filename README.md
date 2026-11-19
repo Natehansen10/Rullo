@@ -32,12 +32,12 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 - In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release and re-engage.
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
 - Press **End Ride** twice (the second click confirms) to end and download the FIT file.
-- Pick **Workout**, then **Test Intervals** (2 minutes) to watch ERG follow each interval, or **Test Ramp** and press **C** mid-ramp to fail the test and get an FTP estimate. These two show only with `?fake=1`.
+- On the **Workout** tab pick **Test Intervals** (2 minutes) to watch ERG follow each interval, or **Test Ramp** and press **C** mid-ramp to fail the test and get an FTP estimate. These two show only with `?fake=1`.
 - Reload mid-ride to test crash recovery: an "Unfinished ride found" bar offers Resume or End and download.
 
 ## Workouts
 
-Switch the picker to **Workout** before connecting. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3 and a Ramp FTP test. **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
+Open the **Workout** tab before connecting and pick a course or a workout (picking one clears the other). Import GPX and Import ZWO live there too. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3 and a Ramp FTP test. **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
 
 - Picking a workout switches to ERG, and the trainer follows each interval. Workouts are for free rides (no course).
 - In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.
@@ -47,7 +47,7 @@ Switch the picker to **Workout** before connecting. Built-ins: Endurance 60, Swe
 
 ## Profile
 
-Press **Profile** (between rides) to open the profile page (`#/profile`) and set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these. The profile is saved in this browser and applies to your next ride; past rides don't change.
+Open the **Profile** tab (`#/profile`) and set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these. The profile is saved in this browser and applies to your next ride; past rides don't change.
 
 ## ERG mode
 

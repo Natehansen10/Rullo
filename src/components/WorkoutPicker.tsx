@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useRef } from 'react'
 import type { WorkoutLive, WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
@@ -13,17 +13,15 @@ interface WorkoutPickerProps {
   onSelect: (id: string | null) => void
   onImport: (file: File) => void
   onRemove: (id: string) => void
-  /** Course / Workout switch, shown in the header. */
-  switcher: ReactNode
 }
 
 /** No workout or one workout, plus Import ZWO and a strip preview of the selection. */
-export function WorkoutPicker({ workouts, loaded, selected, ftpW, onSelect, onImport, onRemove, switcher }: WorkoutPickerProps) {
+export function WorkoutPicker({ workouts, loaded, selected, ftpW, onSelect, onImport, onRemove }: WorkoutPickerProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   return (
     <section aria-label="Choose a workout" className="rounded-lg border border-line bg-surface">
       <div className="flex items-center justify-between gap-4 px-6 py-4">
-        {switcher}
+        <span className="ww-label">Workout</span>
         <Button onClick={() => fileRef.current?.click()}>Import ZWO</Button>
         <input
           ref={fileRef}

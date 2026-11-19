@@ -1,10 +1,14 @@
 import { useSyncExternalStore } from 'react'
 
-/** Two screens, switched by the URL hash so no router or server config is needed. */
-export type Route = 'ride' | 'profile'
+/** Three screens, switched by the URL hash so no router or server config is needed. */
+export const ROUTES = ['ride', 'workout', 'profile'] as const
+export type Route = (typeof ROUTES)[number]
+
+const HASH: Record<Route, string> = { ride: '#/', workout: '#/workout', profile: '#/profile' }
 
 function current(): Route {
-  return window.location.hash === '#/profile' ? 'profile' : 'ride'
+  const h = window.location.hash
+  return h === HASH.workout ? 'workout' : h === HASH.profile ? 'profile' : 'ride'
 }
 
 function subscribe(fn: () => void) {
@@ -20,6 +24,10 @@ export function isRoute(r: Route): boolean {
   return current() === r
 }
 
+export function href(r: Route): string {
+  return HASH[r]
+}
+
 export function go(r: Route): void {
-  window.location.hash = r === 'profile' ? '/profile' : '/'
+  window.location.hash = HASH[r].slice(1)
 }

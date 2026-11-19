@@ -74,6 +74,7 @@ export function WorkoutRow({ live, ftpW, dim = false, canSkip, onSkip, onApplyFt
         ftpW={ftpW}
         totalS={live.totalS}
         elapsedS={live.elapsedS}
+        intensityPct={live.intensityPct}
         heightClass="ww-profile"
       />
       <span className="sr-only">

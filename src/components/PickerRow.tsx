@@ -25,13 +25,13 @@ export function PickerRow({
       >
         <span
           aria-hidden
-          className={`flex size-4 items-center justify-center rounded-full border ${
+          className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${
             checked ? 'border-fg' : 'border-line-strong'
           }`}
         >
           {checked && <span className="size-2 rounded-full bg-fg" />}
         </span>
-        <span className={`font-semibold ${checked ? 'text-fg' : 'text-fg-muted'}`}>{title}</span>
+        <span className={`font-semibold whitespace-nowrap ${checked ? 'text-fg' : 'text-fg-muted'}`}>{title}</span>
         <span className="font-mono text-mono text-fg-subtle">{meta}</span>
       </button>
       {action}

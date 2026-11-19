@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { METERS_PER_MILE } from '../lib/physics'
 import type { CourseLive, CourseOption } from '../lib/ride'
 import { Button } from './Button'
@@ -12,12 +12,10 @@ interface CoursePickerProps {
   onStartMi: (mi: number) => void
   onImport: (file: File) => void
   onRemove: (id: string) => void
-  /** Course / Workout switch, shown in the header. */
-  switcher: ReactNode
 }
 
 /** Free ride or a course, plus the start mile. Shown only before a ride starts. */
-export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, onImport, onRemove, switcher }: CoursePickerProps) {
+export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, onImport, onRemove }: CoursePickerProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [startText, setStartText] = useState('')
   const startMi = selected?.startMi ?? 0
@@ -37,7 +35,7 @@ export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, o
   return (
     <section aria-label="Choose a course" className="rounded-lg border border-line bg-surface">
       <div className="flex items-center justify-between gap-4 px-6 py-4">
-        {switcher}
+        <span className="ww-label">Course</span>
         <Button onClick={() => fileRef.current?.click()}>Import GPX</Button>
         <input
           ref={fileRef}

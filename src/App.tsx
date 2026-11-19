@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from './components/Button'
-import { CoursePicker } from './components/CoursePicker'
 import { ElevationProfile } from './components/ElevationProfile'
 import { ProfilePage } from './components/ProfilePage'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { Stepper } from './components/Stepper'
-import { WorkoutPicker } from './components/WorkoutPicker'
+import { TabNav } from './components/TabNav'
+import { WorkoutPage } from './components/WorkoutPage'
 import { WorkoutRow } from './components/WorkoutRow'
 import {
   ERG_MAX_W,
@@ -20,7 +20,7 @@ import {
   SMOOTHING_OPTIONS,
 } from './config'
 import { ride, useRide } from './hooks/useRide'
-import { go, isRoute, useRoute } from './hooks/useRoute'
+import { go, href, isRoute, useRoute } from './hooks/useRoute'
 import type { RideSnapshot } from './lib/ride'
 
 const EMPTY = '--'
@@ -54,8 +54,11 @@ function status(s: RideSnapshot): { tone: StatusTone; label: string } {
 }
 
 const MODE_OPTIONS = ['resistance', 'erg'] as const
-const PICK_OPTIONS = ['course', 'workout'] as const
-type Pick = (typeof PICK_OPTIONS)[number]
+const TABS = [
+  { id: 'ride', label: 'Ride', href: href('ride') },
+  { id: 'workout', label: 'Workout', href: href('workout') },
+  { id: 'profile', label: 'Profile', href: href('profile') },
+] as const
 
 function controlStatus(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
@@ -64,7 +67,7 @@ function controlStatus(s: RideSnapshot): string | null {
   if (!erg && s.controlState === 'unsupported') return "This trainer doesn't accept resistance control"
   if (s.controlState === 'failed') return "Trainer didn't take the change. Tap again."
   if (s.connection.kind !== 'connected' || s.phase === 'ended') {
-    return erg ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
+    return erg && !s.workout ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
   }
   if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
   if (erg && s.workout) return 'Intensity, every target'
@@ -89,8 +92,6 @@ export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
   const route = useRoute()
-  const [pickTab, setPickTab] = useState<Pick>('course')
-  const pick: Pick = s.workout ? 'workout' : s.course ? 'course' : pickTab
 
   // From the saddle. Resistance: arrows 1%, + / - 5%, Shift+arrows 10%.
   // ERG: arrows 5 W, + / - 10 W, Shift+arrows 25 W. Workout in ERG: intensity 1 / 5 / 10%. E switches mode.
@@ -146,20 +147,6 @@ export default function App() {
     />
   )
 
-  const pickSwitch = (
-    <SegmentedControl
-      label="Ride with"
-      options={PICK_OPTIONS}
-      value={pick}
-      onChange={(p) => {
-        setPickTab(p)
-        if (p === 'course') ride.selectWorkout(null)
-        else void ride.selectCourse(null)
-      }}
-      format={(p) => (p === 'course' ? 'Course' : 'Workout')}
-    />
-  )
-
   const power = live && s.powerW !== null ? String(s.powerW) : EMPTY
   const cadence = live && s.cadenceRpm !== null ? String(s.cadenceRpm) : EMPTY
   const speed = live && s.speedMph !== null ? s.speedMph.toFixed(1) : EMPTY
@@ -167,30 +154,38 @@ export default function App() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="flex items-center justify-between gap-6 border-b border-line px-8 py-4">
-        <a href="#/" className="ww-wordmark no-underline">
-          Weem Watts
-        </a>
+        <div className="flex items-center gap-8">
+          <a href={href('ride')} className="ww-wordmark no-underline">
+            Weem Watts
+          </a>
+          <TabNav tabs={TABS} current={route} />
+        </div>
         <div className="flex items-center gap-3">
           <StatusPill tone={pill.tone} label={pill.label} />
-          {route === 'profile' && <Button onClick={() => go('ride')}>Back to ride</Button>}
-          {route === 'ride' && s.canEditProfile && <Button onClick={() => go('profile')}>Profile</Button>}
-          {route === 'ride' && s.phase === 'idle' && (
-            <Button variant="primary" onClick={ride.connect} disabled={!s.supported || connecting}>
+          {s.phase === 'idle' && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                go('ride')
+                ride.connect()
+              }}
+              disabled={!s.supported || connecting}
+            >
               {connecting ? 'Connecting' : s.resuming ? 'Connect to resume' : 'Connect'}
             </Button>
           )}
-          {route === 'ride' && live && lost && (
+          {live && lost && (
             <Button variant="primary" onClick={ride.connect}>
               Reconnect
             </Button>
           )}
-          {route === 'ride' && s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
-          {route === 'ride' && s.phase === 'riding' && (
+          {s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
+          {s.phase === 'riding' && (
             <Button variant={confirmEnd ? 'danger' : 'secondary'} onClick={onEnd}>
               {confirmEnd ? 'Confirm end' : 'End Ride'}
             </Button>
           )}
-          {route === 'ride' && s.phase === 'ended' && (
+          {s.phase === 'ended' && (
             <>
               {s.canDownload && (
                 <Button variant="primary" onClick={() => void ride.download()}>
@@ -206,6 +201,20 @@ export default function App() {
       {route === 'profile' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
           <ProfilePage profile={s.profile} onChange={ride.setProfile} editable={s.canEditProfile} />
+        </main>
+      ) : route === 'workout' ? (
+        <main className="flex flex-1 flex-col px-8 py-6">
+          <WorkoutPage
+            s={s}
+            notice={s.notice && <Notice title={s.notice} />}
+            onSelectCourse={(id) => void ride.selectCourse(id)}
+            onStartMi={ride.setStartMi}
+            onImportCourse={(f) => void ride.importCourse(f)}
+            onRemoveCourse={(id) => void ride.removeCourse(id)}
+            onSelectWorkout={ride.selectWorkout}
+            onImportWorkout={(f) => void ride.importWorkout(f)}
+            onRemoveWorkout={(id) => void ride.removeWorkout(id)}
+          />
         </main>
       ) : (
         <main className="flex flex-1 flex-col gap-6 px-8 py-6">
@@ -234,31 +243,6 @@ export default function App() {
             <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
           )}
           {s.notice && <Notice title={s.notice} />}
-          {s.canChooseCourse && pick === 'workout' && (
-            <WorkoutPicker
-              workouts={s.workouts}
-              loaded={s.workoutsLoaded}
-              selected={s.workout}
-              ftpW={s.profile.ftpW}
-              onSelect={ride.selectWorkout}
-              onImport={(f) => void ride.importWorkout(f)}
-              onRemove={(id) => void ride.removeWorkout(id)}
-              switcher={pickSwitch}
-            />
-          )}
-          {s.canChooseCourse && pick === 'course' && (
-            <CoursePicker
-              switcher={pickSwitch}
-              courses={s.courses}
-              loaded={s.coursesLoaded}
-              selected={s.course}
-              onSelect={(id) => void ride.selectCourse(id)}
-              onStartMi={ride.setStartMi}
-              onImport={(f) => void ride.importCourse(f)}
-              onRemove={(id) => void ride.removeCourse(id)}
-            />
-          )}
-
           <section
             aria-label="Live ride data"
             className={`grid flex-1 grid-cols-1 rounded-lg border border-line bg-surface xl:grid-cols-2 ${
