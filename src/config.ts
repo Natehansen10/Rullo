@@ -36,5 +36,6 @@ export type SmoothingSeconds = (typeof SMOOTHING_OPTIONS)[number]
 export const DEFAULT_SMOOTHING: SmoothingSeconds = 3
 
 /** Manual resistance, as % of the trainer's range. */
-export const RESISTANCE_STEP_PCT = 5
+/** Direct step buttons, mirrored minus / plus. Keys: arrows 1, + / - 5, Shift+arrows 10. */
+export const RESISTANCE_STEPS_PCT = [1, 5, 10] as const
 export const DEFAULT_RESISTANCE_PCT = 20

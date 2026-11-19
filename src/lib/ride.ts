@@ -7,7 +7,6 @@ import {
   DEFAULT_RESISTANCE_PCT,
   DEFAULT_SMOOTHING,
   MAX_SAMPLE_GAP_MS,
-  RESISTANCE_STEP_PCT,
   SMOOTHING_OPTIONS,
   STALE_AFTER_MS,
   type SmoothingSeconds,
@@ -267,7 +266,7 @@ export class RideController {
   }
 
   setResistance = (pct: number) => {
-    const next = Math.min(100, Math.max(0, Math.round(pct / RESISTANCE_STEP_PCT) * RESISTANCE_STEP_PCT))
+    const next = Math.min(100, Math.max(0, Math.round(pct)))
     if (next === this.resistancePct) return
     this.resistancePct = next
     try {
@@ -279,7 +278,8 @@ export class RideController {
     this.emit()
   }
 
-  stepResistance = (dir: 1 | -1) => this.setResistance(this.resistancePct + dir * RESISTANCE_STEP_PCT)
+  /** Change resistance by a signed amount in percentage points. */
+  stepResistance = (delta: number) => this.setResistance(this.resistancePct + delta)
 
   // --- actions ---
 

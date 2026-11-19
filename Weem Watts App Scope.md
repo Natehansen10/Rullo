@@ -36,12 +36,12 @@ A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to re
 - **Cut:** accounts, heart rate, settings pages, themes, Strava
 - **Done when:** open the link, connect the Kickr, ride 10 minutes with every number updating, and download the ride as a FIT file
 
-### v1.5: Manual resistance
+### v1.5: Manual resistance (shipped Nov 19, 2026)
 
 Ride in one gear and change resistance by hand, the way Nate rides indoors.
 
 - FTMS Set Target Resistance Level (0x04): Request Control again after Reset, read the trainer's supported range (0x2AD6), and map it to 0 to 100%
-- Minus / plus buttons on the ride screen in 5% steps, plus Arrow Up / Arrow Down keys
+- Direct step buttons on the ride screen: -10 / -5 / -1 and +1 / +5 / +10. Keys: arrows 1%, + / - 5%, Shift + arrows 10%
 - Show the current level. Re-send it after every reconnect, and only send the latest level when the rider taps quickly
 - Remember the last level between rides
 - A clear message if the trainer doesn't support resistance control (Cycling Power fallback can't)

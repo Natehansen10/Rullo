@@ -4,7 +4,7 @@ import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { Stepper } from './components/Stepper'
-import { SMOOTHING_OPTIONS } from './config'
+import { RESISTANCE_STEPS_PCT, SMOOTHING_OPTIONS } from './config'
 import { ride, useRide } from './hooks/useRide'
 import type { RideSnapshot } from './lib/ride'
 
@@ -62,12 +62,15 @@ export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
 
-  // Arrow Up / Arrow Down (or + / -) change resistance from the saddle.
+  // Resistance from the saddle: arrows 1%, Shift+arrows 10%, + / - 5%.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === 'ArrowUp' || e.key === '+' || e.key === '=') ride.stepResistance(1)
-      else if (e.key === 'ArrowDown' || e.key === '-' || e.key === '_') ride.stepResistance(-1)
+      const big = e.shiftKey ? 10 : 1
+      if (e.key === 'ArrowUp') ride.stepResistance(big)
+      else if (e.key === 'ArrowDown') ride.stepResistance(-big)
+      else if (e.key === '+' || e.key === '=') ride.stepResistance(5)
+      else if (e.key === '-' || e.key === '_') ride.stepResistance(-5)
       else return
       e.preventDefault()
     }
@@ -216,15 +219,14 @@ export default function App() {
             label="Resistance"
             value={String(s.resistancePct)}
             unit="%"
-            onDecrement={() => ride.stepResistance(-1)}
-            onIncrement={() => ride.stepResistance(1)}
-            decrementLabel="Decrease resistance"
-            incrementLabel="Increase resistance"
+            steps={RESISTANCE_STEPS_PCT}
+            onStep={ride.stepResistance}
+            stepLabel={(d) => `Resistance ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)}%`}
             disabled={s.resistanceState === 'unsupported'}
             atMin={s.resistancePct <= 0}
             atMax={s.resistancePct >= 100}
             status={resistanceStatus(s)}
-            hint="↑ ↓ keys"
+            hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%"
             className="border-t border-line p-6 xl:col-span-2"
           />
         </section>

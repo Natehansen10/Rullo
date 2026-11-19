@@ -5,29 +5,31 @@ interface StepperProps {
   label: string
   value: string
   unit?: string
-  onDecrement: () => void
-  onIncrement: () => void
-  decrementLabel: string
-  incrementLabel: string
+  /** Step sizes, smallest first. Renders minus steps (largest outside) and plus steps (largest outside). */
+  steps: readonly number[]
+  onStep: (delta: number) => void
+  /** Accessible name for one step button, e.g. (d) => `Resistance ${d}%`. */
+  stepLabel: (delta: number) => string
   disabled?: boolean
   atMin?: boolean
   atMax?: boolean
-  /** Short state text after the value, e.g. "Applies when connected". */
+  /** Short state text after the controls, e.g. "Applies when connected". */
   status?: ReactNode
   /** Keyboard hint on the right, in mono. */
   hint?: string
   className?: string
 }
 
-/** Large minus / value / plus control, sized to hit from the saddle. */
+const MINUS = '−'
+
+/** Value flanked by direct step buttons, sized to hit from the saddle. */
 export function Stepper({
   label,
   value,
   unit,
-  onDecrement,
-  onIncrement,
-  decrementLabel,
-  incrementLabel,
+  steps,
+  onStep,
+  stepLabel,
   disabled = false,
   atMin = false,
   atMax = false,
@@ -35,20 +37,32 @@ export function Stepper({
   hint,
   className = '',
 }: StepperProps) {
+  const down = [...steps].reverse().map((s) => -s)
+  const up = [...steps]
+  const stepButton = (delta: number) => (
+    <Button
+      key={delta}
+      aria-label={stepLabel(delta)}
+      onClick={() => onStep(delta)}
+      disabled={disabled || (delta < 0 ? atMin : atMax)}
+      className="h-12 px-3 tabular-nums"
+    >
+      {delta < 0 ? `${MINUS}${-delta}` : `+${delta}`}
+    </Button>
+  )
   return (
     <div className={`flex flex-wrap items-center gap-6 ${className}`}>
       <span className="ww-label">{label}</span>
-      <div className="flex items-center gap-4">
-        <Button aria-label={decrementLabel} onClick={onDecrement} disabled={disabled || atMin} className="size-12 px-0 text-title">
-          −
-        </Button>
-        <span aria-live="polite" className={`ww-num ww-num-control text-center ${disabled ? 'text-fg-subtle' : 'text-fg'}`}>
+      <div className="flex items-center gap-2">
+        {down.map(stepButton)}
+        <span
+          aria-live="polite"
+          className={`ww-num ww-num-control px-4 text-center ${disabled ? 'text-fg-subtle' : 'text-fg'}`}
+        >
           {value}
           {unit && <span className="ww-unit">{unit}</span>}
         </span>
-        <Button aria-label={incrementLabel} onClick={onIncrement} disabled={disabled || atMax} className="size-12 px-0 text-title">
-          +
-        </Button>
+        {up.map(stepButton)}
       </div>
       {status && <span className="text-body text-fg-muted">{status}</span>}
       {hint && <span className="ml-auto font-mono text-mono text-fg-subtle">{hint}</span>}

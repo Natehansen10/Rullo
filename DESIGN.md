@@ -76,7 +76,7 @@ Dark only. No light theme.
 | `StatusPill` | Connection state. Tones: `on`, `warn`, `error`, `idle`. |
 | `Button` | `primary` (Ember, one per screen), `secondary`, `danger` (confirm End Ride). |
 | `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. |
-| `Stepper` | Minus / value / plus with 48px buttons, for adjusting from the saddle (resistance). Status text after the value, key hint in mono on the right. |
+| `Stepper` | Value flanked by direct step buttons (largest step outside: -10 -5 -1 value +1 +5 +10), 48px tall, for adjusting from the saddle. Status text after, key hint in mono on the right. |
 
 Build new UI from these. Add a component here before using a new pattern.
 
