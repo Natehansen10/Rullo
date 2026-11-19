@@ -26,7 +26,7 @@ npm run preview
 
 ## Ride without the bike: `?fake=1`
 
-Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends power and cadence once a second.
+Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends power and cadence once a second. The first 3 seconds are 0 W (rider getting on), so you see the Ready state before the ride starts.
 
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
 - Press **End Ride** twice (the second click confirms) to end and download the FIT file.
@@ -36,8 +36,8 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 1. Open https://weem-watts.vercel.app in Chrome or Edge.
 2. Close the Wahoo app and Zwift on your phone and computer. The Kickr allows only one controlling connection.
-3. Press **Connect** and pick the Kickr in the browser's device list.
-4. Start pedaling. The timer starts on the first pedal stroke.
+3. Press **Connect** and pick the Kickr in the browser's device list. The status shows **Ready**.
+4. Start pedaling. The timer starts on the first pedal stroke. Spinning the flywheel by hand reads 0 W and does not start a ride. Press **Disconnect** to back out before pedaling.
 5. Press **End Ride**, then **Confirm end**. The FIT file downloads. Upload it to Strava or Garmin Connect.
 
 If the trainer drops, the app retries every 2 seconds, up to 30 times. After a page reload, Chrome needs you to pick the trainer again.

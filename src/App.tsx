@@ -94,7 +94,8 @@ export default function App() {
               Reconnect
             </Button>
           )}
-          {live && (
+          {s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
+          {s.phase === 'riding' && (
             <Button variant={confirmEnd ? 'danger' : 'secondary'} onClick={onEnd}>
               {confirmEnd ? 'Confirm end' : 'End Ride'}
             </Button>

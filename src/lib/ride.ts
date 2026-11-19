@@ -115,8 +115,10 @@ export class RideController {
     const avg = hasData ? this.smoother.average(this.smoothing) : null
 
     let elapsedMs = 0
-    if (this.phase === 'riding') elapsedMs = now - this.startedAt
-    else if (this.phase === 'ended') elapsedMs = this.endedAt - this.startedAt
+    if (this.startedAt > 0) {
+      if (this.phase === 'riding') elapsedMs = now - this.startedAt
+      else if (this.phase === 'ended') elapsedMs = this.endedAt - this.startedAt
+    }
 
     return {
       phase: this.phase,
@@ -224,20 +226,22 @@ export class RideController {
     this.emit()
   }
 
+  /** Before the first pedal stroke there is no ride yet: just disconnect. */
+  disconnect = () => {
+    if (this.phase !== 'ready') return
+    keepAwake(false)
+    this.trainer.disconnect()
+    this.newRide()
+  }
+
   endRide = async () => {
-    if (this.phase !== 'riding' && this.phase !== 'ready') return
-    const wasRiding = this.phase === 'riding'
+    if (this.phase === 'ready') return this.disconnect()
+    if (this.phase !== 'riding' || !this.rideId) return
     this.endedAt = Date.now()
     this.phase = 'ended'
     keepAwake(false)
     this.trainer.disconnect()
     this.emit()
-    if (!wasRiding || !this.rideId) {
-      this.rideId = null
-      this.notice = 'Nothing was recorded.'
-      this.emit()
-      return
-    }
     const id = await this.rideId
     await recorder.endRide(id, this.endedAt)
     await this.download()
