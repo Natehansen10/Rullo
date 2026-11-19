@@ -2,11 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from './components/Button'
 import { CoursePicker } from './components/CoursePicker'
 import { ElevationProfile } from './components/ElevationProfile'
+import { ProfilePanel } from './components/ProfilePanel'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { Stepper } from './components/Stepper'
-import { RESISTANCE_STEPS_PCT, SMOOTHING_OPTIONS } from './config'
+import { ERG_MAX_W, ERG_MIN_W, ERG_STEPS_W, RESISTANCE_STEPS_PCT, SMOOTHING_OPTIONS } from './config'
 import { ride, useRide } from './hooks/useRide'
 import type { RideSnapshot } from './lib/ride'
 
@@ -40,11 +41,19 @@ function status(s: RideSnapshot): { tone: StatusTone; label: string } {
   return { tone: 'idle', label: 'Not connected' }
 }
 
-function resistanceStatus(s: RideSnapshot): string | null {
-  if (s.resistanceState === 'unsupported') return "This trainer doesn't accept resistance control"
-  if (s.resistanceState === 'failed') return "Trainer didn't take the change. Tap again."
-  if (s.connection.kind !== 'connected' || s.phase === 'ended') return 'Applies when connected'
-  if (s.resistanceState === 'sending') return 'Setting'
+const MODE_OPTIONS = ['resistance', 'erg'] as const
+
+function controlStatus(s: RideSnapshot): string | null {
+  const erg = s.mode === 'erg'
+  if (erg && s.ergUnsupported) return "This trainer doesn't support ERG. Using your resistance level."
+  if (!erg && s.controlState === 'unsupported') return "This trainer doesn't accept resistance control"
+  if (s.controlState === 'failed') return "Trainer didn't take the change. Tap again."
+  if (s.connection.kind !== 'connected' || s.phase === 'ended') {
+    return erg ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
+  }
+  if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
+  if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
+  if (s.controlState === 'sending') return 'Setting'
   return null
 }
 
@@ -63,16 +72,22 @@ function Notice({ title, children, actions }: { title: string; children?: ReactN
 export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
 
-  // Resistance from the saddle: arrows 1%, Shift+arrows 10%, + / - 5%.
+  // From the saddle. Resistance: arrows 1%, + / - 5%, Shift+arrows 10%.
+  // ERG: arrows 5 W, + / - 10 W, Shift+arrows 25 W. E switches mode.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      const big = e.shiftKey ? 10 : 1
-      if (e.key === 'ArrowUp') ride.stepResistance(big)
-      else if (e.key === 'ArrowDown') ride.stepResistance(-big)
-      else if (e.key === '+' || e.key === '=') ride.stepResistance(5)
-      else if (e.key === '-' || e.key === '_') ride.stepResistance(-5)
+      const erg = ride.getSnapshot().mode === 'erg'
+      const step = erg ? ride.stepErg : ride.stepResistance
+      const [small, mid, large] = erg ? ERG_STEPS_W : RESISTANCE_STEPS_PCT
+      const arrow = e.shiftKey ? large : small
+      if (e.key === 'ArrowUp') step(arrow)
+      else if (e.key === 'ArrowDown') step(-arrow)
+      else if (e.key === '+' || e.key === '=') step(mid)
+      else if (e.key === '-' || e.key === '_') step(-mid)
+      else if (e.key === 'e' || e.key === 'E') ride.toggleMode()
       else return
       e.preventDefault()
     }
@@ -101,6 +116,16 @@ export default function App() {
     void ride.endRide()
   }
 
+  const modeSwitch = (
+    <SegmentedControl
+      label="Trainer mode"
+      options={MODE_OPTIONS}
+      value={s.mode}
+      onChange={ride.setMode}
+      format={(m) => (m === 'erg' ? 'ERG' : 'Resistance')}
+    />
+  )
+
   const power = live && s.powerW !== null ? String(s.powerW) : EMPTY
   const cadence = live && s.cadenceRpm !== null ? String(s.cadenceRpm) : EMPTY
   const speed = live && s.speedMph !== null ? s.speedMph.toFixed(1) : EMPTY
@@ -111,6 +136,11 @@ export default function App() {
         <span className="ww-wordmark">Weem Watts</span>
         <div className="flex items-center gap-3">
           <StatusPill tone={pill.tone} label={pill.label} />
+          {s.canEditProfile && (
+            <Button aria-pressed={showProfile} onClick={() => setShowProfile((v) => !v)}>
+              Profile
+            </Button>
+          )}
           {s.phase === 'idle' && (
             <Button variant="primary" onClick={ride.connect} disabled={!s.supported || connecting}>
               {connecting ? 'Connecting' : s.resuming ? 'Connect to resume' : 'Connect'}
@@ -166,6 +196,7 @@ export default function App() {
           <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
         )}
         {s.notice && <Notice title={s.notice} />}
+        {showProfile && s.canEditProfile && <ProfilePanel profile={s.profile} onChange={ride.setProfile} />}
         {s.canChooseCourse && (
           <CoursePicker
             courses={s.courses}
@@ -239,20 +270,37 @@ export default function App() {
               className="border-t border-line p-6 xl:col-span-2"
             />
           )}
-          <Stepper
-            label="Resistance"
-            value={String(s.resistancePct)}
-            unit="%"
-            steps={RESISTANCE_STEPS_PCT}
-            onStep={ride.stepResistance}
-            stepLabel={(d) => `Resistance ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)}%`}
-            disabled={s.resistanceState === 'unsupported'}
-            atMin={s.resistancePct <= 0}
-            atMax={s.resistancePct >= 100}
-            status={resistanceStatus(s)}
-            hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%"
-            className="border-t border-line p-6 xl:col-span-2"
-          />
+          {s.mode === 'erg' ? (
+            <Stepper
+              label={modeSwitch}
+              value={String(s.ergTargetW)}
+              unit="W"
+              steps={ERG_STEPS_W}
+              onStep={ride.stepErg}
+              stepLabel={(d) => `ERG target ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)} watts`}
+              disabled={s.ergUnsupported}
+              atMin={s.ergTargetW <= ERG_MIN_W}
+              atMax={s.ergTargetW >= ERG_MAX_W}
+              status={controlStatus(s)}
+              hint="↑↓ 5 W  ·  +/− 10 W  ·  shift ↑↓ 25 W  ·  E mode"
+              className="border-t border-line p-6 xl:col-span-2"
+            />
+          ) : (
+            <Stepper
+              label={modeSwitch}
+              value={String(s.resistancePct)}
+              unit="%"
+              steps={RESISTANCE_STEPS_PCT}
+              onStep={ride.stepResistance}
+              stepLabel={(d) => `Resistance ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)}%`}
+              disabled={s.controlState === 'unsupported'}
+              atMin={s.resistancePct <= 0}
+              atMax={s.resistancePct >= 100}
+              status={controlStatus(s)}
+              hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
+              className="border-t border-line p-6 xl:col-span-2"
+            />
+          )}
         </section>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 font-mono text-mono text-fg-subtle">

@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { Button } from './Button'
 
 interface StepperProps {
-  label: string
+  /** Text label, or a control (e.g. a mode switch) in the label slot. */
+  label: ReactNode
   value: string
   unit?: string
   /** Step sizes, smallest first. Renders minus steps (largest outside) and plus steps (largest outside). */
@@ -52,7 +53,7 @@ export function Stepper({
   )
   return (
     <div className={`flex flex-wrap items-center gap-6 ${className}`}>
-      <span className="ww-label">{label}</span>
+      {typeof label === 'string' ? <span className="ww-label">{label}</span> : label}
       <div className="flex items-center gap-2">
         {down.map(stepButton)}
         <span

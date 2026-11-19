@@ -15,6 +15,7 @@ export const SUPPORTED_RESISTANCE_RANGE = 0x2ad6
 export const OP_REQUEST_CONTROL = 0x00
 export const OP_RESET = 0x01
 export const OP_SET_TARGET_RESISTANCE = 0x04
+export const OP_SET_TARGET_POWER = 0x05
 const OP_RESPONSE = 0x80
 const RESULT_SUCCESS = 0x01
 
@@ -47,6 +48,12 @@ export function percentToLevel(pct: number, r: ResistanceRange): number {
   const raw = r.min + (Math.min(100, Math.max(0, pct)) / 100) * (r.max - r.min)
   const snapped = r.min + Math.round((raw - r.min) / r.increment) * r.increment
   return Math.min(r.max, Math.max(r.min, snapped))
+}
+
+/** Parameter bytes for Set Target Power: sint16 watts, resolution 1 W. */
+export function encodePower(watts: number): number[] {
+  const v = Math.max(-32768, Math.min(32767, Math.round(watts))) & 0xffff
+  return [v & 0xff, v >> 8]
 }
 
 /**

@@ -20,7 +20,10 @@ export interface TrainerHandlers {
   onStatus: (s: ConnectionStatus) => void
 }
 
-export type ResistanceResult = 'ok' | 'unsupported' | 'failed'
+/** Result of a trainer control command (resistance or ERG target). */
+export type ControlResult = 'ok' | 'unsupported' | 'failed'
+/** @deprecated use ControlResult */
+export type ResistanceResult = ControlResult
 
 export interface Trainer {
   /** Must be called from a user gesture the first time (device picker). */
@@ -28,5 +31,7 @@ export interface Trainer {
   /** User-initiated disconnect. Stops any reconnect loop. */
   disconnect(): void
   /** Set resistance as 0 to 100% of the trainer's range. Only call while connected. */
-  setResistance(pct: number): Promise<ResistanceResult>
+  setResistance(pct: number): Promise<ControlResult>
+  /** ERG: hold this power in watts. Only call while connected. */
+  setTargetPower(watts: number): Promise<ControlResult>
 }

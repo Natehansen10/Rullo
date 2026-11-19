@@ -3,11 +3,14 @@
  * The first 3 seconds send 0 W and 0 rpm (rider getting on), so the Ready state shows.
  * Press D to drop data for 5 seconds and test the stale / Reconnecting state.
  * Resistance changes power the way a harder gear would at the same cadence.
+ * ERG holds the target. Press C to drop cadence to 40 rpm for 6 seconds
+ * (tests the ERG low-cadence release).
  */
 import type { Trainer, TrainerHandlers } from './types'
 
 const DROP_MS = 5000
 const IDLE_MS = 3000
+const LOW_CADENCE_MS = 6000
 
 export function isFakeMode(): boolean {
   return new URLSearchParams(window.location.search).get('fake') === '1'
@@ -18,9 +21,12 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
   let dropUntil = 0
   let t0 = 0
   let resistancePct = 20
+  let ergW: number | null = null
+  let lowCadenceUntil = 0
 
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'd' || e.key === 'D') dropUntil = Date.now() + DROP_MS
+    if (e.key === 'c' || e.key === 'C') lowCadenceUntil = Date.now() + LOW_CADENCE_MS
   }
 
   const tick = () => {
@@ -31,9 +37,12 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       return
     }
     const s = (now - t0) / 1000
-    const base = 110 + resistancePct * 4.5
-    const power = base + 25 * Math.sin(s / 20) + (Math.random() - 0.5) * 30
-    const cadence = 88 + 4 * Math.sin(s / 13) + (Math.random() - 0.5) * 3
+    const lowCadence = now < lowCadenceUntil
+    const cadence = lowCadence ? 40 + (Math.random() - 0.5) * 2 : 88 + 4 * Math.sin(s / 13) + (Math.random() - 0.5) * 3
+    const power =
+      ergW !== null
+        ? ergW + (Math.random() - 0.5) * 10
+        : (110 + resistancePct * 4.5) * (cadence / 88) + 25 * Math.sin(s / 20) + (Math.random() - 0.5) * 30
     h.onReading({
       t: now,
       powerW: Math.round(power),
@@ -47,6 +56,7 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       await new Promise((r) => setTimeout(r, 400))
       t0 = Date.now()
       dropUntil = 0
+      ergW = null // a fresh connection starts without an ERG target, like a reset trainer
       window.addEventListener('keydown', onKey)
       if (timer) clearInterval(timer)
       timer = setInterval(tick, 1000)
@@ -56,6 +66,12 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
     async setResistance(pct: number) {
       await new Promise((r) => setTimeout(r, 80))
       resistancePct = pct
+      ergW = null
+      return 'ok' as const
+    },
+    async setTargetPower(watts: number) {
+      await new Promise((r) => setTimeout(r, 80))
+      ergW = watts
       return 'ok' as const
     },
     disconnect() {

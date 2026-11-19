@@ -11,12 +11,14 @@ import {
   CONTROL_POINT,
   ControlPointError,
   DEFAULT_RESISTANCE_RANGE,
+  encodePower,
   encodeResistance,
   FTMS_SERVICE,
   FtmsControlPoint,
   INDOOR_BIKE_DATA,
   OP_REQUEST_CONTROL,
   OP_RESET,
+  OP_SET_TARGET_POWER,
   OP_SET_TARGET_RESISTANCE,
   parseIndoorBikeData,
   parseResistanceRange,
@@ -27,7 +29,7 @@ import {
   SUPPORTED_RESISTANCE_RANGE,
   type ResistanceRange,
 } from './ftms'
-import type { ResistanceResult, Trainer, TrainerHandlers } from './types'
+import type { ControlResult, Trainer, TrainerHandlers } from './types'
 
 const GATT_CONNECT_TIMEOUT_MS = 10000
 
@@ -182,7 +184,31 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
         })
       }
     },
-    async setResistance(pct: number): Promise<ResistanceResult> {
+    async setTargetPower(watts: number): Promise<ControlResult> {
+      const cp = controlPoint
+      if (!cp) return 'unsupported'
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await cp.send(OP_SET_TARGET_POWER, encodePower(watts))
+          return 'ok'
+        } catch (err) {
+          const code = err instanceof ControlPointError ? err.code : undefined
+          if (code === RESULT_NOT_SUPPORTED) return 'unsupported'
+          if (code === RESULT_CONTROL_NOT_PERMITTED && attempt === 0) {
+            try {
+              await cp.send(OP_REQUEST_CONTROL)
+            } catch {
+              return 'failed'
+            }
+            continue
+          }
+          console.warn('Set target power failed:', err)
+          return 'failed'
+        }
+      }
+      return 'failed'
+    },
+    async setResistance(pct: number): Promise<ControlResult> {
       const cp = controlPoint
       if (!cp) return 'unsupported'
       const level = percentToLevel(pct, resistanceRange)

@@ -4,7 +4,13 @@
  * so a throttled background tab does not drift.
  */
 import {
+  DEFAULT_ERG_FTP_SHARE,
   DEFAULT_RESISTANCE_PCT,
+  ERG_MAX_W,
+  ERG_MIN_W,
+  ERG_RELEASE_AFTER_MS,
+  ERG_RELEASE_RPM,
+  ERG_RESUME_RPM,
   DEFAULT_SMOOTHING,
   MAX_SAMPLE_GAP_MS,
   SMOOTHING_OPTIONS,
@@ -17,18 +23,24 @@ import { importGpxFile, loadCourses, removeImportedCourse } from './courses'
 import { createFakeTrainer, isFakeMode } from './fakeTrainer'
 import { downloadFit } from './fit'
 import { FEET_PER_METER, METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
+import { loadProfile, normalizeProfile, riderParams, saveProfile, type Profile } from './profile'
 import * as recorder from './recorder'
 import { PowerSmoother } from './smoothing'
-import type { ConnectionStatus, ResistanceResult, Trainer, TrainerReading } from './types'
+import type { ConnectionStatus, ControlResult, Trainer, TrainerReading } from './types'
 import { keepAwake } from './wakeLock'
 
 /** idle: no ride. ready: connected, waiting for the first pedal stroke. */
 export type Phase = 'idle' | 'ready' | 'riding' | 'ended'
 
 /** idle: nothing sent yet. sending: a write is in flight. */
-export type ResistanceState = 'idle' | 'sending' | ResistanceResult
+export type ControlState = 'idle' | 'sending' | ControlResult
+
+/** resistance: a fixed brake level. erg: the trainer holds a target power. */
+export type ControlMode = 'resistance' | 'erg'
 
 const RESISTANCE_KEY = 'ww.resistancePct'
+const MODE_KEY = 'ww.mode'
+const ERG_KEY = 'ww.ergW'
 const COURSE_KEY = 'ww.courseId'
 /** A saved position this close to the finish starts the next ride from mile 0. */
 const NEAR_FINISH_M = 160
@@ -108,7 +120,17 @@ export interface RideSnapshot {
   canDownload: boolean
   notice: string | null
   resistancePct: number
-  resistanceState: ResistanceState
+  mode: ControlMode
+  ergTargetW: number
+  /** ERG is released (low cadence or not yet spun up); the trainer is at minimum resistance. */
+  ergReleased: boolean
+  /** State of the latest control command. */
+  controlState: ControlState
+  /** ERG target power command unsupported by this trainer. */
+  ergUnsupported: boolean
+  profile: Profile
+  /** Profile can be edited only between rides. */
+  canEditProfile: boolean
   courses: CourseOption[]
   coursesLoaded: boolean
   /** Selected course, or null for a free ride. */
@@ -130,7 +152,7 @@ export class RideController {
   private connection: ConnectionStatus = { kind: 'disconnected' }
   private smoothing: SmoothingSeconds = DEFAULT_SMOOTHING
   private smoother = new PowerSmoother(Math.max(...SMOOTHING_OPTIONS))
-  private speed = new SpeedModel()
+  private speed = new SpeedModel(riderParams(loadProfile()))
 
   private rideId: Promise<number> | null = null
   private startedAt = 0
@@ -144,9 +166,15 @@ export class RideController {
   private recovery: recorder.UnfinishedRide | null = null
   private notice: string | null = null
   private resistancePct = loadResistance()
-  private resistanceState: ResistanceState = 'idle'
-  private resistanceInFlight = false
-  private resistanceDirty = false
+  private profile = loadProfile()
+  private mode: ControlMode = storageGet(MODE_KEY) === 'erg' ? 'erg' : 'resistance'
+  private ergTargetW = this.loadErgTarget()
+  private ergReleased = true
+  private lowCadenceSince: number | null = null
+  private ergUnsupported = false
+  private controlState: ControlState = 'idle'
+  private controlInFlight = false
+  private controlDirty = false
 
   private courses: Course[] = []
   private coursesLoaded = false
@@ -224,7 +252,13 @@ export class RideController {
       canDownload: this.phase === 'ended' && this.rideId !== null,
       notice: this.notice,
       resistancePct: this.resistancePct,
-      resistanceState: this.resistanceState,
+      mode: this.mode,
+      ergTargetW: this.ergTargetW,
+      ergReleased: this.ergReleased,
+      controlState: this.controlState,
+      ergUnsupported: this.ergUnsupported,
+      profile: this.profile,
+      canEditProfile: this.phase === 'idle' || this.phase === 'ended',
       courses: this.courses.map((c) => ({
         id: c.id,
         name: c.name,
@@ -266,9 +300,12 @@ export class RideController {
     this.connection = s
     if (s.kind === 'connected') {
       this.notice = null
-      // Apply the current level on every connect and reconnect.
-      this.resistanceState = 'idle'
-      this.pushResistance()
+      // Every connect and reconnect: ERG starts released until the rider spins up,
+      // and the current level or target is sent again.
+      this.controlState = 'idle'
+      this.ergReleased = this.cadenceRpm < ERG_RESUME_RPM || this.lastDataAt === 0
+      this.lowCadenceSince = null
+      this.pushControl()
       if (this.phase === 'idle') {
         this.phase = this.rideId ? 'riding' : 'ready'
         this.lastDataAt = 0
@@ -286,7 +323,10 @@ export class RideController {
   private onReading(r: TrainerReading) {
     if (this.phase !== 'ready' && this.phase !== 'riding') return
     this.lastDataAt = r.t
-    if (r.cadenceRpm !== undefined) this.cadenceRpm = r.cadenceRpm
+    if (r.cadenceRpm !== undefined) {
+      this.cadenceRpm = r.cadenceRpm
+      this.checkErgCadence(r.t)
+    }
 
     if (r.powerW !== undefined) {
       const power = Math.max(0, r.powerW)
@@ -344,26 +384,70 @@ export class RideController {
     void this.rideId.then((rideId) => recorder.recordSample({ rideId, ...sample }))
   }
 
-  // --- resistance ---
+  // --- trainer control: resistance level or ERG target ---
 
-  /** Send the latest level. Taps during a write coalesce into one follow-up write. */
-  private pushResistance() {
-    if (this.connection.kind !== 'connected') return
-    if (this.resistanceInFlight) {
-      this.resistanceDirty = true
+  private loadErgTarget(): number {
+    const saved = Number(storageGet(ERG_KEY))
+    if (storageGet(ERG_KEY) !== null && Number.isFinite(saved) && saved >= ERG_MIN_W && saved <= ERG_MAX_W) return saved
+    return Math.round((this.profile.ftpW * DEFAULT_ERG_FTP_SHARE) / 5) * 5
+  }
+
+  /** ERG low-cadence release: let go below 50 rpm held 3 s, re-engage at 60 rpm. */
+  private checkErgCadence(t: number) {
+    if (this.mode !== 'erg') return
+    const rpm = this.cadenceRpm
+    if (this.ergReleased) {
+      if (rpm >= ERG_RESUME_RPM) {
+        this.ergReleased = false
+        this.lowCadenceSince = null
+        this.pushControl()
+      }
       return
     }
-    this.resistanceInFlight = true
-    this.resistanceDirty = false
-    this.resistanceState = 'sending'
-    const pct = this.resistancePct
-    void this.trainer
-      .setResistance(pct)
-      .catch((): ResistanceResult => 'failed')
+    if (rpm < ERG_RELEASE_RPM) {
+      this.lowCadenceSince ??= t
+      if (t - this.lowCadenceSince >= ERG_RELEASE_AFTER_MS) {
+        this.ergReleased = true
+        this.pushControl()
+      }
+    } else {
+      this.lowCadenceSince = null
+    }
+  }
+
+  /** What the trainer should be doing right now. */
+  private desiredCommand(): { kind: 'resistance'; pct: number } | { kind: 'power'; watts: number } {
+    if (this.mode === 'erg' && !this.ergUnsupported) {
+      return this.ergReleased
+        ? { kind: 'resistance', pct: 0 } // released: easy spin-up
+        : { kind: 'power', watts: this.ergTargetW }
+    }
+    return { kind: 'resistance', pct: this.resistancePct }
+  }
+
+  /** Send the latest command. Taps during a write coalesce into one follow-up write. */
+  private pushControl() {
+    if (this.connection.kind !== 'connected') return
+    if (this.controlInFlight) {
+      this.controlDirty = true
+      return
+    }
+    this.controlInFlight = true
+    this.controlDirty = false
+    this.controlState = 'sending'
+    const cmd = this.desiredCommand()
+    const send =
+      cmd.kind === 'power' ? this.trainer.setTargetPower(cmd.watts) : this.trainer.setResistance(cmd.pct)
+    void send
+      .catch((): ControlResult => 'failed')
       .then((result) => {
-        this.resistanceInFlight = false
-        this.resistanceState = result
-        if (this.resistanceDirty && result !== 'unsupported') this.pushResistance()
+        this.controlInFlight = false
+        this.controlState = result
+        if (cmd.kind === 'power' && result === 'unsupported') {
+          this.ergUnsupported = true
+          this.controlDirty = true // fall back to the resistance level
+        }
+        if (this.controlDirty) this.pushControl()
         this.emit()
       })
     this.emit()
@@ -373,17 +457,48 @@ export class RideController {
     const next = Math.min(100, Math.max(0, Math.round(pct)))
     if (next === this.resistancePct) return
     this.resistancePct = next
-    try {
-      localStorage.setItem(RESISTANCE_KEY, String(next))
-    } catch {
-      // storage unavailable; level still applies this session
-    }
-    if (this.resistanceState !== 'unsupported') this.pushResistance()
+    storageSet(RESISTANCE_KEY, String(next))
+    if (this.mode === 'resistance') this.pushControl()
     this.emit()
   }
 
   /** Change resistance by a signed amount in percentage points. */
   stepResistance = (delta: number) => this.setResistance(this.resistancePct + delta)
+
+  setErgTarget = (watts: number) => {
+    const next = Math.min(ERG_MAX_W, Math.max(ERG_MIN_W, Math.round(watts)))
+    if (next === this.ergTargetW) return
+    this.ergTargetW = next
+    storageSet(ERG_KEY, String(next))
+    if (this.mode === 'erg' && !this.ergReleased) this.pushControl()
+    this.emit()
+  }
+
+  /** Change the ERG target by a signed number of watts. */
+  stepErg = (delta: number) => this.setErgTarget(this.ergTargetW + delta)
+
+  setMode = (mode: ControlMode) => {
+    if (mode === this.mode) return
+    this.mode = mode
+    storageSet(MODE_KEY, mode)
+    // Entering ERG engages right away only if the rider is already spinning.
+    this.ergReleased = !(this.cadenceRpm >= ERG_RESUME_RPM && this.lastDataAt > 0)
+    this.lowCadenceSince = null
+    this.pushControl()
+    this.emit()
+  }
+
+  toggleMode = () => this.setMode(this.mode === 'erg' ? 'resistance' : 'erg')
+
+  // --- rider profile ---
+
+  setProfile = (p: Partial<Profile>) => {
+    if (!(this.phase === 'idle' || this.phase === 'ended')) return
+    this.profile = normalizeProfile({ ...this.profile, ...p })
+    saveProfile(this.profile)
+    this.speed.setRider(riderParams(this.profile))
+    this.emit()
+  }
 
   // --- actions ---
 

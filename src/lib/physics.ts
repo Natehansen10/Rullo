@@ -13,33 +13,45 @@
  */
 import {
   AIR_DENSITY,
-  BIKE_WEIGHT_LB,
-  CDA_M2,
+  CDA_BY_POSITION,
   CRR,
+  DEFAULT_BIKE_WEIGHT_LB,
+  DEFAULT_POSITION,
+  DEFAULT_RIDER_WEIGHT_LB,
   DRIVETRAIN_EFFICIENCY,
-  RIDER_WEIGHT_LB,
 } from '../config'
 
 const G = 9.80665
-const LB_TO_KG = 0.45359237
+export const LB_TO_KG = 0.45359237
 const SUBSTEP_S = 0.05
 
-export const TOTAL_MASS_KG = (RIDER_WEIGHT_LB + BIKE_WEIGHT_LB) * LB_TO_KG
+/** The rider-specific inputs to the model. Built from the rider profile. */
+export interface RiderParams {
+  /** Rider plus bike, kg. */
+  massKg: number
+  /** Drag area, m^2. */
+  cdaM2: number
+}
 
-function resistiveForce(v: number, grade = 0): number {
+export const DEFAULT_RIDER: RiderParams = {
+  massKg: (DEFAULT_RIDER_WEIGHT_LB + DEFAULT_BIKE_WEIGHT_LB) * LB_TO_KG,
+  cdaM2: CDA_BY_POSITION[DEFAULT_POSITION],
+}
+
+function resistiveForce(r: RiderParams, v: number, grade = 0): number {
   const a = Math.atan(grade)
-  return TOTAL_MASS_KG * G * (CRR * Math.cos(a) + Math.sin(a)) + 0.5 * AIR_DENSITY * CDA_M2 * v * v
+  return r.massKg * G * (CRR * Math.cos(a) + Math.sin(a)) + 0.5 * AIR_DENSITY * r.cdaM2 * v * v
 }
 
 /** Steady-state speed (m/s) for a constant power on a flat road. */
-export function steadySpeedMps(powerW: number): number {
+export function steadySpeedMps(r: RiderParams, powerW: number): number {
   const p = Math.max(0, powerW) * DRIVETRAIN_EFFICIENCY
   if (p === 0) return 0
   // Newton's method on f(v) = F(v) * v - p
   let v = 8
   for (let i = 0; i < 30; i++) {
-    const f = resistiveForce(v) * v - p
-    const df = TOTAL_MASS_KG * G * CRR + 1.5 * AIR_DENSITY * CDA_M2 * v * v
+    const f = resistiveForce(r, v) * v - p
+    const df = r.massKg * G * CRR + 1.5 * AIR_DENSITY * r.cdaM2 * v * v
     const next = v - f / df
     if (Math.abs(next - v) < 1e-6) return Math.max(0, next)
     v = Math.max(0.1, next)
@@ -49,9 +61,21 @@ export function steadySpeedMps(powerW: number): number {
 
 export class SpeedModel {
   private ke = 0
+  private rider: RiderParams
+
+  constructor(rider: RiderParams = DEFAULT_RIDER) {
+    this.rider = rider
+  }
+
+  /** Swap rider inputs, keeping the current speed. */
+  setRider(rider: RiderParams): void {
+    const v = this.speedMps
+    this.rider = rider
+    this.setSpeed(v)
+  }
 
   get speedMps(): number {
-    return Math.sqrt((2 * this.ke) / TOTAL_MASS_KG)
+    return Math.sqrt((2 * this.ke) / this.rider.massKg)
   }
 
   /** Advance the model by dt seconds at constant power and grade. Returns meters traveled along the road. */
@@ -63,7 +87,7 @@ export class SpeedModel {
       const h = Math.min(SUBSTEP_S, remaining)
       // From a standstill on a descent, gravity needs a tiny speed to act on.
       const v = grade < 0 ? Math.max(this.speedMps, 0.1) : this.speedMps
-      this.ke = Math.max(0, this.ke + (p - resistiveForce(v, grade) * v) * h)
+      this.ke = Math.max(0, this.ke + (p - resistiveForce(this.rider, v, grade) * v) * h)
       meters += ((v + this.speedMps) / 2) * h
       remaining -= h
     }
@@ -72,7 +96,7 @@ export class SpeedModel {
 
   /** Jump straight to a speed, e.g. when resuming a recovered ride. */
   setSpeed(v: number): void {
-    this.ke = 0.5 * TOTAL_MASS_KG * v * v
+    this.ke = 0.5 * this.rider.massKg * v * v
   }
 
   reset(): void {

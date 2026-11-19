@@ -65,19 +65,43 @@ Ride in one gear and change resistance by hand, the way Nate rides indoors.
 
 ### v3: Race Rehearsal (the main feature)
 
-- Rider profile, saved in the browser (no account): rider weight (lb), bike weight (lb), riding position (hoods, drops or aero, which sets drag) and FTP (W). Replaces the constants in `src/config.ts`; speed, distance and the predicted bike split read from it. Changing it never rewrites past rides
-- Build, adjust and run ERG workouts; import ZWO files
-- ERG on the course with a race power plan: different targets by section
-- Ahead or behind plan, plus a predicted bike split
+Split into three releases, each rideable on its own.
+
+#### v3.1: ERG mode and rider profile
+
+- Rider profile, saved in the browser (no account): rider weight (lb), bike weight (lb), riding position (hoods, drops or aero, which sets drag) and FTP (W). Replaces the constants in `src/config.ts`; speed and distance read from it. Editable only between rides. Changing it never rewrites past rides
+- ERG mode: FTMS Set Target Power. One-tap switch between Resistance and ERG; in ERG the step buttons change target watts and show % of FTP
+- Low-cadence release: below 50 rpm for 3 seconds ERG lets go; it re-engages at 60 rpm. A ride in ERG starts released until the rider reaches 60 rpm
+- Target re-sent after every reconnect; mode and target remembered between rides
+- Fake trainer follows ERG and can simulate low cadence
+- **Done when:** in ERG at a fixed target, changing cadence or gear keeps power within about 10 W of target; dropping below 50 rpm releases the load and spinning back up re-engages it
+
+#### v3.2: Workouts
+
+- Workout = list of steps (duration plus target in % FTP or watts, steady or ramp, repeats)
+- A few built-in workouts (endurance, sweet spot, VO2 intervals, FTP test); a simple step-list editor; ZWO import
+- Workout screen: current interval, time left, next target, strip of all intervals. ERG follows the workout
+- Each interval is a lap in the FIT file
+- **Cut:** drag-and-drop builder (stretch feature)
+
+#### v3.3: Race plan on a course
+
+- Course auto-split into climbs, flats and descents, each with an editable target (% FTP or watts)
+- ERG on the course follows the plan for the current section
+- Ahead or behind plan, plus a predicted bike split for the whole course at planned power
 - Ghost of your last attempt on the same course
-- ERG releases below 50 rpm for 3 seconds and re-engages at 60 rpm, plus a one-tap ERG toggle
-- Strava auto-upload through a Vercel function (VirtualRide, trainer=1). Single Player Mode covers personal use
 
 ### v4: Real climbs
 
 - SIM mode: grade averaged over 2 seconds and clamped to 0 to 16% (the Core 2 limit), with a "gradient feel" slider
 - Descents use calculated speed, since the Core 2 can't simulate downhill
 - No app-side gearing needed: the Kickr has a regular cassette, so shifting works normally in SIM mode
+
+### Later: Strava auto-upload
+
+Moved out of v3 on Nov 19, 2026: it needs a server function to keep the Strava client secret, and the guardrails hold server features until going public is a real decision. Manual upload at strava.com/upload/select works meanwhile.
+
+- Strava auto-upload through a Vercel function (VirtualRide, trainer=1). Single Player Mode covers personal use
 
 ### Later: Movie Mode overlay
 
