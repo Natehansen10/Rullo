@@ -37,7 +37,9 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 ## Workouts
 
-Open the **Workout** tab before connecting and pick a course or a workout (picking one clears the other). Import GPX and Import ZWO live there too. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3 and a Ramp FTP test. **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
+Open the **Workout** tab before connecting and pick a course or a workout (picking one clears the other). Import GPX and Import ZWO live there too. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/` (FRNKLN - January 6). **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
+
+To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`.
 
 - Picking a workout switches to ERG, and the trainer follows each interval. Workouts are for free rides (no course).
 - In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.

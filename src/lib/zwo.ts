@@ -85,7 +85,12 @@ export function parseZwo(text: string): ParsedZwo {
   return { name: text1('name'), description: text1('description'), steps }
 }
 
-export function workoutFromZwo(text: string, id: string, fallbackName: string): Workout {
+export function workoutFromZwo(
+  text: string,
+  id: string,
+  fallbackName: string,
+  source: Workout['source'] = 'imported',
+): Workout {
   const z = parseZwo(text)
-  return { id, name: z.name || fallbackName, description: z.description, source: 'imported', steps: z.steps }
+  return { id, name: z.name || fallbackName, description: z.description, source, steps: z.steps }
 }

@@ -1,6 +1,12 @@
 import { useRef } from 'react'
 import type { WorkoutLive, WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
+
+/** First sentence of a description, capped, so long ZWO descriptions stay on one line. */
+function summary(text: string, max = 70): string {
+  const first = text.trim().split(/(?<=[.!?])\s/)[0]?.replace(/\s+/g, ' ') ?? ''
+  return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first
+}
 import { Button } from './Button'
 import { PickerRow } from './PickerRow'
 import { WorkoutStrip } from './WorkoutStrip'
@@ -44,7 +50,7 @@ export function WorkoutPicker({ workouts, loaded, selected, ftpW, onSelect, onIm
             checked={selected?.workout.id === w.id}
             onClick={() => onSelect(w.id)}
             title={w.name}
-            meta={`${w.rampTest ? 'until you stop' : formatDuration(w.durationS)} · ${w.description}${
+            meta={`${w.rampTest ? 'until you stop' : formatDuration(w.durationS)}${w.description ? ` · ${summary(w.description)}` : ''}${
               w.source === 'imported' ? ' · imported' : ''
             }`}
             action={

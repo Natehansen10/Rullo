@@ -1,0 +1,68 @@
+<workout_file>
+    <author>Franklin Bespoke</author>
+    <name>FRNKLN - January 6</name>
+    <description>Who is ready to SPRINT?! 
+
+This is a workout you can use to build your seated power, work on your sprints or use to simulate attacks or counter attacks. Make sure you have your FTP set correctly. We start with the normal warm up plus a couple of higher watt spikes thrown in, this should get you up to speed.
+
+Main Workout:
+8x 20on 40off @ 130% of FTP - 5min rest
+8x 30on 30off @ 120% of FTP - 5min rest
+8x 40on 20off @ 110% of FTP - warm down 
+
+Each should be challenge a but also achieveable, use the rest periods to concentrate on your cadence, HR and breathing, all of which should be smooth and regular. Enjoy!  
+
+For more like this - check us out on Facebook at Franklin Bespoke </description>
+    <sportType>bike</sportType>
+    <tags>
+        <tag name="INTERVALS"/>
+    </tags>
+    <workout>
+        <Warmup Duration="180" PowerLow="0.30450001" PowerHigh="0.50449997" pace="0">
+            <textevent timeoffset="30" message="Welcome to a FRNKLN workout"/>
+            <textevent timeoffset="112" message="The aim here is sprints"/>
+        </Warmup>
+        <SteadyState Duration="20" Power="1.0545" pace="0"/>
+        <Ramp Duration="180" PowerLow="0.50449997" PowerHigh="0.70449996" pace="0">
+            <textevent timeoffset="26" message="Make sure you have water"/>
+        </Ramp>
+        <SteadyState Duration="20" Power="1.1544999" pace="0"/>
+        <Ramp Duration="180" PowerLow="0.70449996" PowerHigh="0.80449992" pace="0"/>
+        <SteadyState Duration="20" Power="1.2544999" pace="0"/>
+        <SteadyState Duration="300" Power="0.6045" pace="0" Cadence="85">
+            <textevent timeoffset="31" message="Nice and steady - rest up"/>
+            <textevent timeoffset="150" message="The first set is 20on 40off"/>
+            <textevent timeoffset="170" message="Nothing to worry about "/>
+            <textevent timeoffset="276" message="Good luck and believe! "/>
+        </SteadyState>
+        <IntervalsT Repeat="8" OnDuration="20" OffDuration="40" OnPower="1.3045" OffPower="0.65449995" pace="0">
+            <textevent timeoffset="217" message="4 down - 4 to go"/>
+        </IntervalsT>
+        <SteadyState Duration="300" Power="0.70449996" pace="0" Cadence="85">
+            <textevent timeoffset="8" message="Be sure to rest! "/>
+            <textevent timeoffset="85" message="Get your HR down "/>
+            <textevent timeoffset="159" message="Smooth pedalling"/>
+            <textevent timeoffset="234" message="Regular breathing"/>
+            <textevent timeoffset="271" message="Now set 2 - 30on 30off"/>
+        </SteadyState>
+        <IntervalsT Repeat="8" OnDuration="30" OffDuration="30" OnPower="1.2045" OffPower="0.65449995" pace="0" Cadence="85" CadenceResting="65">
+            <textevent timeoffset="227" message="4 down 4 to go"/>
+        </IntervalsT>
+        <SteadyState Duration="300" Power="0.6045" pace="0" Cadence="85">
+            <textevent timeoffset="18" message="Rest up here - HR down "/>
+            <textevent timeoffset="94" message="Nice and smooth on the pedals"/>
+            <textevent timeoffset="180" message="Trust your legs - not your head"/>
+            <textevent timeoffset="248" message="Last set - 40 on 20 off"/>
+        </SteadyState>
+        <IntervalsT Repeat="8" OnDuration="40" OffDuration="20" OnPower="1.1044999" OffPower="0.65449995" pace="0">
+            <textevent timeoffset="229" message="4 down 4 to go"/>
+            <textevent timeoffset="475" message="Active warm down time"/>
+        </IntervalsT>
+        <Cooldown Duration="360" PowerLow="0.65449995" PowerHigh="0.40450001" pace="0">
+            <textevent timeoffset="205" message="Well done for completing it! "/>
+            <textevent timeoffset="260" message="We hope you &apos;enjoyed&apos; yourself"/>
+            <textevent timeoffset="302" message="Find us on Facebook "/>
+            <textevent timeoffset="338" message="See you again soon! "/>
+        </Cooldown>
+    </workout>
+</workout_file>
