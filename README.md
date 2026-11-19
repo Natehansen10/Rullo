@@ -36,7 +36,7 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 ## Profile
 
-Press **Profile** (between rides) to set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these. The profile is saved in this browser and applies to your next ride; past rides don't change.
+Press **Profile** (between rides) to open the profile page (`#/profile`) and set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these. The profile is saved in this browser and applies to your next ride; past rides don't change.
 
 ## ERG mode
 

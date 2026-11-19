@@ -2,13 +2,14 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from './components/Button'
 import { CoursePicker } from './components/CoursePicker'
 import { ElevationProfile } from './components/ElevationProfile'
-import { ProfilePanel } from './components/ProfilePanel'
+import { ProfilePage } from './components/ProfilePage'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { Stepper } from './components/Stepper'
 import { ERG_MAX_W, ERG_MIN_W, ERG_STEPS_W, RESISTANCE_STEPS_PCT, SMOOTHING_OPTIONS } from './config'
 import { ride, useRide } from './hooks/useRide'
+import { go, isRoute, useRoute } from './hooks/useRoute'
 import type { RideSnapshot } from './lib/ride'
 
 const EMPTY = '--'
@@ -72,13 +73,13 @@ function Notice({ title, children, actions }: { title: string; children?: ReactN
 export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
-  const [showProfile, setShowProfile] = useState(false)
+  const route = useRoute()
 
   // From the saddle. Resistance: arrows 1%, + / - 5%, Shift+arrows 10%.
   // ERG: arrows 5 W, + / - 10 W, Shift+arrows 25 W. E switches mode.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.metaKey || e.ctrlKey || e.altKey || !isRoute('ride')) return
       const erg = ride.getSnapshot().mode === 'erg'
       const step = erg ? ride.stepErg : ride.stepResistance
       const [small, mid, large] = erg ? ERG_STEPS_W : RESISTANCE_STEPS_PCT
@@ -133,31 +134,30 @@ export default function App() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="flex items-center justify-between gap-6 border-b border-line px-8 py-4">
-        <span className="ww-wordmark">Weem Watts</span>
+        <a href="#/" className="ww-wordmark no-underline">
+          Weem Watts
+        </a>
         <div className="flex items-center gap-3">
           <StatusPill tone={pill.tone} label={pill.label} />
-          {s.canEditProfile && (
-            <Button aria-pressed={showProfile} onClick={() => setShowProfile((v) => !v)}>
-              Profile
-            </Button>
-          )}
-          {s.phase === 'idle' && (
+          {route === 'profile' && <Button onClick={() => go('ride')}>Back to ride</Button>}
+          {route === 'ride' && s.canEditProfile && <Button onClick={() => go('profile')}>Profile</Button>}
+          {route === 'ride' && s.phase === 'idle' && (
             <Button variant="primary" onClick={ride.connect} disabled={!s.supported || connecting}>
               {connecting ? 'Connecting' : s.resuming ? 'Connect to resume' : 'Connect'}
             </Button>
           )}
-          {live && lost && (
+          {route === 'ride' && live && lost && (
             <Button variant="primary" onClick={ride.connect}>
               Reconnect
             </Button>
           )}
-          {s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
-          {s.phase === 'riding' && (
+          {route === 'ride' && s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
+          {route === 'ride' && s.phase === 'riding' && (
             <Button variant={confirmEnd ? 'danger' : 'secondary'} onClick={onEnd}>
               {confirmEnd ? 'Confirm end' : 'End Ride'}
             </Button>
           )}
-          {s.phase === 'ended' && (
+          {route === 'ride' && s.phase === 'ended' && (
             <>
               {s.canDownload && (
                 <Button variant="primary" onClick={() => void ride.download()}>
@@ -170,147 +170,152 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col gap-6 px-8 py-6">
-        {!s.supported && (
-          <Notice title="This browser can't connect to your trainer">
-            Web Bluetooth is not available here. Open Weem Watts in Chrome or Edge on a desktop computer.
-          </Notice>
-        )}
-        {s.connection.kind === 'failed' && (
-          <Notice title={live ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
-        )}
-        {s.recovery && s.coursesLoaded && s.phase === 'idle' && !s.resuming && (
-          <Notice
-            title="Unfinished ride found"
-            actions={
-              <>
-                <Button onClick={ride.resumeRecovered}>Resume</Button>
-                <Button onClick={() => void ride.endRecovered()}>End and download</Button>
-              </>
-            }
+      {route === 'profile' ? (
+        <main className="flex flex-1 flex-col px-8 py-6">
+          <ProfilePage profile={s.profile} onChange={ride.setProfile} editable={s.canEditProfile} />
+        </main>
+      ) : (
+        <main className="flex flex-1 flex-col gap-6 px-8 py-6">
+          {!s.supported && (
+            <Notice title="This browser can't connect to your trainer">
+              Web Bluetooth is not available here. Open Weem Watts in Chrome or Edge on a desktop computer.
+            </Notice>
+          )}
+          {s.connection.kind === 'failed' && (
+            <Notice title={live ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
+          )}
+          {s.recovery && s.coursesLoaded && s.phase === 'idle' && !s.resuming && (
+            <Notice
+              title="Unfinished ride found"
+              actions={
+                <>
+                  <Button onClick={ride.resumeRecovered}>Resume</Button>
+                  <Button onClick={() => void ride.endRecovered()}>End and download</Button>
+                </>
+              }
+            >
+              Started {formatClock(s.recovery.startedAt)}, {s.recovery.distanceMi.toFixed(2)} mi recorded.
+            </Notice>
+          )}
+          {s.resuming && (
+            <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
+          )}
+          {s.notice && <Notice title={s.notice} />}
+          {s.canChooseCourse && (
+            <CoursePicker
+              courses={s.courses}
+              loaded={s.coursesLoaded}
+              selected={s.course}
+              onSelect={(id) => void ride.selectCourse(id)}
+              onStartMi={ride.setStartMi}
+              onImport={(f) => void ride.importCourse(f)}
+              onRemove={(id) => void ride.removeCourse(id)}
+            />
+          )}
+
+          <section
+            aria-label="Live ride data"
+            className={`grid flex-1 grid-cols-1 rounded-lg border border-line bg-surface xl:grid-cols-2 ${
+              s.course
+                ? 'grid-rows-[1fr_auto_auto_auto] xl:grid-rows-[1fr_auto_auto]'
+                : 'grid-rows-[1fr_auto_auto] xl:grid-rows-[1fr_auto]'
+            }`}
           >
-            Started {formatClock(s.recovery.startedAt)}, {s.recovery.distanceMi.toFixed(2)} mi recorded.
-          </Notice>
-        )}
-        {s.resuming && (
-          <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
-        )}
-        {s.notice && <Notice title={s.notice} />}
-        {showProfile && s.canEditProfile && <ProfilePanel profile={s.profile} onChange={ride.setProfile} />}
-        {s.canChooseCourse && (
-          <CoursePicker
-            courses={s.courses}
-            loaded={s.coursesLoaded}
-            selected={s.course}
-            onSelect={(id) => void ride.selectCourse(id)}
-            onStartMi={ride.setStartMi}
-            onImport={(f) => void ride.importCourse(f)}
-            onRemove={(id) => void ride.removeCourse(id)}
-          />
-        )}
-
-        <section
-          aria-label="Live ride data"
-          className={`grid flex-1 grid-cols-1 rounded-lg border border-line bg-surface xl:grid-cols-2 ${
-            s.course
-              ? 'grid-rows-[1fr_auto_auto_auto] xl:grid-rows-[1fr_auto_auto]'
-              : 'grid-rows-[1fr_auto_auto] xl:grid-rows-[1fr_auto]'
-          }`}
-        >
-          <MetricTile
-            size="hero"
-            label="Power"
-            value={power}
-            unit="W"
-            dim={dimLive || s.powerW === null}
-            className="border-b border-line p-6 xl:border-r xl:border-b-0"
-            action={
-              <SegmentedControl
-                label="Power smoothing"
-                options={SMOOTHING_OPTIONS}
-                value={s.smoothing}
-                onChange={ride.setSmoothing}
-                format={(v) => `${v}s`}
-              />
-            }
-          />
-          <div className="grid grid-cols-2 grid-rows-2">
             <MetricTile
-              label="Cadence"
-              value={cadence}
-              unit="rpm"
-              dim={dimLive || s.cadenceRpm === null}
-              className="border-r border-b border-line p-6"
-            />
-            <MetricTile
-              label="Speed"
-              value={speed}
-              unit="mph"
-              dim={dimLive || s.speedMph === null}
-              className="border-b border-line p-6"
-            />
-            <MetricTile
-              label="Distance"
-              value={s.distanceMi.toFixed(2)}
-              unit="mi"
-              dim={s.phase === 'riding' ? s.stale : s.phase !== 'ended'}
-              className="border-r border-line p-6"
-            />
-            <MetricTile
-              label="Time"
-              value={formatTime(s.elapsedMs)}
-              dim={s.phase === 'riding' ? s.stale : s.phase !== 'ended'}
-              className="p-6"
-            />
-          </div>
-          {s.course && (
-            <ElevationProfile
-              live={s.course}
-              dim={s.phase === 'riding' ? s.stale : true}
-              className="border-t border-line p-6 xl:col-span-2"
-            />
-          )}
-          {s.mode === 'erg' ? (
-            <Stepper
-              label={modeSwitch}
-              value={String(s.ergTargetW)}
+              size="hero"
+              label="Power"
+              value={power}
               unit="W"
-              steps={ERG_STEPS_W}
-              onStep={ride.stepErg}
-              stepLabel={(d) => `ERG target ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)} watts`}
-              disabled={s.ergUnsupported}
-              atMin={s.ergTargetW <= ERG_MIN_W}
-              atMax={s.ergTargetW >= ERG_MAX_W}
-              status={controlStatus(s)}
-              hint="↑↓ 5 W  ·  +/− 10 W  ·  shift ↑↓ 25 W  ·  E mode"
-              className="border-t border-line p-6 xl:col-span-2"
+              dim={dimLive || s.powerW === null}
+              className="border-b border-line p-6 xl:border-r xl:border-b-0"
+              action={
+                <SegmentedControl
+                  label="Power smoothing"
+                  options={SMOOTHING_OPTIONS}
+                  value={s.smoothing}
+                  onChange={ride.setSmoothing}
+                  format={(v) => `${v}s`}
+                />
+              }
             />
-          ) : (
-            <Stepper
-              label={modeSwitch}
-              value={String(s.resistancePct)}
-              unit="%"
-              steps={RESISTANCE_STEPS_PCT}
-              onStep={ride.stepResistance}
-              stepLabel={(d) => `Resistance ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)}%`}
-              disabled={s.controlState === 'unsupported'}
-              atMin={s.resistancePct <= 0}
-              atMax={s.resistancePct >= 100}
-              status={controlStatus(s)}
-              hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
-              className="border-t border-line p-6 xl:col-span-2"
-            />
-          )}
-        </section>
+            <div className="grid grid-cols-2 grid-rows-2">
+              <MetricTile
+                label="Cadence"
+                value={cadence}
+                unit="rpm"
+                dim={dimLive || s.cadenceRpm === null}
+                className="border-r border-b border-line p-6"
+              />
+              <MetricTile
+                label="Speed"
+                value={speed}
+                unit="mph"
+                dim={dimLive || s.speedMph === null}
+                className="border-b border-line p-6"
+              />
+              <MetricTile
+                label="Distance"
+                value={s.distanceMi.toFixed(2)}
+                unit="mi"
+                dim={s.phase === 'riding' ? s.stale : s.phase !== 'ended'}
+                className="border-r border-line p-6"
+              />
+              <MetricTile
+                label="Time"
+                value={formatTime(s.elapsedMs)}
+                dim={s.phase === 'riding' ? s.stale : s.phase !== 'ended'}
+                className="p-6"
+              />
+            </div>
+            {s.course && (
+              <ElevationProfile
+                live={s.course}
+                dim={s.phase === 'riding' ? s.stale : true}
+                className="border-t border-line p-6 xl:col-span-2"
+              />
+            )}
+            {s.mode === 'erg' ? (
+              <Stepper
+                label={modeSwitch}
+                value={String(s.ergTargetW)}
+                unit="W"
+                steps={ERG_STEPS_W}
+                onStep={ride.stepErg}
+                stepLabel={(d) => `ERG target ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)} watts`}
+                disabled={s.ergUnsupported}
+                atMin={s.ergTargetW <= ERG_MIN_W}
+                atMax={s.ergTargetW >= ERG_MAX_W}
+                status={controlStatus(s)}
+                hint="↑↓ 5 W  ·  +/− 10 W  ·  shift ↑↓ 25 W  ·  E mode"
+                className="border-t border-line p-6 xl:col-span-2"
+              />
+            ) : (
+              <Stepper
+                label={modeSwitch}
+                value={String(s.resistancePct)}
+                unit="%"
+                steps={RESISTANCE_STEPS_PCT}
+                onStep={ride.stepResistance}
+                stepLabel={(d) => `Resistance ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)}%`}
+                disabled={s.controlState === 'unsupported'}
+                atMin={s.resistancePct <= 0}
+                atMax={s.resistancePct >= 100}
+                status={controlStatus(s)}
+                hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
+                className="border-t border-line p-6 xl:col-span-2"
+              />
+            )}
+          </section>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 font-mono text-mono text-fg-subtle">
-          <span>
-            {s.connection.kind === 'connected' ? `${s.connection.protocol}` : 'Kickr Core 2 over FTMS'}
-            {' · '}power smoothed over {s.smoothing}s
-          </span>
-          {s.fake && <span>FAKE TRAINER · press D to drop data for 5s</span>}
-        </footer>
-      </main>
+          <footer className="flex flex-wrap items-center justify-between gap-3 font-mono text-mono text-fg-subtle">
+            <span>
+              {s.connection.kind === 'connected' ? `${s.connection.protocol}` : 'Kickr Core 2 over FTMS'}
+              {' · '}power smoothed over {s.smoothing}s
+            </span>
+            {s.fake && <span>FAKE TRAINER · press D to drop data for 5s</span>}
+          </footer>
+        </main>
+      )}
     </div>
   )
 }

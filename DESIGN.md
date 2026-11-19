@@ -80,7 +80,7 @@ Dark only. No light theme.
 | `Button` | `primary` (Ember, one per screen), `secondary`, `danger` (confirm End Ride). |
 | `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. |
 | `ElevationProfile` | Course stats row plus an SVG profile: `raised` fill, `fg-subtle` line, Ember for the stretch ridden and the position dot. Mile ticks in mono. |
-| `ProfilePanel` | Rider weight, bike weight, FTP (number inputs) and position (SegmentedControl). Shown from the top-bar Profile button between rides. |
+| `ProfilePage` | Its own screen at `#/profile` (top-bar Profile button, between rides). One panel of rows split by hairlines: label and help text left, input right. Locked mid-ride. |
 | `CoursePicker` | Free ride or a course (radio rows), Import GPX, and the start-mile input. |
 | `Stepper` | Its label slot can hold a control: the control row puts the Resistance / ERG SegmentedControl there. Value flanked by direct step buttons (largest step outside: -10 -5 -1 value +1 +5 +10), 48px tall, for adjusting from the saddle. Status text after, key hint in mono on the right. |
 
