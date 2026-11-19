@@ -4,29 +4,38 @@
  * Mirrors DESIGN.md. Change a value here, nowhere else.
  */
 :root {
-  /* Surfaces */
-  --ww-bg: #0a0b0d;
-  --ww-surface: #111316;
-  --ww-raised: #181b1f;
-  --ww-line: #23272c;
-  --ww-line-strong: #30353b;
+  /* Surfaces: warm off-white page, white panels. Depth from steps and hairlines. */
+  --ww-bg: #f5f2ec;
+  --ww-surface: #ffffff;
+  --ww-raised: #eeeae3;
+  --ww-line: #e2ddd4;
+  --ww-line-strong: #b9b2a6;
 
   /* Text */
-  --ww-fg: #f2f4f5;
-  --ww-fg-muted: #9aa1a9;
-  --ww-fg-subtle: #7c848d;
+  --ww-fg: #1b1a18;
+  --ww-fg-muted: #5c5850;
+  --ww-fg-subtle: #6e6960;
 
-  /* Ember accent: primary action and live power only */
-  --ww-accent: #ff6a3d;
-  --ww-accent-hover: #ff7f59;
-  --ww-accent-press: #e85a2f;
-  --ww-accent-ink: #140703;
+  /* Cobalt accent: primary action, live power, route progress only */
+  --ww-accent: #1f4fd1;
+  --ww-accent-hover: #1a43b3;
+  --ww-accent-press: #163996;
+  --ww-accent-ink: #ffffff;
 
-  /* Channels and states */
-  --ww-cadence: #5ec8e5;
-  --ww-state-on: #3ddc84;
-  --ww-state-under: #ffc247;
-  --ww-state-over: #ff5a5f;
+  /* Channels and states (darkened to read on a light background) */
+  --ww-cadence: #0f7591;
+  --ww-state-on: #1b7a43;
+  --ww-state-under: #8a5a00;
+  --ww-state-over: #c0282f;
+
+  /* Power zones: workout blocks and zone codes. Z2 is gray-blue so it never reads as the accent. */
+  --ww-z1: #8c9096;
+  --ww-z2: #6e86a0;
+  --ww-z3: #2e9a58;
+  --ww-z4: #b5850e;
+  --ww-z5: #d9661f;
+  --ww-z6: #cc2f36;
+  --ww-z7: #a8306a;
 
   /* Type */
   --ww-font-sans: 'Archivo Variable', system-ui, sans-serif;

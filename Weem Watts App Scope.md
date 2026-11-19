@@ -16,7 +16,7 @@ A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to re
 - **Connection:** Web Bluetooth over FTMS, with Cycling Power as a fallback. No Wahoo proprietary protocol.
 - **Repo:** GitHub repo "weem-watts" connected to Vercel
 - **Design system:** [Weem Watts Design System](https://claude.ai/artifact/MwUnE5KEPgbmD8FAaiLfcs). Claude Code reads its README and tokens before writing any UI. The design prompt also writes DESIGN.md into the repo, and CLAUDE.md points to it.
-- **Design rules in short:** dark graphite only, Archivo for everything, live power as the one big number in Ember (#FF6A3D), color only for actions, channels and states, no gradients, blur, purple or emoji.
+- **Design rules in short:** warm light theme (off-white page, white panels), Archivo for everything, live power as the one big number in Cobalt (#1F4FD1), color only for actions, channels and states, no gradients, blur, purple or emoji. Switched from dark graphite and Ember orange on Nov 19, 2026.
 - **Code reuse:** borrow only from MIT or Apache-2.0 repos (GPX Rider, Croissant Ride, serpentine). Read AGPL code (Auuki, OpenRadlr) and unlicensed code (ride-hud) for ideas only.
 - **Units:** Miles
 - **Not building:** 3D worlds, multiplayer, accounts

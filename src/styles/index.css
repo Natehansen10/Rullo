@@ -25,6 +25,13 @@
   --color-state-on: var(--ww-state-on);
   --color-state-under: var(--ww-state-under);
   --color-state-over: var(--ww-state-over);
+  --color-z1: var(--ww-z1);
+  --color-z2: var(--ww-z2);
+  --color-z3: var(--ww-z3);
+  --color-z4: var(--ww-z4);
+  --color-z5: var(--ww-z5);
+  --color-z6: var(--ww-z6);
+  --color-z7: var(--ww-z7);
 
   --font-*: initial;
   --font-sans: var(--ww-font-sans);

@@ -1,40 +1,54 @@
 # Weem Watts Design Rules
 
-Numbers first, dark graphite, and every color has one job. Built to be read from the saddle, a few feet from the screen.
+Numbers first, a warm light page, and every color has one job. Built to be read from the saddle, a few feet from the screen.
 
 Source: [Weem Watts Design System](https://claude.ai/artifact/MwUnE5KEPgbmD8FAaiLfcs). In code, `src/styles/tokens.css` is the single source of truth. No hex color may appear anywhere else.
 
 ## Principles
 
 - **One big number.** Live power is the hero. Everything else supports it.
-- **Color means something.** Chrome is neutral graphite. Color appears only for an action, a channel, or a state.
-- **Ember is rare.** `accent` has three jobs: the primary action, live power, and route progress (the ridden stretch and position dot on the elevation profile). It never fills anything bigger than a button.
+- **Color means something.** Chrome is neutral warm gray. Color appears only for an action, a channel, or a state.
+- **Cobalt is rare.** `accent` has three jobs: the primary action, live power, and route progress (the ridden stretch and position dot on the elevation profile). It never fills anything bigger than a button.
 - **Calm while riding.** Numbers update in place. Nothing jumps, bounces, or flashes.
 - **Never show frozen numbers as live.** Stale data turns `fg-subtle` and the StatusPill says "Reconnecting".
 - **Units are lb and miles.** Never show kg or km.
 
 ## Color tokens
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `bg` | #0A0B0D | App canvas |
-| `surface` | #111316 | Panels (one level, never nested) |
-| `raised` | #181B1F | Pills, inputs, secondary buttons, hover |
-| `line` | #23272C | Hairlines and panel borders |
-| `line-strong` | #30353B | Input borders, active segment |
-| `fg` | #F2F4F5 | Primary text, live numbers |
-| `fg-muted` | #9AA1A9 | Labels, units |
-| `fg-subtle` | #7C848D | Empty or stale values, tertiary text |
-| `accent` (Ember) | #FF6A3D | Primary action, live power |
-| `accent-hover` | #FF7F59 | Primary button hover |
-| `accent-press` | #E85A2F | Primary button press |
-| `accent-ink` | #140703 | Text on accent |
-| `cadence` | #5EC8E5 | Cadence chart lines and dots only |
-| `state-on` | #3DDC84 | Connected, on target |
-| `state-under` | #FFC247 | Connecting, reconnecting, under target |
-| `state-over` | #FF5A5F | Errors, destructive confirm, over target |
+| Token | Value | Use | Contrast |
+| --- | --- | --- | --- |
+| `bg` | #F5F2EC | App canvas, warm off-white | |
+| `surface` | #FFFFFF | Panels (one level, never nested), selected segment | |
+| `raised` | #EEEAE3 | Pills, inputs, secondary buttons, segment track | |
+| `line` | #E2DDD4 | Hairlines and panel borders, secondary hover | |
+| `line-strong` | #B9B2A6 | Input borders, selected segment border | |
+| `fg` | #1B1A18 | Primary text, live numbers | 17.4 on surface, 15.6 on bg |
+| `fg-muted` | #5C5850 | Labels, units | 7.1 on surface, 5.9 on raised |
+| `fg-subtle` | #6E6960 | Empty or stale values, tertiary text | 5.5 on surface, 4.9 on bg, 4.6 on raised |
+| `accent` (Cobalt) | #1F4FD1 | Primary action, live power, route progress | 6.8 on surface |
+| `accent-hover` | #1A43B3 | Primary button hover | |
+| `accent-press` | #163996 | Primary button press | |
+| `accent-ink` | #FFFFFF | Text on accent | 6.8 on accent |
+| `cadence` | #0F7591 | Cadence chart lines and dots only | 5.3 on surface |
+| `state-on` | #1B7A43 | Connected, on target | 5.4 on surface, 4.8 on bg |
+| `state-under` | #8A5A00 | Connecting, reconnecting, under target | 5.9 on surface, 5.3 on bg |
+| `state-over` | #C0282F | Errors, destructive confirm, over target | 5.9 on surface, 4.9 on raised |
 
-Dark only. No light theme.
+Light only. Text meets 4.5:1 on every background it sits on; live numbers and graphics meet 3:1.
+
+### Power zones
+
+For workout blocks and zone codes (v3.2). Each meets 3:1 on `surface`. Z2 is gray-blue, not blue, so it never reads as the accent. Always pair a zone color with its code (Z1 to Z7).
+
+| Token | Value | Zone |
+| --- | --- | --- |
+| `z1` | #8C9096 | Active recovery, gray |
+| `z2` | #6E86A0 | Endurance, gray-blue |
+| `z3` | #2E9A58 | Tempo, green |
+| `z4` | #B5850E | Threshold, amber |
+| `z5` | #D9661F | VO2 max, orange |
+| `z6` | #CC2F36 | Anaerobic, red |
+| `z7` | #A8306A | Neuromuscular, berry |
 
 ## Type
 
@@ -53,7 +67,7 @@ Dark only. No light theme.
 
 - Spacing steps only: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 (Tailwind `1 2 3 4 6 8 12 16`). Other steps are removed from the theme.
 - Radius: 4 for chips and pills (`rounded-sm`), 6 for buttons (`rounded-md`), 10 for panels (`rounded-lg`). Fully round only for status dots.
-- Depth comes from surface steps (`bg` to `surface` to `raised`) and 1px hairlines. No shadows.
+- Depth comes from surface steps (white `surface` panels on the `bg` page, `raised` for controls) and 1px hairlines. No shadows.
 
 ## Motion
 
@@ -77,9 +91,9 @@ Dark only. No light theme.
 | --- | --- |
 | `MetricTile` | One live number with label and unit. `size="hero"` for power only. `dim` grays it out. |
 | `StatusPill` | Connection state. Tones: `on`, `warn`, `error`, `idle`. |
-| `Button` | `primary` (Ember, one per screen), `secondary`, `danger` (confirm End Ride). |
-| `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. |
-| `ElevationProfile` | Course stats row plus an SVG profile: `raised` fill, `fg-subtle` line, Ember for the stretch ridden and the position dot. Mile ticks in mono. |
+| `Button` | `primary` (Cobalt, one per screen), `secondary`, `danger` (confirm End Ride). |
+| `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. Selected option is a `surface` chip with a `line-strong` border; hover only darkens text. One Tab stop, Left / Right arrows move the selection. |
+| `ElevationProfile` | Course stats row plus an SVG profile: `raised` fill, `fg-subtle` line, `accent` for the stretch ridden and the position dot. Mile ticks in mono. |
 | `ProfilePage` | Its own screen at `#/profile` (top-bar Profile button, between rides). One panel of rows split by hairlines: label and help text left, input right. Locked mid-ride. |
 | `CoursePicker` | Free ride or a course (radio rows), Import GPX, and the start-mile input. |
 | `Stepper` | Its label slot can hold a control: the control row puts the Resistance / ERG SegmentedControl there. Value flanked by direct step buttons (largest step outside: -10 -5 -1 value +1 +5 +10), 48px tall, for adjusting from the saddle. Status text after, key hint in mono on the right. |

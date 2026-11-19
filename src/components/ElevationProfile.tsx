@@ -31,7 +31,7 @@ function Stat({ label, value, unit, dim }: { label: string; value: string; unit?
   )
 }
 
-/** Course elevation profile. Ember marks the part ridden this ride and the current position. */
+/** Course elevation profile. Cobalt marks the part ridden this ride and the current position. */
 export function ElevationProfile({ live, dim = false, className = '' }: ElevationProfileProps) {
   const { course } = live
   const boxRef = useRef<HTMLDivElement>(null)
