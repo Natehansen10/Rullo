@@ -36,12 +36,6 @@ A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to re
 - **Cut:** accounts, heart rate, settings pages, themes, Strava
 - **Done when:** open the link, connect the Kickr, ride 10 minutes with every number updating, and download the ride as a FIT file
 
-### v1.5: Movie Mode overlay
-
-- Floating always-on-top window using Chrome's Document Picture-in-Picture: watts, cadence, miles
-- "Hide numbers" toggle that keeps recording
-- **Test first:** does the window float over fullscreen Netflix on Windows
-
 ### v2: Race course
 
 - Elevation profile with a moving position dot as the main view; a 2D map is optional
@@ -65,6 +59,14 @@ A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to re
 - SIM mode: grade averaged over 2 seconds and clamped to 0 to 16% (the Core 2 limit), with a "gradient feel" slider
 - Descents use calculated speed, since the Core 2 can't simulate downhill
 - No app-side gearing needed: the Kickr has a regular cassette, so shifting works normally in SIM mode
+
+### Later: Movie Mode overlay
+
+Moved down the road on Nov 19, 2026. Not scheduled; pick it up after v4 or when it earns its place.
+
+- Floating always-on-top window using Chrome's Document Picture-in-Picture: watts, cadence, miles
+- "Hide numbers" toggle that keeps recording
+- **Test first:** does the window float over fullscreen Netflix on Windows
 
 ## Research takeaways
 
