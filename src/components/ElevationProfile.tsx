@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { profilePoints } from '../lib/course'
 import { FEET_PER_METER, METERS_PER_MILE } from '../lib/physics'
 import type { CourseLive } from '../lib/ride'
+import { Stat } from './Stat'
 
 interface ElevationProfileProps {
   live: CourseLive
@@ -17,18 +18,6 @@ const MIN_RANGE_M = 15 // keep near-flat courses from looking mountainous
 function niceTickMi(lengthMi: number): number {
   for (const t of [0.5, 1, 2, 5, 10, 20, 25, 50]) if (lengthMi / t <= 8) return t
   return 100
-}
-
-function Stat({ label, value, unit, dim }: { label: string; value: string; unit?: string; dim: boolean }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="ww-label">{label}</span>
-      <span className={`ww-num ww-num-sm ${dim ? 'text-fg-subtle' : 'text-fg'}`}>
-        {value}
-        {unit && <span className="ww-unit">{unit}</span>}
-      </span>
-    </div>
-  )
 }
 
 /** Course elevation profile. Cobalt marks the part ridden this ride and the current position. */

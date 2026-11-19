@@ -54,3 +54,8 @@ export const DEFAULT_ERG_FTP_SHARE = 0.65
 export const ERG_RELEASE_RPM = 50
 export const ERG_RELEASE_AFTER_MS = 3000
 export const ERG_RESUME_RPM = 60
+
+/** Workout intensity, % of every workout target. Steps: arrows 1, + / - 5, Shift+arrows 10. */
+export const INTENSITY_STEPS_PCT = [1, 5, 10] as const
+export const INTENSITY_MIN_PCT = 50
+export const INTENSITY_MAX_PCT = 150

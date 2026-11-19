@@ -15,6 +15,8 @@ export interface RideRow {
   courseId?: string
   /** Where on the course the ride started, meters along the slope. */
   startOffsetM?: number
+  /** Workout ridden, if any. */
+  workoutId?: string
 }
 
 export interface SampleRow {
@@ -29,6 +31,9 @@ export interface SampleRow {
   /** Course rides only: position on the course (m) and elevation (m). */
   courseM?: number
   altitudeM?: number
+  /** Workout rides only: interval index (one FIT lap each) and seconds into the workout. */
+  lap?: number
+  workoutS?: number
 }
 
 /** A GPX the rider imported. Rebuilt into a Course on load. */
@@ -39,10 +44,19 @@ export interface ImportedCourseRow {
   addedAt: number
 }
 
+/** A ZWO workout the rider imported. Parsed again on load. */
+export interface ImportedWorkoutRow {
+  id: string
+  name: string
+  zwo: string
+  addedAt: number
+}
+
 class WeemWattsDB extends Dexie {
   rides!: EntityTable<RideRow, 'id'>
   samples!: Table<SampleRow, [number, number]>
   courses!: EntityTable<ImportedCourseRow, 'id'>
+  workouts!: EntityTable<ImportedWorkoutRow, 'id'>
 
   constructor() {
     super('weem-watts')
@@ -55,13 +69,24 @@ class WeemWattsDB extends Dexie {
       samples: '[rideId+t], rideId',
       courses: 'id, addedAt',
     })
+    this.version(3).stores({
+      rides: '++id, status, courseId',
+      samples: '[rideId+t], rideId',
+      courses: 'id, addedAt',
+      workouts: 'id, addedAt',
+    })
   }
 }
 
 const db = new WeemWattsDB()
 
-export async function startRide(startedAt: number, courseId?: string, startOffsetM?: number): Promise<number> {
-  return db.rides.add({ startedAt, status: 'active', courseId, startOffsetM } as RideRow)
+export async function startRide(
+  startedAt: number,
+  courseId?: string,
+  startOffsetM?: number,
+  workoutId?: string,
+): Promise<number> {
+  return db.rides.add({ startedAt, status: 'active', courseId, startOffsetM, workoutId } as RideRow)
 }
 
 /** Where the most recent ride on this course ended (m along the course), if any. */
@@ -87,6 +112,18 @@ export async function listImportedCourses(): Promise<ImportedCourseRow[]> {
 
 export async function deleteImportedCourse(id: string): Promise<void> {
   await db.courses.delete(id)
+}
+
+export async function saveImportedWorkout(row: ImportedWorkoutRow): Promise<void> {
+  await db.workouts.put(row)
+}
+
+export async function listImportedWorkouts(): Promise<ImportedWorkoutRow[]> {
+  return db.workouts.orderBy('addedAt').toArray()
+}
+
+export async function deleteImportedWorkout(id: string): Promise<void> {
+  await db.workouts.delete(id)
 }
 
 export async function recordSample(s: SampleRow): Promise<void> {

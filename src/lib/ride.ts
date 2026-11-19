@@ -12,6 +12,8 @@ import {
   ERG_RELEASE_RPM,
   ERG_RESUME_RPM,
   DEFAULT_SMOOTHING,
+  INTENSITY_MAX_PCT,
+  INTENSITY_MIN_PCT,
   MAX_SAMPLE_GAP_MS,
   SMOOTHING_OPTIONS,
   STALE_AFTER_MS,
@@ -28,6 +30,17 @@ import * as recorder from './recorder'
 import { PowerSmoother } from './smoothing'
 import type { ConnectionStatus, ControlResult, Trainer, TrainerReading } from './types'
 import { keepAwake } from './wakeLock'
+import {
+  flatten,
+  indexAt,
+  RAMP_TEST_FTP_SHARE,
+  targetWatts,
+  totalS,
+  wattsAt,
+  type Interval,
+  type Workout,
+} from './workout'
+import { importZwoFile, loadWorkouts, removeImportedWorkout } from './workouts'
 
 /** idle: no ride. ready: connected, waiting for the first pedal stroke. */
 export type Phase = 'idle' | 'ready' | 'riding' | 'ended'
@@ -42,6 +55,7 @@ const RESISTANCE_KEY = 'ww.resistancePct'
 const MODE_KEY = 'ww.mode'
 const ERG_KEY = 'ww.ergW'
 const COURSE_KEY = 'ww.courseId'
+const WORKOUT_KEY = 'ww.workoutId'
 /** A saved position this close to the finish starts the next ride from mile 0. */
 const NEAR_FINISH_M = 160
 
@@ -101,6 +115,43 @@ export interface CourseLive {
   finished: boolean
 }
 
+export interface WorkoutOption {
+  id: string
+  name: string
+  description: string
+  source: Workout['source']
+  durationS: number
+  rampTest: boolean
+}
+
+export interface RampTestLive {
+  /** The test is over (failed, ended, or ran out of steps); the cool-down is on. */
+  ended: boolean
+  /** Best average power over the test window so far. */
+  bestW: number | null
+  /** FTP estimate from bestW, once the test has ended. */
+  ftpW: number | null
+  /** The estimate has been saved to the profile. */
+  applied: boolean
+}
+
+export interface WorkoutLive {
+  workout: Workout
+  intervals: Interval[]
+  totalS: number
+  elapsedS: number
+  index: number
+  intervalLeftS: number
+  /** Current target after intensity. */
+  targetW: number
+  targetPct: number
+  nextTargetW: number | null
+  nextLabel: string | null
+  done: boolean
+  intensityPct: number
+  rampTest: RampTestLive | null
+}
+
 export interface RideSnapshot {
   phase: Phase
   connection: ConnectionStatus
@@ -135,8 +186,12 @@ export interface RideSnapshot {
   coursesLoaded: boolean
   /** Selected course, or null for a free ride. */
   course: CourseLive | null
-  /** Course selection and start mile can change only before a ride starts. */
+  /** Course or workout selection and start mile can change only before a ride starts. */
   canChooseCourse: boolean
+  workouts: WorkoutOption[]
+  workoutsLoaded: boolean
+  /** Selected workout (free rides only), or null. */
+  workout: WorkoutLive | null
 }
 
 const TICK_MS = 250
@@ -183,6 +238,20 @@ export class RideController {
   private lastEndM: number | null = null
   private climbedM = 0
 
+  private workouts: Workout[] = []
+  private workoutOptions: WorkoutOption[] = []
+  private workoutsLoaded = false
+  private workout: Workout | null = null
+  private intervals: Interval[] = []
+  /** Seconds into the workout. Advances with live data only, from timestamps. */
+  private workoutS = 0
+  private intensityPct = 100
+  private lastWorkoutW: number | null = null
+  private testEnded = false
+  private testWindow: { t: number; w: number }[] = []
+  private testBestW: number | null = null
+  private testApplied = false
+
   constructor() {
     const handlers = {
       onReading: (r: TrainerReading) => this.onReading(r),
@@ -193,6 +262,7 @@ export class RideController {
     setInterval(() => this.emit(), TICK_MS)
     void this.checkRecovery()
     void this.initCourses()
+    void this.initWorkouts()
   }
 
   // --- store plumbing for useSyncExternalStore ---
@@ -253,7 +323,7 @@ export class RideController {
       notice: this.notice,
       resistancePct: this.resistancePct,
       mode: this.mode,
-      ergTargetW: this.ergTargetW,
+      ergTargetW: this.ergW(),
       ergReleased: this.ergReleased,
       controlState: this.controlState,
       ergUnsupported: this.ergUnsupported,
@@ -270,7 +340,210 @@ export class RideController {
       coursesLoaded: this.coursesLoaded,
       course: this.courseLive(),
       canChooseCourse: this.phase === 'idle' && this.rideId === null,
+      workouts: this.workoutOptions,
+      workoutsLoaded: this.workoutsLoaded,
+      workout: this.workoutLive(),
     }
+  }
+
+  // --- workout player ---
+
+  /** Workout target in watts right now, after intensity. Null with no workout. */
+  private workoutTargetW(): number | null {
+    if (!this.workout) return null
+    const base = wattsAt(this.intervals, this.workoutS, this.profile.ftpW)
+    return Math.min(ERG_MAX_W, Math.max(ERG_MIN_W, Math.round((base * this.intensityPct) / 100)))
+  }
+
+  /** The ERG target: the workout's when one is loaded, else the rider's own. */
+  private ergW(): number {
+    return this.workoutTargetW() ?? this.ergTargetW
+  }
+
+  private workoutLive(): WorkoutLive | null {
+    const w = this.workout
+    if (!w) return null
+    const total = totalS(this.intervals)
+    const done = this.workoutS >= total
+    const index = indexAt(this.intervals, Math.min(this.workoutS, total - 0.001))
+    const iv = this.intervals[index]
+    const next = done ? null : (this.intervals[index + 1] ?? null)
+    const ftp = this.profile.ftpW
+    const targetW = this.workoutTargetW() ?? 0
+    const ftpEstimate = this.testBestW === null ? null : Math.round(this.testBestW * RAMP_TEST_FTP_SHARE)
+    return {
+      workout: w,
+      intervals: this.intervals,
+      totalS: total,
+      elapsedS: Math.min(this.workoutS, total),
+      index,
+      intervalLeftS: done ? 0 : iv.startS + iv.durS - this.workoutS,
+      targetW,
+      targetPct: (targetW / ftp) * 100,
+      nextTargetW: next ? Math.round((targetWatts(next.from, ftp) * this.intensityPct) / 100) : null,
+      nextLabel: next ? next.label : null,
+      done,
+      intensityPct: this.intensityPct,
+      rampTest: w.rampTest
+        ? { ended: this.testEnded, bestW: this.testBestW, ftpW: this.testEnded ? ftpEstimate : null, applied: this.testApplied }
+        : null,
+    }
+  }
+
+  /** In the ramp of a ramp test: past the warm-up, before the cool-down. */
+  private inRamp(): boolean {
+    if (!this.workout?.rampTest || this.testEnded) return false
+    const i = indexAt(this.intervals, this.workoutS)
+    return i > 0 && i < this.intervals.length - 1
+  }
+
+  private advanceWorkout(dtS: number, t: number, powerW: number) {
+    if (!this.workout) return
+    const total = totalS(this.intervals)
+    this.workoutS = Math.min(total, this.workoutS + dtS)
+    const test = this.workout.rampTest
+    if (test && !this.testEnded && dtS > 0) {
+      const win = this.testWindow
+      win.push({ t, w: powerW })
+      while (win.length && win[0].t <= t - test.windowS * 1000) win.shift()
+      // A full window only (one sample per second, so windowS - 1 seconds apart).
+      if (win.length && t - win[0].t >= (test.windowS - 1) * 1000) {
+        const avg = win.reduce((a, x) => a + x.w, 0) / win.length
+        if (this.testBestW === null || avg > this.testBestW) this.testBestW = Math.round(avg)
+      }
+      // Ran out of ramp steps.
+      if (indexAt(this.intervals, this.workoutS) === this.intervals.length - 1 && this.workoutS > this.intervals[1].startS) {
+        this.endRampTest()
+      }
+    }
+    this.syncWorkoutTarget()
+  }
+
+  /** Send the workout target when it changes (interval boundary, ramp, intensity). */
+  private syncWorkoutTarget() {
+    const w = this.workoutTargetW()
+    if (w === this.lastWorkoutW) return
+    this.lastWorkoutW = w
+    if (this.mode === 'erg' && !this.ergReleased) this.pushControl()
+  }
+
+  private endRampTest() {
+    if (!this.workout?.rampTest || this.testEnded) return
+    this.testEnded = true
+    this.testWindow = []
+    const cool = this.intervals[this.intervals.length - 1]
+    this.workoutS = Math.max(this.workoutS, cool.startS)
+    this.syncWorkoutTarget()
+  }
+
+  /** Jump to the next interval. In a ramp test's ramp, this ends the test. */
+  skipInterval = () => {
+    if (!this.workout || this.phase !== 'riding') return
+    if (this.inRamp()) {
+      this.endRampTest()
+    } else {
+      const total = totalS(this.intervals)
+      if (this.workoutS >= total) return
+      const next = this.intervals[indexAt(this.intervals, this.workoutS) + 1]
+      this.workoutS = next ? next.startS : total
+      this.syncWorkoutTarget()
+    }
+    this.emit()
+  }
+
+  setIntensity = (pct: number) => {
+    const next = Math.min(INTENSITY_MAX_PCT, Math.max(INTENSITY_MIN_PCT, Math.round(pct)))
+    if (next === this.intensityPct || !this.workout) return
+    this.intensityPct = next
+    this.syncWorkoutTarget()
+    this.emit()
+  }
+
+  stepIntensity = (delta: number) => this.setIntensity(this.intensityPct + delta)
+
+  /** Save the ramp test's FTP estimate. Allowed mid-ride: the cool-down is in watts. */
+  applyTestFtp = () => {
+    const live = this.workoutLive()?.rampTest
+    if (!live?.ftpW) return
+    this.profile = normalizeProfile({ ...this.profile, ftpW: live.ftpW })
+    saveProfile(this.profile)
+    this.testApplied = true
+    this.emit()
+  }
+
+  private resetWorkoutRun() {
+    this.workoutS = 0
+    this.intensityPct = 100
+    this.lastWorkoutW = null
+    this.testEnded = false
+    this.testWindow = []
+    this.testBestW = null
+    this.testApplied = false
+  }
+
+  private async initWorkouts() {
+    try {
+      this.workouts = await loadWorkouts(this.fake)
+    } catch (err) {
+      console.error('Workouts failed to load:', err)
+    }
+    this.refreshWorkoutOptions()
+    this.workoutsLoaded = true
+    const saved = storageGet(WORKOUT_KEY)
+    if (saved && this.canChoose()) this.selectWorkout(saved)
+    this.emit()
+  }
+
+  private refreshWorkoutOptions() {
+    this.workoutOptions = this.workouts.map((w) => ({
+      id: w.id,
+      name: w.name,
+      description: w.description,
+      source: w.source,
+      durationS: totalS(flatten(w)),
+      rampTest: !!w.rampTest,
+    }))
+  }
+
+  /** Pick a workout (free rides only; clears the course), or null for none. Switches to ERG. */
+  selectWorkout = (id: string | null) => {
+    if (!this.canChoose()) return
+    const w = id ? (this.workouts.find((x) => x.id === id) ?? null) : null
+    this.workout = w
+    this.intervals = w ? flatten(w) : []
+    this.resetWorkoutRun()
+    storageSet(WORKOUT_KEY, w?.id ?? null)
+    if (w) {
+      this.course = null
+      this.startOffsetM = 0
+      this.lastEndM = null
+      storageSet(COURSE_KEY, null)
+      this.setMode('erg')
+    }
+    this.emit()
+  }
+
+  importWorkout = async (file: File) => {
+    try {
+      const w = await importZwoFile(file)
+      this.workouts = [...this.workouts, w]
+      this.refreshWorkoutOptions()
+      this.notice = null
+      this.selectWorkout(w.id)
+    } catch (err) {
+      this.notice = err instanceof Error ? `Import failed: ${err.message}` : 'Import failed.'
+      this.emit()
+    }
+  }
+
+  removeWorkout = async (id: string) => {
+    const w = this.workouts.find((x) => x.id === id)
+    if (!w || w.source !== 'imported' || !this.canChoose()) return
+    await removeImportedWorkout(id)
+    this.workouts = this.workouts.filter((x) => x.id !== id)
+    this.refreshWorkoutOptions()
+    if (this.workout?.id === id) this.selectWorkout(null)
+    this.emit()
   }
 
   private positionM(): number {
@@ -348,6 +621,7 @@ export class RideController {
         } else {
           this.distanceM += this.speed.step(power, dtS)
         }
+        this.advanceWorkout(dtS, r.t, power)
       }
       this.lastPhysicsAt = r.t
     }
@@ -363,7 +637,8 @@ export class RideController {
     this.speed.reset()
     this.lastRecordedSec = -1
     this.climbedM = 0
-    this.rideId = recorder.startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined)
+    this.resetWorkoutRun()
+    this.rideId = recorder.startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined, this.workout?.id)
   }
 
   /** One sample per wall-clock second. */
@@ -379,6 +654,9 @@ export class RideController {
       distanceM: this.distanceM,
       ...(this.course
         ? { courseM: this.positionM(), altitudeM: elevationAt(this.course, this.positionM()) }
+        : {}),
+      ...(this.workout
+        ? { lap: indexAt(this.intervals, Math.min(this.workoutS, totalS(this.intervals) - 0.001)), workoutS: this.workoutS }
         : {}),
     }
     void this.rideId.then((rideId) => recorder.recordSample({ rideId, ...sample }))
@@ -408,6 +686,8 @@ export class RideController {
       this.lowCadenceSince ??= t
       if (t - this.lowCadenceSince >= ERG_RELEASE_AFTER_MS) {
         this.ergReleased = true
+        // Can't hold the ramp any more: that's the end of the test.
+        if (this.inRamp()) this.endRampTest()
         this.pushControl()
       }
     } else {
@@ -420,7 +700,7 @@ export class RideController {
     if (this.mode === 'erg' && !this.ergUnsupported) {
       return this.ergReleased
         ? { kind: 'resistance', pct: 0 } // released: easy spin-up
-        : { kind: 'power', watts: this.ergTargetW }
+        : { kind: 'power', watts: this.ergW() }
     }
     return { kind: 'resistance', pct: this.resistancePct }
   }
@@ -561,6 +841,7 @@ export class RideController {
     this.smoother.clear()
     this.speed.reset()
     if (this.course) void this.selectCourse(this.course.id)
+    if (this.workout) this.selectWorkout(this.workout.id)
     this.emit()
   }
 
@@ -590,6 +871,12 @@ export class RideController {
     this.startOffsetM = 0
     this.lastEndM = null
     storageSet(COURSE_KEY, c?.id ?? null)
+    if (c && this.workout) {
+      this.workout = null
+      this.intervals = []
+      this.resetWorkoutRun()
+      storageSet(WORKOUT_KEY, null)
+    }
     this.emit()
     if (!c) return
     try {
@@ -662,6 +949,20 @@ export class RideController {
         this.startOffsetM = rec.ride.startOffsetM ?? 0
       } else {
         this.notice = 'That ride\'s course is no longer available. Continuing as a free ride.'
+      }
+    }
+    this.workout = null
+    this.intervals = []
+    this.resetWorkoutRun()
+    if (rec.ride.workoutId) {
+      const w = this.workouts.find((x) => x.id === rec.ride.workoutId) ?? null
+      if (w) {
+        this.workout = w
+        this.intervals = flatten(w)
+        this.workoutS = rec.last.workoutS ?? 0
+        if (w.rampTest && this.workoutS >= this.intervals[this.intervals.length - 1].startS) this.testEnded = true
+      } else {
+        this.notice = 'That ride\'s workout is no longer available. Continuing without it.'
       }
     }
     this.emit()

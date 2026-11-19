@@ -112,6 +112,9 @@
   .ww-profile {
     height: var(--ww-profile-height);
   }
+  .ww-strip-preview {
+    height: var(--ww-strip-preview-height);
+  }
   .ww-num-control {
     font-size: var(--ww-num-control);
     min-width: 4.5ch;

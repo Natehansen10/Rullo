@@ -1,7 +1,7 @@
 /**
  * Minimal FIT activity file writer (Garmin FIT protocol 2.0).
- * Messages: file_id, event (timer start), record x N, event (timer stop),
- * lap, session, activity. Sport cycling; sub-sport indoor cycling for a free
+ * Messages: file_id, event (timer start), record x N with a lap after each
+ * workout interval, event (timer stop), last lap, session, activity. Sport cycling; sub-sport indoor cycling for a free
  * ride, virtual activity (Strava: Virtual Ride) for a course ride, which also
  * gets altitude on every record and total ascent.
  * Written from the FIT protocol docs. Structure informed by GPX Rider fit.mjs (MIT).
@@ -105,24 +105,40 @@ function le32(v: number): number[] {
 
 const fitTime = (ms: number) => Math.round(ms / 1000) - FIT_EPOCH_OFFSET_S
 
-export function buildFit(samples: SampleRow[]): Uint8Array {
-  if (samples.length === 0) throw new Error('No samples to export')
-  const first = samples[0]
-  const last = samples[samples.length - 1]
+interface Totals {
+  startT: number
+  endT: number
+  elapsedMs: number
+  timerMs: number
+  distanceM: number
+  maxSpeed: number
+  avgCadence: number
+  maxCadence: number
+  avgPower: number
+  maxPower: number
+  ascentM: number
+}
 
-  // Timer time counts only seconds with live data; reconnect gaps are excluded.
-  let timerMs = 1000
+/**
+ * Totals for a run of samples. Each sample counts for the time until the next
+ * sample (the next run's first sample for a lap), or 1 s for the last one.
+ * Gaps longer than MAX_SAMPLE_GAP_MS add elapsed time but no timer time.
+ * So laps add up exactly to the session.
+ */
+function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: number, prevAltM: number | undefined): Totals {
+  let timerMs = 0
   let maxPower = 0
   let maxCadence = 0
   let maxSpeed = 0
   let powerSum = 0
   let cadenceSum = 0
   let cadenceCount = 0
-  samples.forEach((s, i) => {
-    if (i > 0) {
-      const dt = s.t - samples[i - 1].t
-      if (dt <= MAX_SAMPLE_GAP_MS) timerMs += dt
-    }
+  let ascentM = 0
+  let alt = prevAltM
+  run.forEach((s, i) => {
+    const after = run[i + 1] ?? next
+    const dt = after ? after.t - s.t : 1000
+    if (dt <= MAX_SAMPLE_GAP_MS) timerMs += dt
     powerSum += s.powerW
     maxPower = Math.max(maxPower, s.powerW)
     maxCadence = Math.max(maxCadence, s.cadenceRpm)
@@ -131,23 +147,49 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
       cadenceSum += s.cadenceRpm
       cadenceCount++
     }
+    if (s.altitudeM !== undefined) {
+      if (alt !== undefined && s.altitudeM > alt) ascentM += s.altitudeM - alt
+      alt = s.altitudeM
+    }
   })
+  const first = run[0]
+  const last = run[run.length - 1]
+  const endT = next ? next.t : last.t + 1000
+  return {
+    startT: first.t,
+    endT,
+    elapsedMs: endT - first.t,
+    timerMs: Math.max(1000, timerMs),
+    distanceM: Math.max(0, last.distanceM - startDistanceM),
+    maxSpeed,
+    avgCadence: cadenceCount ? cadenceSum / cadenceCount : 0,
+    maxCadence,
+    avgPower: powerSum / run.length,
+    maxPower,
+    ascentM,
+  }
+}
+
+/** Contiguous runs of samples with the same lap (interval) number. No lap numbers: one run. */
+function splitLaps(samples: SampleRow[]): SampleRow[][] {
+  const runs: SampleRow[][] = []
+  for (const s of samples) {
+    const cur = runs[runs.length - 1]
+    if (cur && cur[cur.length - 1].lap === s.lap) cur.push(s)
+    else runs.push([s])
+  }
+  return runs
+}
+
+export function buildFit(samples: SampleRow[]): Uint8Array {
+  if (samples.length === 0) throw new Error('No samples to export')
+  const first = samples[0]
+  const last = samples[samples.length - 1]
+
   const onCourse = samples.some((s) => s.altitudeM !== undefined)
   const subSport = onCourse ? SUB_SPORT_VIRTUAL_ACTIVITY : SUB_SPORT_INDOOR_CYCLING
-  let ascentM = 0
-  if (onCourse) {
-    let prev: number | undefined
-    for (const s of samples) {
-      if (s.altitudeM === undefined) continue
-      if (prev !== undefined && s.altitudeM > prev) ascentM += s.altitudeM - prev
-      prev = s.altitudeM
-    }
-  }
-  const elapsedMs = last.t - first.t + 1000
-  const distanceM = last.distanceM
-  const avgPower = powerSum / samples.length
-  const avgCadence = cadenceCount ? cadenceSum / cadenceCount : 0
-  const avgSpeed = distanceM / (timerMs / 1000)
+  const all = totals(samples, undefined, 0, undefined)
+  const avgSpeed = (t: Totals) => t.distanceM / (t.timerMs / 1000)
 
   const w = new FitWriter()
 
@@ -176,21 +218,6 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
   ]
   if (onCourse) recordFields.push([2, UINT16]) // altitude, (m + 500) * 5
   w.define(2, MESG_RECORD, recordFields)
-  let lastWritten = -1
-  let lastAlt = samples.find((s) => s.altitudeM !== undefined)?.altitudeM ?? 0
-  for (const s of samples) {
-    const ts = fitTime(s.t)
-    if (ts === lastWritten) continue // one record per second
-    lastWritten = ts
-    const values = [ts, s.powerW, Math.min(254, s.cadenceRpm), s.speedMps * 1000, s.distanceM * 100]
-    if (onCourse) {
-      if (s.altitudeM !== undefined) lastAlt = s.altitudeM
-      values.push((lastAlt + 500) * 5)
-    }
-    w.write(2, values)
-  }
-
-  w.write(1, [fitTime(last.t), EVENT_TIMER, EVENT_TYPE_STOP_ALL])
 
   w.define(3, MESG_LAP, [
     [254, UINT16], // message_index
@@ -211,25 +238,56 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [25, ENUM], // sport
     [39, ENUM], // sub_sport
   ])
-  w.write(3, [
-    0,
-    fitTime(last.t),
-    EVENT_LAP,
-    EVENT_TYPE_STOP,
-    fitTime(first.t),
-    elapsedMs,
-    timerMs,
-    distanceM * 100,
-    avgSpeed * 1000,
-    maxSpeed * 1000,
-    Math.min(254, avgCadence),
-    Math.min(254, maxCadence),
-    avgPower,
-    maxPower,
-    ascentM,
-    SPORT_CYCLING,
-    subSport,
-  ])
+  const writeLap = (index: number, t: Totals) =>
+    w.write(3, [
+      index,
+      fitTime(t.endT - 1000),
+      EVENT_LAP,
+      EVENT_TYPE_STOP,
+      fitTime(t.startT),
+      t.elapsedMs,
+      t.timerMs,
+      t.distanceM * 100,
+      avgSpeed(t) * 1000,
+      t.maxSpeed * 1000,
+      Math.min(254, t.avgCadence),
+      Math.min(254, t.maxCadence),
+      t.avgPower,
+      t.maxPower,
+      t.ascentM,
+      SPORT_CYCLING,
+      subSport,
+    ])
+
+  // Records, with each finished lap written right after its records.
+  // Laps on a workout ride are its intervals; otherwise the whole ride is one lap.
+  const runs = splitLaps(samples)
+  let lastWritten = -1
+  let lastAlt = samples.find((s) => s.altitudeM !== undefined)?.altitudeM ?? 0
+  let lapStartDistance = 0
+  let lapPrevAlt: number | undefined
+  const finalLaps: Totals[] = []
+  runs.forEach((run, i) => {
+    for (const s of run) {
+      const ts = fitTime(s.t)
+      if (ts === lastWritten) continue // one record per second
+      lastWritten = ts
+      const values = [ts, s.powerW, Math.min(254, s.cadenceRpm), s.speedMps * 1000, s.distanceM * 100]
+      if (onCourse) {
+        if (s.altitudeM !== undefined) lastAlt = s.altitudeM
+        values.push((lastAlt + 500) * 5)
+      }
+      w.write(2, values)
+    }
+    const lap = totals(run, runs[i + 1]?.[0], lapStartDistance, lapPrevAlt)
+    lapStartDistance = run[run.length - 1].distanceM
+    lapPrevAlt = [...run].reverse().find((s) => s.altitudeM !== undefined)?.altitudeM ?? lapPrevAlt
+    if (i < runs.length - 1) writeLap(i, lap)
+    else finalLaps.push(lap)
+  })
+
+  w.write(1, [fitTime(last.t), EVENT_TIMER, EVENT_TYPE_STOP_ALL])
+  writeLap(runs.length - 1, finalLaps[0])
 
   w.define(4, MESG_SESSION, [
     [254, UINT16], // message_index
@@ -260,20 +318,21 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     fitTime(first.t),
     SPORT_CYCLING,
     subSport,
-    elapsedMs,
-    timerMs,
-    distanceM * 100,
-    avgSpeed * 1000,
-    maxSpeed * 1000,
-    Math.min(254, avgCadence),
-    Math.min(254, maxCadence),
-    avgPower,
-    maxPower,
-    ascentM,
+    all.elapsedMs,
+    all.timerMs,
+    all.distanceM * 100,
+    avgSpeed(all) * 1000,
+    all.maxSpeed * 1000,
+    Math.min(254, all.avgCadence),
+    Math.min(254, all.maxCadence),
+    all.avgPower,
+    all.maxPower,
+    all.ascentM,
     0,
-    1,
+    runs.length,
   ])
 
+  const timerMs = all.timerMs
   const tzOffsetS = -new Date(last.t).getTimezoneOffset() * 60
   w.define(5, MESG_ACTIVITY, [
     [253, UINT32], // timestamp

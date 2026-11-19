@@ -7,7 +7,18 @@ import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { Stepper } from './components/Stepper'
-import { ERG_MAX_W, ERG_MIN_W, ERG_STEPS_W, RESISTANCE_STEPS_PCT, SMOOTHING_OPTIONS } from './config'
+import { WorkoutPicker } from './components/WorkoutPicker'
+import { WorkoutRow } from './components/WorkoutRow'
+import {
+  ERG_MAX_W,
+  ERG_MIN_W,
+  ERG_STEPS_W,
+  INTENSITY_MAX_PCT,
+  INTENSITY_MIN_PCT,
+  INTENSITY_STEPS_PCT,
+  RESISTANCE_STEPS_PCT,
+  SMOOTHING_OPTIONS,
+} from './config'
 import { ride, useRide } from './hooks/useRide'
 import { go, isRoute, useRoute } from './hooks/useRoute'
 import type { RideSnapshot } from './lib/ride'
@@ -43,9 +54,12 @@ function status(s: RideSnapshot): { tone: StatusTone; label: string } {
 }
 
 const MODE_OPTIONS = ['resistance', 'erg'] as const
+const PICK_OPTIONS = ['course', 'workout'] as const
+type Pick = (typeof PICK_OPTIONS)[number]
 
 function controlStatus(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
+  if (s.workout && !erg && s.controlState !== 'unsupported') return 'Workout targets are off in Resistance. Press E for ERG.'
   if (erg && s.ergUnsupported) return "This trainer doesn't support ERG. Using your resistance level."
   if (!erg && s.controlState === 'unsupported') return "This trainer doesn't accept resistance control"
   if (s.controlState === 'failed') return "Trainer didn't take the change. Tap again."
@@ -53,6 +67,7 @@ function controlStatus(s: RideSnapshot): string | null {
     return erg ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
   }
   if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
+  if (erg && s.workout) return `Intensity · ${s.ergTargetW} W now`
   if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
   if (s.controlState === 'sending') return 'Setting'
   return null
@@ -74,15 +89,19 @@ export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
   const route = useRoute()
+  const [pickTab, setPickTab] = useState<Pick>('course')
+  const pick: Pick = s.workout ? 'workout' : s.course ? 'course' : pickTab
 
   // From the saddle. Resistance: arrows 1%, + / - 5%, Shift+arrows 10%.
-  // ERG: arrows 5 W, + / - 10 W, Shift+arrows 25 W. E switches mode.
+  // ERG: arrows 5 W, + / - 10 W, Shift+arrows 25 W. Workout in ERG: intensity 1 / 5 / 10%. E switches mode.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || !isRoute('ride')) return
-      const erg = ride.getSnapshot().mode === 'erg'
-      const step = erg ? ride.stepErg : ride.stepResistance
-      const [small, mid, large] = erg ? ERG_STEPS_W : RESISTANCE_STEPS_PCT
+      const snap = ride.getSnapshot()
+      const erg = snap.mode === 'erg'
+      const workout = erg && snap.workout !== null
+      const step = workout ? ride.stepIntensity : erg ? ride.stepErg : ride.stepResistance
+      const [small, mid, large] = workout ? INTENSITY_STEPS_PCT : erg ? ERG_STEPS_W : RESISTANCE_STEPS_PCT
       const arrow = e.shiftKey ? large : small
       if (e.key === 'ArrowUp') step(arrow)
       else if (e.key === 'ArrowDown') step(-arrow)
@@ -124,6 +143,20 @@ export default function App() {
       value={s.mode}
       onChange={ride.setMode}
       format={(m) => (m === 'erg' ? 'ERG' : 'Resistance')}
+    />
+  )
+
+  const pickSwitch = (
+    <SegmentedControl
+      label="Ride with"
+      options={PICK_OPTIONS}
+      value={pick}
+      onChange={(p) => {
+        setPickTab(p)
+        if (p === 'course') ride.selectWorkout(null)
+        else void ride.selectCourse(null)
+      }}
+      format={(p) => (p === 'course' ? 'Course' : 'Workout')}
     />
   )
 
@@ -184,7 +217,7 @@ export default function App() {
           {s.connection.kind === 'failed' && (
             <Notice title={live ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
           )}
-          {s.recovery && s.coursesLoaded && s.phase === 'idle' && !s.resuming && (
+          {s.recovery && s.coursesLoaded && s.workoutsLoaded && s.phase === 'idle' && !s.resuming && (
             <Notice
               title="Unfinished ride found"
               actions={
@@ -201,8 +234,21 @@ export default function App() {
             <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
           )}
           {s.notice && <Notice title={s.notice} />}
-          {s.canChooseCourse && (
+          {s.canChooseCourse && pick === 'workout' && (
+            <WorkoutPicker
+              workouts={s.workouts}
+              loaded={s.workoutsLoaded}
+              selected={s.workout}
+              ftpW={s.profile.ftpW}
+              onSelect={ride.selectWorkout}
+              onImport={(f) => void ride.importWorkout(f)}
+              onRemove={(id) => void ride.removeWorkout(id)}
+              switcher={pickSwitch}
+            />
+          )}
+          {s.canChooseCourse && pick === 'course' && (
             <CoursePicker
+              switcher={pickSwitch}
               courses={s.courses}
               loaded={s.coursesLoaded}
               selected={s.course}
@@ -216,7 +262,7 @@ export default function App() {
           <section
             aria-label="Live ride data"
             className={`grid flex-1 grid-cols-1 rounded-lg border border-line bg-surface xl:grid-cols-2 ${
-              s.course
+              s.course || s.workout
                 ? 'grid-rows-[1fr_auto_auto_auto] xl:grid-rows-[1fr_auto_auto]'
                 : 'grid-rows-[1fr_auto_auto] xl:grid-rows-[1fr_auto]'
             }`}
@@ -274,7 +320,32 @@ export default function App() {
                 className="border-t border-line p-6 xl:col-span-2"
               />
             )}
-            {s.mode === 'erg' ? (
+            {s.workout && (
+              <WorkoutRow
+                live={s.workout}
+                ftpW={s.profile.ftpW}
+                dim={s.phase === 'riding' ? s.stale : true}
+                canSkip={s.phase === 'riding'}
+                onSkip={ride.skipInterval}
+                onApplyFtp={ride.applyTestFtp}
+                className="border-t border-line p-6 xl:col-span-2"
+              />
+            )}
+            {s.mode === 'erg' && s.workout && !s.ergUnsupported ? (
+              <Stepper
+                label={modeSwitch}
+                value={String(s.workout.intensityPct)}
+                unit="%"
+                steps={INTENSITY_STEPS_PCT}
+                onStep={ride.stepIntensity}
+                stepLabel={(d) => `Workout intensity ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)}%`}
+                atMin={s.workout.intensityPct <= INTENSITY_MIN_PCT}
+                atMax={s.workout.intensityPct >= INTENSITY_MAX_PCT}
+                status={controlStatus(s)}
+                hint="intensity ↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
+                className="border-t border-line p-6 xl:col-span-2"
+              />
+            ) : s.mode === 'erg' ? (
               <Stepper
                 label={modeSwitch}
                 value={String(s.ergTargetW)}

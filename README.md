@@ -1,6 +1,6 @@
 # Weem Watts
 
-A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, saves every second to the browser, and exports a FIT file.
+A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, runs structured workouts in ERG (built-ins or imported ZWO files), saves every second to the browser, and exports a FIT file.
 
 **Live:** https://weem-watts.vercel.app
 
@@ -32,7 +32,18 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 - In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release and re-engage.
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
 - Press **End Ride** twice (the second click confirms) to end and download the FIT file.
+- Pick **Workout**, then **Test Intervals** (2 minutes) to watch ERG follow each interval, or **Test Ramp** and press **C** mid-ramp to fail the test and get an FTP estimate. These two show only with `?fake=1`.
 - Reload mid-ride to test crash recovery: an "Unfinished ride found" bar offers Resume or End and download.
+
+## Workouts
+
+Switch the picker to **Workout** before connecting. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3 and a Ramp FTP test. **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
+
+- Picking a workout switches to ERG, and the trainer follows each interval. Workouts are for free rides (no course).
+- In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.
+- **Skip interval** jumps ahead. In the ramp test, dropping below 50 rpm (or **End test**) ends the test, starts the cool-down and offers **Set FTP**.
+- When the workout ends, ERG holds the cool-down watts until you press End Ride.
+- Each interval is a lap in the FIT file.
 
 ## Profile
 

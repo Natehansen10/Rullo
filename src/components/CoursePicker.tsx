@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { METERS_PER_MILE } from '../lib/physics'
 import type { CourseLive, CourseOption } from '../lib/ride'
 import { Button } from './Button'
+import { PickerRow as Row } from './PickerRow'
 
 interface CoursePickerProps {
   courses: CourseOption[]
@@ -11,48 +12,12 @@ interface CoursePickerProps {
   onStartMi: (mi: number) => void
   onImport: (file: File) => void
   onRemove: (id: string) => void
-}
-
-function Row({
-  checked,
-  onClick,
-  title,
-  meta,
-  action,
-}: {
-  checked: boolean
-  onClick: () => void
-  title: string
-  meta: string
-  action?: React.ReactNode
-}) {
-  return (
-    <div className={`flex items-center gap-4 border-t border-line px-6 py-3 ${checked ? 'bg-raised' : ''}`}>
-      <button
-        type="button"
-        role="radio"
-        aria-checked={checked}
-        onClick={onClick}
-        className="ww-press flex flex-1 cursor-pointer items-center gap-4 text-left"
-      >
-        <span
-          aria-hidden
-          className={`flex size-4 items-center justify-center rounded-full border ${
-            checked ? 'border-fg' : 'border-line-strong'
-          }`}
-        >
-          {checked && <span className="size-2 rounded-full bg-fg" />}
-        </span>
-        <span className={`font-semibold ${checked ? 'text-fg' : 'text-fg-muted'}`}>{title}</span>
-        <span className="font-mono text-mono text-fg-subtle">{meta}</span>
-      </button>
-      {action}
-    </div>
-  )
+  /** Course / Workout switch, shown in the header. */
+  switcher: ReactNode
 }
 
 /** Free ride or a course, plus the start mile. Shown only before a ride starts. */
-export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, onImport, onRemove }: CoursePickerProps) {
+export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, onImport, onRemove, switcher }: CoursePickerProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [startText, setStartText] = useState('')
   const startMi = selected?.startMi ?? 0
@@ -72,7 +37,7 @@ export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, o
   return (
     <section aria-label="Choose a course" className="rounded-lg border border-line bg-surface">
       <div className="flex items-center justify-between gap-4 px-6 py-4">
-        <span className="ww-label">Course</span>
+        {switcher}
         <Button onClick={() => fileRef.current?.click()}>Import GPX</Button>
         <input
           ref={fileRef}
