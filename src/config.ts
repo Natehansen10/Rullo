@@ -6,7 +6,7 @@
 /** Rider weight in pounds. */
 export const RIDER_WEIGHT_LB = 185
 /** Bike weight in pounds. */
-export const BIKE_WEIGHT_LB = 20
+export const BIKE_WEIGHT_LB = 18
 
 /**
  * Drag area (m^2) for a tall rider (6'3") on the hoods.
