@@ -1,0 +1,135 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import './tokens.css';
+
+/*
+ * Map design tokens into Tailwind. Default palettes, radii, spacing and
+ * shadows are cleared so only design-system values exist as utilities.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--ww-bg);
+  --color-surface: var(--ww-surface);
+  --color-raised: var(--ww-raised);
+  --color-line: var(--ww-line);
+  --color-line-strong: var(--ww-line-strong);
+  --color-fg: var(--ww-fg);
+  --color-fg-muted: var(--ww-fg-muted);
+  --color-fg-subtle: var(--ww-fg-subtle);
+  --color-accent: var(--ww-accent);
+  --color-accent-hover: var(--ww-accent-hover);
+  --color-accent-press: var(--ww-accent-press);
+  --color-accent-ink: var(--ww-accent-ink);
+  --color-cadence: var(--ww-cadence);
+  --color-state-on: var(--ww-state-on);
+  --color-state-under: var(--ww-state-under);
+  --color-state-over: var(--ww-state-over);
+
+  --font-*: initial;
+  --font-sans: var(--ww-font-sans);
+  --font-mono: var(--ww-font-mono);
+
+  --spacing: initial;
+  --spacing-*: initial;
+  --spacing-0: 0px;
+  --spacing-1: var(--ww-space-1);
+  --spacing-2: var(--ww-space-2);
+  --spacing-3: var(--ww-space-3);
+  --spacing-4: var(--ww-space-4);
+  --spacing-6: var(--ww-space-6);
+  --spacing-8: var(--ww-space-8);
+  --spacing-12: var(--ww-space-12);
+  --spacing-16: var(--ww-space-16);
+
+  --radius-*: initial;
+  --radius-sm: var(--ww-radius-sm);
+  --radius-md: var(--ww-radius-md);
+  --radius-lg: var(--ww-radius-lg);
+
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --blur-*: initial;
+
+  --text-title: var(--ww-title-size);
+  --text-label: var(--ww-label-size);
+  --text-body: var(--ww-body-size);
+  --text-mono: var(--ww-mono-size);
+
+  --ease-*: initial;
+  --ease-out: var(--ww-ease);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--ww-bg);
+    color: var(--ww-fg);
+    font-family: var(--ww-font-sans);
+    font-size: var(--ww-body-size);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ww-fg-muted);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Live numbers: Archivo 600 at 112% width, tabular, tight leading. */
+  .ww-num {
+    font-family: var(--ww-font-sans);
+    font-weight: var(--ww-num-weight);
+    font-stretch: var(--ww-num-stretch);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--ww-num-leading);
+    letter-spacing: var(--ww-num-tracking);
+    transition: color var(--ww-dur-base) var(--ww-ease);
+  }
+  .ww-num-hero {
+    font-size: var(--ww-num-hero);
+  }
+  .ww-num-lg {
+    font-size: clamp(var(--ww-num-md), 4.5vw, var(--ww-num-lg));
+  }
+  @media (max-width: 1199px) {
+    .ww-num-hero {
+      font-size: var(--ww-num-hero-compact);
+    }
+  }
+  .ww-unit {
+    font-size: calc(1em * var(--ww-unit-scale));
+    color: var(--ww-fg-muted);
+    margin-left: var(--ww-space-1);
+    letter-spacing: 0;
+  }
+  .ww-wordmark {
+    font-size: var(--ww-title-size);
+    font-weight: 600;
+    font-stretch: var(--ww-num-stretch);
+    letter-spacing: -0.01em;
+    color: var(--ww-fg);
+  }
+  .ww-label {
+    font-size: var(--ww-label-size);
+    font-weight: var(--ww-label-weight);
+    letter-spacing: var(--ww-label-tracking);
+    text-transform: uppercase;
+    color: var(--ww-fg-muted);
+    line-height: 16px;
+  }
+  .ww-press {
+    transition-property: background-color, color, border-color, transform;
+    transition-duration: var(--ww-dur-fast);
+    transition-timing-function: var(--ww-ease);
+  }
+  .ww-press:active:not(:disabled) {
+    transform: scale(var(--ww-press-scale));
+  }
+}
