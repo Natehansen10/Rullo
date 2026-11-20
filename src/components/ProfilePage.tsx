@@ -273,7 +273,7 @@ export function ProfilePage({
           help="Build your own, or import ZWO files, the format Zwift and most workout sites use."
           button="Import ZWO"
           accept=".zwo,application/xml,text/xml"
-          extra={{ label: 'New workout', onClick: onNewWorkout }}
+          extra={{ label: 'Custom Workout', onClick: onNewWorkout }}
           items={workouts
             .filter((w) => w.source !== 'builtin')
             .map((w) =>

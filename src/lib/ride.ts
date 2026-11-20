@@ -145,6 +145,8 @@ export interface WorkoutOption {
   tag?: string
   durationS: number
   rampTest: boolean
+  /** Every interval, for the small graph on the workout's card. */
+  intervals: Interval[]
 }
 
 /** Outcome of saving a built workout. `conflict`: the saved copy changed in another tab. */
@@ -614,15 +616,19 @@ export class RideController {
   }
 
   private refreshWorkoutOptions() {
-    this.workoutOptions = this.workouts.map((w) => ({
+    this.workoutOptions = this.workouts.map((w) => {
+      const intervals = flatten(w)
+      return {
       id: w.id,
       name: w.name,
       description: w.description,
       source: w.source,
       tag: w.tag,
-      durationS: totalS(flatten(w)),
+      durationS: totalS(intervals),
       rampTest: !!w.rampTest,
-    }))
+      intervals,
+      }
+    })
   }
 
   /** Pick a workout, or null for none. Independent of the course. Switches to ERG. */

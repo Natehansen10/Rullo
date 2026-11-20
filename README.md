@@ -42,7 +42,7 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 Open the **Workout** tab before connecting. It is two steps:
 
 1. **Choose your course.** A flat road or a course. Click a course to open its overview (distance, climbing, low and high points, the elevation profile) and set the start mile. Press **Next**.
-2. **Choose your workout.** A free ride or a workout. Filter by **Difficulty** (easy, medium, hard) and **Length** (15 min, 30 min, 45 min, 1 h, 1.5 h, 2 h+). Click a workout to open its description and interval strip. Press **Done** to go to the Ride tab.
+2. **Choose your workout.** A library of cards, each with a small graph of the workout. **Custom Workout** is the first card and opens the builder; **Free ride** is next. The side menu switches between **All workouts** and **Custom** (the ones you built or imported). Filter by **Length** and **Difficulty**. Click a card to open the workout's overview (graph, description, **Edit a copy**), then press **Ride this workout**.
 
 What sets the load:
 
@@ -61,7 +61,7 @@ Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO 
 
 ### Build a workout
 
-Press **New workout** (first in the list in step 2 of the Workout tab, or on Profile), or open any workout and press **Edit a copy** to start from it. The builder works like Zwift's editor.
+Press **Custom Workout** (the first card in step 2 of the Workout tab, or the button on Profile), or open any workout and press **Edit a copy** to start from it. The builder works like Zwift's editor.
 
 1. **Name it.** Click the title, type, press Enter.
 2. **Add blocks.** Click a tile on the right (Z1 to Z6, Warm up, Cool down, Intervals) to add it after the selected block, or drag the tile to a spot on the graph.
@@ -69,7 +69,7 @@ Press **New workout** (first in the list in step 2 of the Workout tab, or on Pro
 4. **Intervals** have a − / + repeat count and Duration One / Power One, Duration Two / Power Two. **Add step** gives a repeat a third step or more.
 5. **Cadence.** Select a block and click the Cadence tile (or drag it onto a block). The × removes it.
 6. **Move and delete.** Drag a block sideways to move it, or onto **Delete block** to remove it. **Undo** (Ctrl + Z) takes back any change.
-7. **Save.** You land back on step 2 with the workout selected.
+7. **Save.** You land on the workout's overview, ready to ride.
 
 - **Display** switches the power fields between % FTP and watts. A bare number takes the unit on display; `225w` or `90%` always wins. A % target follows your FTP, a watts target stays fixed.
 - Keys on a block: ← → select, ↑ ↓ power, Shift + ← → time, Alt + ← → move, Delete, Ctrl + D duplicate.

@@ -2,6 +2,29 @@
 
 Built Nov 20, 2026, ahead of the v3.2 ride test at Nate's request. Research: `docs/workout-builder-research.md`. Reference screenshots: `docs/builder-screenshots/` (interaction ideas only; the look is DESIGN.md).
 
+## Third pass, Nov 20, 2026: the Workout tab as a library
+
+Nate's note: the step 2 list was crammed, the "+ New workout" row was too small, and the tab looked nothing like Zwift. Step 2 is now laid out after Zwift's Workouts page, as the guide describes it. The Zwift support screenshots the guide cites (`zwift-workout-flow/`) are not in the repo, so this follows the guide's written description of that page, not the images.
+
+| Zwift | Here |
+| --- | --- |
+| Side menu: Collections, Custom, All Workouts | Side menu: All workouts, Custom (built or imported), each with a count |
+| DURATION and EFFORT filters, a count | Length and Difficulty filters, a count |
+| A grid of cards; the first is a big + CREATE WORKOUT tile | A grid of cards; the first is always the **Custom Workout** tile |
+| Each card: a small block graph, the name, duration and effort | Same: small graph, name, length, difficulty, source |
+| Click a card for its overview: name, duration, description, graph, START RIDE, Copy | Same: Ride this workout (primary), Edit a copy; Edit and Delete for your own |
+| Save in the editor lands on the overview | Same |
+
+Calls:
+
+- **"New workout" is now "Custom Workout"** on the tile and on the Profile button. The builder's default title is still "New workout", as in Zwift's editor.
+- **The two steps stay.** The course is still step 1; a workout does not store a route. Step 1 keeps its list layout: there are only a few courses.
+- **Free ride is a card**, right after the Custom Workout tile.
+- **No Collections.** There are no plans or collections to show; Difficulty covers it.
+- **Cards sit on the page, not in a panel** (DESIGN.md bans nested panels). The tile is `raised`, not Cobalt: Cobalt never fills anything bigger than a button.
+- **One primary per screen:** Done on the grid, Ride this workout on the overview.
+- **Delete in the overview** asks twice, for custom and imported workouts.
+
 ## Second pass, Nov 20, 2026: rebuilt after Zwift's editor
 
 Nate asked for the builder to work and look like Zwift's workout editor, in this app's branding. The guide he supplied ("Zwift: how create a new workout works, click by click") is the reference. The step list from the first pass is kept as an optional view of the same data.

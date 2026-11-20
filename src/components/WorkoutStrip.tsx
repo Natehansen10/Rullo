@@ -11,6 +11,8 @@ interface WorkoutStripProps {
   intensityPct?: number
   /** Height class: `ww-profile` on the ride screen, `ww-strip-preview` in the picker. */
   heightClass: string
+  /** Watt labels above the blocks. Off for the small graph on a workout card. */
+  labels?: boolean
   className?: string
 }
 
@@ -34,6 +36,7 @@ export function WorkoutStrip({
   elapsedS,
   intensityPct = 100,
   heightClass,
+  labels = true,
   className = '',
 }: WorkoutStripProps) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -54,7 +57,7 @@ export function WorkoutStrip({
     const pcts = intervals.map((iv) => [targetPct(iv.from, ftpW), targetPct(iv.to, ftpW)] as const)
     const scale = Math.max(MIN_SCALE_PCT, ...pcts.flat())
     const x = (s: number) => (s / totalS) * w
-    const body = h - LABEL_BAND
+    const body = h - (labels ? LABEL_BAND : 0)
     const y = (p: number) => h - (Math.max(0, p) / scale) * body
     const watts = (t: Interval['from']) => Math.round((targetWatts(t, ftpW) * intensityPct) / 100)
     return intervals.map((iv, i) => {
@@ -69,10 +72,10 @@ export function WorkoutStrip({
         key: iv.index,
         d: `M${x0.toFixed(1)},${h}L${x0.toFixed(1)},${y(a).toFixed(1)}L${x1.toFixed(1)},${y(b).toFixed(1)}L${x1.toFixed(1)},${h}Z`,
         zone: zoneOf((a + b) / 2),
-        label: fits ? { text, x: (x0 + x1) / 2, y: Math.min(y(a), y(b)) - 4 } : null,
+        label: fits && labels ? { text, x: (x0 + x1) / 2, y: Math.min(y(a), y(b)) - 4 } : null,
       }
     })
-  }, [intervals, ftpW, totalS, intensityPct, w, h])
+  }, [intervals, ftpW, totalS, intensityPct, w, h, labels])
 
   const posX = elapsedS === undefined ? null : Math.min(w, (elapsedS / totalS) * w)
 

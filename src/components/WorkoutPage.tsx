@@ -16,6 +16,10 @@ interface WorkoutPageProps {
   onNewWorkout: () => void
   onEditWorkout: (id: string) => void
   onCopyWorkout: (id: string) => void
+  onRemoveWorkout: (id: string) => void
+  /** The selected workout's overview is open. Kept by the app, so saving in the builder lands on it. */
+  detail: boolean
+  onDetail: (open: boolean) => void
   /** Setup done: go to the Ride tab. */
   onDone: () => void
   notice?: ReactNode
@@ -63,6 +67,9 @@ export function WorkoutPage({
   onNewWorkout,
   onEditWorkout,
   onCopyWorkout,
+  onRemoveWorkout,
+  detail,
+  onDetail,
   onDone,
 }: WorkoutPageProps) {
   const locked = !s.canChooseCourse
@@ -97,16 +104,18 @@ export function WorkoutPage({
         <p className="text-fg-muted">{STEPS[step].help}</p>
       </div>
       {notice}
-      <section aria-label={STEPS[step].title} className="overflow-hidden rounded-lg border border-line bg-surface">
-        {step === 0 ? (
-          <CoursePicker
-            courses={s.courses}
-            loaded={s.coursesLoaded}
-            selected={s.course}
-            onSelect={onSelectCourse}
-            onStartMi={onStartMi}
-          />
-        ) : (
+      {step === 0 ? (
+        <section aria-label={STEPS[0].title} className="overflow-hidden rounded-lg border border-line bg-surface">
+          <CoursePicker courses={s.courses} loaded={s.coursesLoaded} selected={s.course} onSelect={onSelectCourse} onStartMi={onStartMi} />
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-4">
+            {summary}
+            <Button variant="primary" onClick={() => setStep(1)}>
+              Next: choose your workout
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <>
           <WorkoutPicker
             workouts={s.workouts}
             loaded={s.workoutsLoaded}
@@ -114,27 +123,28 @@ export function WorkoutPage({
             onCourse={!!s.course}
             ftpW={s.profile.ftpW}
             onSelect={onSelectWorkout}
+            detail={detail}
+            onDetail={onDetail}
+            onRide={onDone}
             onNew={onNewWorkout}
             onEdit={onEditWorkout}
             onCopy={onCopyWorkout}
+            onRemove={onRemoveWorkout}
           />
-        )}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-4">
-          {summary}
-          <div className="flex shrink-0 gap-3">
-            {step === 1 && <Button onClick={() => setStep(0)}>Back</Button>}
-            {step === 0 ? (
-              <Button variant="primary" onClick={() => setStep(1)}>
-                Next: choose your workout
-              </Button>
-            ) : (
-              <Button variant="primary" onClick={onDone}>
-                Done: go to Ride
-              </Button>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4">
+            {summary}
+            <div className="flex shrink-0 gap-3">
+              <Button onClick={() => setStep(0)}>Back</Button>
+              {/* In a workout's overview, "Ride this workout" is the one primary button. */}
+              {!(detail && s.workout) && (
+                <Button variant="primary" onClick={onDone}>
+                  Done: go to Ride
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </>
+      )}
     </div>
   )
 }

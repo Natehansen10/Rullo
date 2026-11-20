@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { WorkoutLive, WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
-import { PickerRow } from './PickerRow'
 import { SegmentedControl } from './SegmentedControl'
+import { Stat } from './Stat'
 import { WorkoutStrip } from './WorkoutStrip'
 
 const DIFFICULTIES = ['all', 'easy', 'medium', 'hard'] as const
@@ -34,12 +34,6 @@ export function lengthBucketLabel(durationS: number): string {
   return LENGTH_BUCKETS.find((b) => durationS / 60 <= b.maxMin)!.label
 }
 
-/** First sentence of a description, capped, so long ZWO descriptions stay on one line. */
-function summary(text: string, max = 70): string {
-  const first = text.trim().split(/(?<=[.!?])\s/)[0]?.replace(/\s+/g, ' ') ?? ''
-  return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first
-}
-
 interface WorkoutPickerProps {
   workouts: WorkoutOption[]
   loaded: boolean
@@ -48,99 +42,229 @@ interface WorkoutPickerProps {
   onCourse: boolean
   ftpW: number
   onSelect: (id: string | null) => void
+  /** The selected workout's overview is open (in place of the grid). */
+  detail: boolean
+  onDetail: (open: boolean) => void
+  /** Ride the selected workout: on to the Ride tab. */
+  onRide: () => void
   /** Open the builder: a new workout, the selected custom workout, or a copy of any workout. */
   onNew: () => void
   onEdit: (id: string) => void
   onCopy: (id: string) => void
+  onRemove: (id: string) => void
 }
 
+const VIEWS = ['all', 'custom'] as const
+type View = (typeof VIEWS)[number]
+const VIEW_LABEL: Record<View, string> = { all: 'All workouts', custom: 'Custom' }
+const CONFIRM_MS = 3000
+const isMine = (w: WorkoutOption) => w.source !== 'builtin'
+const metaOf = (w: WorkoutOption) =>
+  `${w.rampTest ? 'until you stop' : formatDuration(w.durationS)}${w.tag ? ` · ${w.tag}` : ''}${
+    w.source === 'imported' ? ' · imported' : w.source === 'custom' ? ' · custom' : ''
+  }`
+
+const CARD = 'ww-press flex min-h-[9rem] cursor-pointer flex-col justify-between gap-3 rounded-lg border p-4 text-left'
+
 /**
- * Step 2 on the Workout tab: a free ride or a workout, filtered by difficulty
- * and length. The selected workout opens its description and interval strip.
+ * Step 2 on the Workout tab, laid out like a workout library: a side menu
+ * (All workouts, Custom), filters and a count, then a grid of cards led by the
+ * Custom Workout tile. Each card is a small graph of the workout, its name,
+ * its length and difficulty. Picking a card opens the workout's overview.
  */
-export function WorkoutPicker({ workouts, loaded, selected, onCourse, ftpW, onSelect, onNew, onEdit, onCopy }: WorkoutPickerProps) {
+export function WorkoutPicker({
+  workouts,
+  loaded,
+  selected,
+  onCourse,
+  ftpW,
+  onSelect,
+  detail,
+  onDetail,
+  onRide,
+  onNew,
+  onEdit,
+  onCopy,
+  onRemove,
+}: WorkoutPickerProps) {
+  const [view, setView] = useState<View>('all')
   const [difficulty, setDifficulty] = useState<Difficulty>('all')
   const [length, setLength] = useState<Length>('any')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  useEffect(() => {
+    if (!confirmDelete) return
+    const t = setTimeout(() => setConfirmDelete(false), CONFIRM_MS)
+    return () => clearTimeout(t)
+  }, [confirmDelete])
+
   const filtering = difficulty !== 'all' || length !== 'any'
-  const shown = workouts.filter(
+  const inView = workouts.filter((w) => view === 'all' || isMine(w))
+  const shown = inView.filter(
     (w) =>
       // The picked workout stays in view whatever the filters say.
       w.id === selected?.workout.id ||
       ((difficulty === 'all' || w.tag === difficulty) && (length === 'any' || lengthOf(w) === length)),
   )
-  return (
-    <>
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-b border-line px-6 py-4">
-        <div className="flex items-center gap-3">
-          <span className="ww-label">Difficulty</span>
-          <SegmentedControl
-            label="Difficulty"
-            options={DIFFICULTIES}
-            value={difficulty}
-            onChange={setDifficulty}
-            format={(d) => DIFFICULTY_LABEL[d]}
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="ww-label">Length</span>
-          <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={setLength} format={lengthLabel} />
-        </div>
-        <span className="ml-auto font-mono text-mono text-fg-subtle" aria-live="polite">
-          {shown.length} of {workouts.length} workouts
-        </span>
-      </div>
-      {/* First in the list, like the create tile that leads a workout library. Not a choice, so not a radio. */}
-      <button
-        type="button"
-        onClick={onNew}
-        aria-label="New workout"
-        className="ww-press flex w-full cursor-pointer items-center gap-4 border-b border-line px-6 py-3 text-left hover:bg-bg"
-      >
-        <span aria-hidden className="flex size-4 shrink-0 items-center justify-center font-semibold text-fg">
-          +
-        </span>
-        <span className="font-semibold whitespace-nowrap text-fg">New workout</span>
-        <span className="min-w-0 truncate font-mono text-mono text-fg-subtle">build your own from blocks</span>
-      </button>
-      <div role="radiogroup" aria-label="Workout">
-        <PickerRow
-          checked={!selected}
-          onClick={() => onSelect(null)}
-          title="Free ride"
-          meta={onCourse ? "no targets · the trainer follows the course's hills" : 'no targets · your own resistance or ERG target'}
-        />
-        {!loaded && <div className="border-t border-line px-6 py-3 text-fg-subtle">Loading workouts</div>}
-        {shown.map((w) => (
-          <PickerRow
-            key={w.id}
-            checked={selected?.workout.id === w.id}
-            onClick={() => onSelect(w.id)}
-            title={w.name}
-            meta={`${w.tag ? `${w.tag} · ` : ''}${w.rampTest ? 'until you stop' : formatDuration(w.durationS)}${
-              w.description ? ` · ${summary(w.description)}` : ''
-            }${w.source === 'imported' ? ' · imported' : w.source === 'custom' ? ' · custom' : ''}`}
+  const picked = selected ? (workouts.find((w) => w.id === selected.workout.id) ?? null) : null
+
+  const menu = (
+    <nav aria-label="Workout lists" className="flex w-[11rem] shrink-0 flex-col gap-1">
+      {VIEWS.map((v) => {
+        const active = view === v && !(detail && picked)
+        return (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={view === v}
+            onClick={() => {
+              setView(v)
+              onDetail(false)
+            }}
+            className={`ww-press flex cursor-pointer items-baseline justify-between gap-2 rounded-md border px-3 py-2 text-left font-semibold ${
+              active ? 'border-line-strong bg-surface text-fg' : 'border-transparent text-fg-muted hover:text-fg'
+            }`}
           >
-            {selected?.workout.id === w.id && (
-              <div className="flex flex-col gap-3">
-                {w.description && <p className="text-fg-muted">{w.description}</p>}
-                <WorkoutStrip intervals={selected.intervals} ftpW={ftpW} totalS={selected.totalS} heightClass="ww-strip-preview" />
-                <div className="flex flex-wrap items-center gap-3">
-                  {w.source === 'custom' && <Button onClick={() => onEdit(w.id)}>Edit</Button>}
-                  <Button onClick={() => onCopy(w.id)}>Edit a copy</Button>
-                  <span className="text-fg-muted">
-                    {w.source === 'custom'
-                      ? 'Change this workout, or start a new one from it.'
-                      : 'Start a new workout from this one. The original stays as it is.'}
+            {VIEW_LABEL[v]}
+            <span className="font-mono text-mono font-normal text-fg-subtle">{workouts.filter((w) => v === 'all' || isMine(w)).length}</span>
+          </button>
+        )
+      })}
+      <p className="border-t border-line px-3 pt-3 text-fg-muted">Custom holds the workouts you build and the ZWO files you import.</p>
+    </nav>
+  )
+
+  if (detail && picked && selected) {
+    return (
+      <div className="flex items-start gap-6">
+        {menu}
+        <section aria-label="Workout overview" className="flex min-w-0 flex-1 flex-col rounded-lg border border-line bg-surface">
+          <div className="flex flex-wrap items-center gap-4 border-b border-line px-6 py-3">
+            <Button onClick={() => onDetail(false)}>← All workouts</Button>
+            <h2 className="min-w-0 flex-1 truncate text-title font-semibold text-fg">{picked.name}</h2>
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-6 px-6 py-4">
+            <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
+              <Stat label="Duration" value={picked.rampTest ? '--' : formatDuration(picked.durationS)} dim={false} inline />
+              <Stat label="Intervals" value={String(selected.intervals.length)} dim={false} inline />
+              <span className="font-mono text-mono text-fg-subtle">
+                {[picked.tag, picked.source === 'builtin' ? null : picked.source, picked.rampTest ? 'runs until you stop' : null].filter(Boolean).join(' · ')}
+              </span>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-3">
+              {picked.source === 'custom' && <Button onClick={() => onEdit(picked.id)}>Edit</Button>}
+              <Button onClick={() => onCopy(picked.id)}>Edit a copy</Button>
+              {picked.source !== 'builtin' && (
+                <Button
+                  variant={confirmDelete ? 'danger' : 'secondary'}
+                  onClick={() => {
+                    if (!confirmDelete) return setConfirmDelete(true)
+                    setConfirmDelete(false)
+                    onDetail(false)
+                    onRemove(picked.id)
+                  }}
+                >
+                  {confirmDelete ? 'Confirm delete' : 'Delete'}
+                </Button>
+              )}
+              <Button variant="primary" onClick={onRide}>
+                Ride this workout
+              </Button>
+            </div>
+          </div>
+          {picked.description && <p className="px-6 pb-4 text-fg-muted">{picked.description}</p>}
+          <div className="border-t border-line px-6 py-4">
+            <WorkoutStrip intervals={selected.intervals} ftpW={ftpW} totalS={selected.totalS} heightClass="ww-builder-graph" />
+            <p className="pt-3 font-mono text-mono text-fg-subtle">watts at your FTP of {ftpW} W</p>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-start gap-6">
+      {menu}
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <div className="flex items-center gap-3">
+            <span className="ww-label">Length</span>
+            <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={setLength} format={lengthLabel} />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="ww-label">Difficulty</span>
+            <SegmentedControl label="Difficulty" options={DIFFICULTIES} value={difficulty} onChange={setDifficulty} format={(d) => DIFFICULTY_LABEL[d]} />
+          </div>
+          <span className="ml-auto font-mono text-mono text-fg-subtle" aria-live="polite">
+            {shown.length} {shown.length === 1 ? 'workout' : 'workouts'}
+            {filtering ? ` of ${inView.length}` : ''}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4">
+          {/* Always the first tile, like the create tile that leads a workout library. */}
+          <button
+            type="button"
+            onClick={onNew}
+            aria-label="Custom Workout"
+            className={`${CARD} border-line-strong bg-raised hover:bg-line`}
+          >
+            <span aria-hidden className="ww-num ww-num-sm text-fg">
+              +
+            </span>
+            <span className="flex flex-col gap-1">
+              <span className="text-title font-semibold text-fg">Custom Workout</span>
+              <span className="font-mono text-mono text-fg-muted">build your own from blocks</span>
+            </span>
+          </button>
+          <div role="radiogroup" aria-label="Workout" className="contents">
+            {view === 'all' && (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!selected}
+                aria-label={`Free ride, no targets, ${onCourse ? "the trainer follows the course's hills" : 'your own resistance or ERG target'}`}
+                onClick={() => onSelect(null)}
+                className={`${CARD} ${!selected ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
+              >
+                <span className="ww-profile-compact flex items-center font-mono text-mono text-fg-subtle">no targets</span>
+                <span className="flex flex-col gap-1">
+                  <span className="font-semibold text-fg">Free ride</span>
+                  <span className="font-mono text-mono text-fg-subtle">
+                    {onCourse ? "the trainer follows the course's hills" : 'your own resistance or ERG target'}
                   </span>
-                </div>
-              </div>
+                </span>
+              </button>
             )}
-          </PickerRow>
-        ))}
-        {loaded && filtering && shown.length === 0 && (
-          <div className="border-t border-line px-6 py-3 text-fg-muted">No workouts match these filters.</div>
+            {shown.map((w) => {
+              const checked = selected?.workout.id === w.id
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={checked}
+                  onClick={() => {
+                    onSelect(w.id)
+                    onDetail(true)
+                  }}
+                  className={`${CARD} ${checked ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
+                >
+                  <WorkoutStrip intervals={w.intervals} ftpW={ftpW} totalS={Math.max(1, w.durationS)} heightClass="ww-profile-compact" labels={false} className="w-full" />
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate font-semibold text-fg">{w.name}</span>
+                    <span className="truncate font-mono text-mono text-fg-subtle">{metaOf(w)}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        {!loaded && <p className="text-fg-subtle">Loading workouts</p>}
+        {loaded && shown.length === 0 && (
+          <p className="text-fg-muted">
+            {view === 'custom' && !filtering ? 'No custom workouts yet. Build one with Custom Workout, or import a ZWO file on the Profile tab.' : 'No workouts match these filters.'}
+          </p>
         )}
       </div>
-    </>
+    </div>
   )
 }

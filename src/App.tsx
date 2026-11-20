@@ -138,6 +138,8 @@ export default function App() {
   const route = useRoute()
   /** Step of the Workout tab. Kept here so the builder can send the rider back to step 2. */
   const [workoutStep, setWorkoutStep] = useState<0 | 1>(0)
+  /** The selected workout's overview is open on step 2. */
+  const [workoutDetail, setWorkoutDetail] = useState(false)
 
   /** Open the workout builder on a new workout, a custom workout (edit) or a copy of any workout. */
   const openBuilder = (kind: 'new' | 'edit' | 'copy', id: string | null, returnTo: ReturnTo) => {
@@ -289,6 +291,8 @@ export default function App() {
             locked={!s.canChooseCourse}
             onSave={ride.saveCustomWorkout}
             onSaved={() => {
+              // Like Zwift: Save lands on the new workout's overview, ready to ride.
+              setWorkoutDetail(true)
               setWorkoutStep(1)
               go('workout')
             }}
@@ -311,6 +315,9 @@ export default function App() {
             onNewWorkout={() => openBuilder('new', null, 'workout')}
             onEditWorkout={(id) => openBuilder('edit', id, 'workout')}
             onCopyWorkout={(id) => openBuilder('copy', id, 'workout')}
+            onRemoveWorkout={(id) => void ride.removeWorkout(id)}
+            detail={workoutDetail}
+            onDetail={setWorkoutDetail}
             onDone={() => go('ride')}
           />
         </main>
