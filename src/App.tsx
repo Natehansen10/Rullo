@@ -114,6 +114,8 @@ function controlDetail(s: RideSnapshot): string | null {
   const started = !!s.workout?.started
   const moving = s.phase === 'riding' ? !s.paused : s.phase === 'ready' && ((s.cadenceRpm ?? 0) > 0 || (s.powerW ?? 0) > 0)
   if (s.phase === 'ended') return 'Press New ride.'
+  // Paused comes first: a stopped rider is told how to go on, whatever the mode or the workout.
+  if (s.paused && s.connection.kind === 'connected') return 'Paused. Pedal to resume.'
   if (started && !s.workout?.done && !erg && s.controlState !== 'unsupported') return 'Workout targets are off.'
   if (grade && s.gradeUnsupported) return 'No grade control here.'
   if (erg && s.ergUnsupported) return 'No ERG on this trainer.'
@@ -122,7 +124,6 @@ function controlDetail(s: RideSnapshot): string | null {
   if (s.connection.kind !== 'connected') {
     return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · on connect` : 'Applies on connect'
   }
-  if (s.paused) return 'Paused. Pedal to resume.'
   if (erg && s.ergReleased && !s.ergUnsupported && s.phase === 'riding') return 'Released until 60 rpm.'
   // Waiting for Start: say so here too, where the rider's hands are.
   if (s.phase === 'ready') return `Press ${startLabel(s)}.`
