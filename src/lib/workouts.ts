@@ -1,8 +1,10 @@
 /**
  * Workout catalog: built-ins (TS constants plus ZWO files listed in
- * public/workouts/index.json) and ZWO files the rider imported (IndexedDB).
+ * public/workouts/index.json), ZWO files the rider imported and workouts
+ * built in the app (both IndexedDB).
  */
 import { BUILTIN_WORKOUTS } from './builtinWorkouts'
+import { loadCustomWorkouts } from './customWorkouts'
 import * as recorder from './recorder'
 import { validateWorkout, type Workout } from './workout'
 import { MAX_ZWO_BYTES, workoutFromZwo } from './zwo'
@@ -42,12 +44,13 @@ function fromImported(row: recorder.ImportedWorkoutRow): Workout {
 
 export async function loadWorkouts(fake: boolean): Promise<Workout[]> {
   const builtins = BUILTIN_WORKOUTS.filter((w) => fake || !w.fakeOnly)
-  const [zwoBuiltins, rows] = await Promise.all([
+  const [zwoBuiltins, rows, custom] = await Promise.all([
     loadBuiltinZwo().catch((err) => {
       console.error(err)
       return [] as Workout[]
     }),
     recorder.listImportedWorkouts().catch(() => [] as recorder.ImportedWorkoutRow[]),
+    loadCustomWorkouts().catch(() => [] as Workout[]),
   ])
   const mine: Workout[] = []
   for (const row of rows) {
@@ -58,7 +61,7 @@ export async function loadWorkouts(fake: boolean): Promise<Workout[]> {
     }
   }
   // Fake-only test workouts last, so real ones lead the list.
-  return [...builtins.filter((w) => !w.fakeOnly), ...zwoBuiltins, ...builtins.filter((w) => w.fakeOnly), ...mine]
+  return [...builtins.filter((w) => !w.fakeOnly), ...zwoBuiltins, ...builtins.filter((w) => w.fakeOnly), ...mine, ...custom]
 }
 
 /** Parse, validate and save a ZWO file. Throws with a rider-facing message on bad files. */

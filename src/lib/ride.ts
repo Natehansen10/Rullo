@@ -53,6 +53,15 @@ import {
   type Workout,
 } from './workout'
 import { importZwoFile, loadWorkouts, removeImportedWorkout } from './workouts'
+import {
+  loadCustomWorkouts,
+  removeCustomWorkout,
+  saveCustomWorkout,
+  snapshotOf,
+  WorkoutConflictError,
+  workoutFromSnapshot,
+  type CustomWorkoutInput,
+} from './customWorkouts'
 
 /** idle: no ride. ready: connected, waiting for the first pedal stroke. */
 export type Phase = 'idle' | 'ready' | 'riding' | 'ended'
@@ -138,6 +147,12 @@ export interface WorkoutOption {
   rampTest: boolean
 }
 
+/** Outcome of saving a built workout. `conflict`: the saved copy changed in another tab. */
+export type SaveWorkoutResult = { ok: true; id: string } | { ok: false; conflict: boolean; message: string }
+
+/** Tabs tell each other when the custom workout list changes. */
+const WORKOUTS_CHANNEL = 'ww.workouts'
+
 export interface RampTestLive {
   /** The test is over (failed, ended, or ran out of steps); the cool-down is on. */
   ended: boolean
@@ -161,6 +176,8 @@ export interface WorkoutLive {
   targetPct: number
   nextTargetW: number | null
   nextLabel: string | null
+  /** Cadence cue for the current interval, in rpm. For the rider only: the trainer never sees it. */
+  cadenceTargetRpm: number | null
   done: boolean
   /** The rider pressed Start workout. Before that the ride is a free ride. */
   started: boolean
@@ -322,6 +339,7 @@ export class RideController {
     void this.checkRecovery()
     void this.initCourses()
     void this.initWorkouts()
+    this.watchWorkouts()
   }
 
   // --- store plumbing for useSyncExternalStore ---
@@ -452,6 +470,7 @@ export class RideController {
       targetPct: (targetW / ftp) * 100,
       nextTargetW: next ? Math.round((targetWatts(next.from, ftp) * this.intensityPct) / 100) : null,
       nextLabel: next ? next.label : null,
+      cadenceTargetRpm: done ? null : (iv.cadenceRpm ?? null),
       done,
       started: this.workoutStarted,
       canStart: !this.workoutStarted && (this.phase === 'ready' || this.phase === 'riding'),
@@ -630,15 +649,91 @@ export class RideController {
 
   removeWorkout = async (id: string) => {
     const w = this.workouts.find((x) => x.id === id)
-    if (!w || w.source !== 'imported' || !this.canChoose()) return
+    if (!w || w.source === 'builtin' || !this.canChoose()) return
     try {
-      await removeImportedWorkout(id)
+      if (w.source === 'custom') await removeCustomWorkout(id)
+      else await removeImportedWorkout(id)
     } catch (err) {
       console.error('Could not remove the workout:', err)
     }
     this.workouts = this.workouts.filter((x) => x.id !== id)
     this.refreshWorkoutOptions()
     if (this.workout?.id === id) this.selectWorkout(null)
+    if (w.source === 'custom') this.announceWorkouts()
+    this.emit()
+  }
+
+  /** The full workout behind a list row, for the builder to edit or copy. */
+  getWorkout = (id: string): Workout | null => this.workouts.find((x) => x.id === id) ?? null
+
+  /** A message for the notice bar on the Workout and Profile tabs. */
+  notify = (message: string | null) => {
+    this.notice = message
+    this.emit()
+  }
+
+  /**
+   * Save a workout from the builder, list it and select it. Locked mid-ride,
+   * like every other change to the setup.
+   */
+  saveCustomWorkout = async (input: CustomWorkoutInput, overwrite = false): Promise<SaveWorkoutResult> => {
+    if (!this.canChoose()) return { ok: false, conflict: false, message: 'End the ride to save a workout.' }
+    try {
+      const w = await saveCustomWorkout(input, overwrite)
+      const at = this.workouts.findIndex((x) => x.id === w.id)
+      this.workouts = at >= 0 ? this.workouts.map((x) => (x.id === w.id ? w : x)) : [...this.workouts, w]
+      this.refreshWorkoutOptions()
+      this.notice = null
+      this.selectWorkout(w.id)
+      this.announceWorkouts()
+      return { ok: true, id: w.id }
+    } catch (err) {
+      if (err instanceof WorkoutConflictError) return { ok: false, conflict: true, message: err.message }
+      // Our own checks throw plain Errors with rider-facing text; anything else is the browser's storage.
+      const known = err instanceof Error && err.constructor === Error
+      if (!known) console.error('Could not save the workout:', err)
+      return {
+        ok: false,
+        conflict: false,
+        message: known ? (err as Error).message : "This browser didn't save the workout. Check that site data is allowed.",
+      }
+    }
+  }
+
+  private workoutsChannel: BroadcastChannel | null = null
+
+  private watchWorkouts() {
+    try {
+      this.workoutsChannel = new BroadcastChannel(WORKOUTS_CHANNEL)
+      this.workoutsChannel.onmessage = () => void this.reloadCustomWorkouts()
+    } catch {
+      // No BroadcastChannel: other tabs see changes after a reload.
+    }
+  }
+
+  private announceWorkouts() {
+    try {
+      this.workoutsChannel?.postMessage('changed')
+    } catch {
+      // not fatal
+    }
+  }
+
+  /**
+   * Another tab saved or removed a custom workout. The list follows. A ride in
+   * progress keeps the workout it started with; before a ride, the selection
+   * is refreshed (or cleared if the workout is gone).
+   */
+  private async reloadCustomWorkouts() {
+    let custom: Workout[]
+    try {
+      custom = await loadCustomWorkouts()
+    } catch {
+      return
+    }
+    this.workouts = [...this.workouts.filter((x) => x.source !== 'custom'), ...custom]
+    this.refreshWorkoutOptions()
+    if (this.workout?.source === 'custom' && this.canChoose()) this.selectWorkout(this.workout.id)
     this.emit()
   }
 
@@ -827,7 +922,14 @@ export class RideController {
     this.climbedM = 0
     this.resetPause()
     this.rideId = recorder
-      .startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined, this.workout?.id)
+      .startRide(
+        t,
+        this.course?.id,
+        this.course ? this.startOffsetM : undefined,
+        this.workout?.id,
+        // A custom workout can be edited or deleted later; the ride keeps its own copy for recovery.
+        this.workout?.source === 'custom' ? snapshotOf(this.workout) : undefined,
+      )
       .catch((err) => {
         console.error('Could not start recording:', err)
         this.notice = "This browser isn't saving the ride, so there will be no FIT file. Check that site data is allowed."
@@ -1324,7 +1426,8 @@ export class RideController {
     this.intervals = []
     this.resetWorkoutRun()
     if (rec.ride.workoutId) {
-      const w = this.workouts.find((x) => x.id === rec.ride.workoutId) ?? null
+      // A custom workout rides from the copy saved with the ride: it may have been edited or deleted since.
+      const w = workoutFromSnapshot(rec.ride.workoutSnapshot) ?? this.workouts.find((x) => x.id === rec.ride.workoutId) ?? null
       if (w) {
         this.workout = w
         this.intervals = flatten(w)

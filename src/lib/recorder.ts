@@ -17,6 +17,12 @@ export interface RideRow {
   startOffsetM?: number
   /** Workout ridden, if any. */
   workoutId?: string
+  /**
+   * The workout as it was when the ride started, for workouts the rider can
+   * edit or delete (custom ones). Recovery rides this copy, so a later edit
+   * can't move the intervals under a ride in progress. Untrusted on load.
+   */
+  workoutSnapshot?: unknown
 }
 
 export interface SampleRow {
@@ -54,11 +60,27 @@ export interface ImportedWorkoutRow {
   addedAt: number
 }
 
+/**
+ * A workout built in the app, stored as its own step list (not ZWO text) so it
+ * reopens exactly as built. Untrusted on load: cleaned and validated again.
+ */
+export interface CustomWorkoutRow {
+  id: string
+  name: string
+  description: string
+  tag: string
+  steps: unknown
+  createdAt: number
+  updatedAt: number
+  v: 1
+}
+
 class WeemWattsDB extends Dexie {
   rides!: EntityTable<RideRow, 'id'>
   samples!: Table<SampleRow, [number, number]>
   courses!: EntityTable<ImportedCourseRow, 'id'>
   workouts!: EntityTable<ImportedWorkoutRow, 'id'>
+  customWorkouts!: EntityTable<CustomWorkoutRow, 'id'>
 
   constructor() {
     super('weem-watts')
@@ -77,6 +99,14 @@ class WeemWattsDB extends Dexie {
       courses: 'id, addedAt',
       workouts: 'id, addedAt',
     })
+    // v4 adds a table only. Rides, samples, courses and imports are untouched.
+    this.version(4).stores({
+      rides: '++id, status, courseId',
+      samples: '[rideId+t], rideId',
+      courses: 'id, addedAt',
+      workouts: 'id, addedAt',
+      customWorkouts: 'id, createdAt',
+    })
   }
 }
 
@@ -87,8 +117,16 @@ export async function startRide(
   courseId?: string,
   startOffsetM?: number,
   workoutId?: string,
+  workoutSnapshot?: unknown,
 ): Promise<number> {
-  return db.rides.add({ startedAt, status: 'active', courseId, startOffsetM, workoutId } as RideRow)
+  return db.rides.add({
+    startedAt,
+    status: 'active',
+    courseId,
+    startOffsetM,
+    workoutId,
+    ...(workoutSnapshot !== undefined ? { workoutSnapshot } : {}),
+  } as RideRow)
 }
 
 /** Where the most recent ride on this course ended (m along the course), if any. */
@@ -126,6 +164,22 @@ export async function listImportedWorkouts(): Promise<ImportedWorkoutRow[]> {
 
 export async function deleteImportedWorkout(id: string): Promise<void> {
   await db.workouts.delete(id)
+}
+
+export async function saveCustomWorkout(row: CustomWorkoutRow): Promise<void> {
+  await db.customWorkouts.put(row)
+}
+
+export async function getCustomWorkout(id: string): Promise<CustomWorkoutRow | undefined> {
+  return db.customWorkouts.get(id)
+}
+
+export async function listCustomWorkouts(): Promise<CustomWorkoutRow[]> {
+  return db.customWorkouts.orderBy('createdAt').toArray()
+}
+
+export async function deleteCustomWorkout(id: string): Promise<void> {
+  await db.customWorkouts.delete(id)
 }
 
 export async function recordSample(s: SampleRow): Promise<void> {
