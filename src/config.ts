@@ -28,6 +28,17 @@ export const AIR_DENSITY = 1.204
 /** Share of trainer power that would reach the road. */
 export const DRIVETRAIN_EFFICIENCY = 0.976
 
+/**
+ * How much of the rider's mass resists a change of speed. On the road it is
+ * all of it, and speed takes close to a minute to settle after a power change.
+ * Indoors that reads as lag, so only this share counts: speed settles in a
+ * few seconds, like the flywheel does. Steady speed for a given power is not
+ * affected (inertia only matters while speed is changing).
+ */
+export const INERTIA_SHARE = 0.15
+/** With no power, speed runs down to 0 in this long, like the flywheel does when the rider stops. */
+export const COAST_DOWN_S = 4
+
 /** No data for this long means the numbers are stale. */
 export const STALE_AFTER_MS = 3000
 /** Reconnect cadence and limit after an unexpected disconnect. */

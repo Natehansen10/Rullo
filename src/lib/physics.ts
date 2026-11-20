@@ -5,8 +5,13 @@
  *   d(KE)/dt = P * eff - (m*g*(Crr*cos(a) + sin(a)) + 0.5*rho*CdA*v^2) * v
  * where a is the road angle (grade = tan a). Grade 0 is the v1 flat road.
  * Integrating kinetic energy (not v) avoids the P/v blow-up at v = 0, so the
- * model starts from a standstill and coasts down smoothly when power drops.
+ * model starts from a standstill.
  * Speed depends only on power, so it reads the same in any gear.
+ *
+ * Two indoor adjustments (see config.ts): only INERTIA_SHARE of the mass
+ * resists a change of speed, so speed settles in seconds; and with no power
+ * the speed runs down to 0 in COAST_DOWN_S. Neither changes the steady speed
+ * for a given power and grade.
  *
  * Written from the standard cycling power model (Martin et al., 1998).
  * Reference for the approach: serpentine physics.ts (MIT).
@@ -14,11 +19,13 @@
 import {
   AIR_DENSITY,
   CDA_BY_POSITION,
+  COAST_DOWN_S,
   CRR,
   DEFAULT_BIKE_WEIGHT_LB,
   DEFAULT_POSITION,
   DEFAULT_RIDER_WEIGHT_LB,
   DRIVETRAIN_EFFICIENCY,
+  INERTIA_SHARE,
 } from '../config'
 
 const G = 9.80665
@@ -60,8 +67,10 @@ export function steadySpeedMps(r: RiderParams, powerW: number): number {
 }
 
 export class SpeedModel {
-  private ke = 0
+  private v = 0
   private rider: RiderParams
+  /** Speed when the power went to 0; the coast-down runs from here. Null while pedaling. */
+  private coastFrom: number | null = null
 
   constructor(rider: RiderParams = DEFAULT_RIDER) {
     this.rider = rider
@@ -69,38 +78,45 @@ export class SpeedModel {
 
   /** Swap rider inputs, keeping the current speed. */
   setRider(rider: RiderParams): void {
-    const v = this.speedMps
     this.rider = rider
-    this.setSpeed(v)
   }
 
   get speedMps(): number {
-    return Math.sqrt((2 * this.ke) / this.rider.massKg)
+    return this.v
   }
 
   /** Advance the model by dt seconds at constant power and grade. Returns meters traveled along the road. */
   step(powerW: number, dtS: number, grade = 0): number {
     const p = Math.max(0, powerW) * DRIVETRAIN_EFFICIENCY
+    if (p > 0) this.coastFrom = null
+    else if (this.coastFrom === null) this.coastFrom = this.v
+    const inertiaKg = this.rider.massKg * INERTIA_SHARE
     let meters = 0
     let remaining = dtS
     while (remaining > 1e-9) {
       const h = Math.min(SUBSTEP_S, remaining)
+      const before = this.v
       // From a standstill on a descent, gravity needs a tiny speed to act on.
-      const v = grade < 0 ? Math.max(this.speedMps, 0.1) : this.speedMps
-      this.ke = Math.max(0, this.ke + (p - resistiveForce(this.rider, v, grade) * v) * h)
-      meters += ((v + this.speedMps) / 2) * h
+      const v = grade < 0 ? Math.max(before, 0.1) : before
+      const ke = Math.max(0, 0.5 * inertiaKg * v * v + (p - resistiveForce(this.rider, v, grade) * v) * h)
+      let next = Math.sqrt((2 * ke) / inertiaKg)
+      // Not pedaling: run down in a straight line to 0 in COAST_DOWN_S, even on a descent.
+      if (this.coastFrom !== null) next = Math.max(0, Math.min(next, before - (this.coastFrom / COAST_DOWN_S) * h))
+      this.v = next
+      meters += ((before + next) / 2) * h
       remaining -= h
     }
     return meters
   }
 
-  /** Jump straight to a speed, e.g. when resuming a recovered ride. */
+  /** Jump straight to a speed. */
   setSpeed(v: number): void {
-    this.ke = 0.5 * this.rider.massKg * v * v
+    this.v = Math.max(0, v)
   }
 
   reset(): void {
-    this.ke = 0
+    this.v = 0
+    this.coastFrom = null
   }
 }
 

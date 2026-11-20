@@ -117,3 +117,33 @@ Level 0 itself is fine: the same project reports the Core 2's range as raw bytes
 6. **Grind at 55 rpm on purpose.** ERG must hold. It should only let go below 50.
 7. If the 6 s ramp feels too slow or too quick, say so. It is one constant.
 8. Gear matters: a big gear makes any restart heavy because you are accelerating the flywheel. Small chainring, middle cog.
+
+## Part 5: Speed and distance that feel right indoors
+
+**What was wrong.** The model was a real road bike: all 203 lb of rider and bike carried momentum. After a stop, speed took about 2 minutes to reach 0 and added over 1,100 ft. After a power change, speed took about 40 s to settle, so it always looked stuck near 19 mph.
+
+**Chose:**
+
+- **`INERTIA_SHARE = 0.15`.** Only 15% of the mass resists a change of speed. Gravity, rolling resistance and drag still use the full mass, so steady speed at any power and grade is exactly what it was. Why 15%: speed covers 90% of a change in about 6 s, and 1 Hz power noise of ±8 W moves speed only ±0.25 mph. Lower shares made speed twitchy.
+- **`COAST_DOWN_S = 4`.** With 0 W, speed runs down in a straight line to 0 in 4 s from wherever it was, including on a descent. This is a flywheel, not a road bike. Auto-pause then freezes distance at 3 s and puts it back to where the pedaling stopped, so a stop adds nothing.
+- Speed still comes from power only. Cadence is not in the formula.
+
+**Numbers (203 lb, hoods), old model then new:**
+
+| Check | Old | New |
+| --- | --- | --- |
+| Steady speed at 145 / 180 W | 18.3 / 19.9 mph | 18.3 / 19.9 mph |
+| 180 W to 145 W, 90% of the change | 39 s | 6 s |
+| Stop pedaling at 19.9 mph, time to 0 | 116 s, 1,155 ft | 4 s, 54 ft |
+| Standstill to 90% of speed at 180 W | 30 s | 5 s |
+| 180 W on a 5% climb / 3% descent | 7.7 / 29.9 mph | 7.7 / 29.9 mph |
+
+Courses: climbs still slow the rider and descents still speed them up while pedaling. The elevation profile and resume-from-mile are untouched.
+
+**Why speed barely moves with power on a flat road.** Above about 15 mph nearly all your power goes into pushing air, and the power needed to push air rises with the cube of speed. Going 10% faster takes about 33% more power. So 145 W to 180 W is 24% more power but only 1.6 mph (18.3 to 19.9). That is physics, not a bug, and it is the same outdoors. Speed swings much more on hills, where gravity takes over from air.
+
+**Test on the next ride:**
+
+1. Stop pedaling: speed should be at 0 within about 4 s and distance should not move while paused.
+2. Step the ERG target by 20 W: speed should start moving at once and settle within about 6 s, by roughly 1 mph.
+3. Speed should not flicker second to second at a steady target. If it does, the share needs to go up.

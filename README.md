@@ -98,12 +98,11 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | File | Job |
 | --- | --- |
 | `src/config.ts` | Profile defaults, drag by position, rolling resistance, ERG limits, timeouts |
-| `src/lib/ble.ts` | Web Bluetooth connect and reconnect loop |
+| `src/lib/ble.ts` | Web Bluetooth connect and reconnect loop, and the ERG release sequence (a low ERG target, then minimum resistance) |
 | `src/lib/ftms.ts` | FTMS parsing, the control point queue (Request Control, Reset, Set Target Resistance, Set Target Power), resistance range |
-| `src/lib/ble.ts` also | The ERG release sequence: a low ERG target, then minimum resistance |
 | `src/lib/cyclingPower.ts` | Cycling Power fallback, cadence from crank revolutions |
 | `src/lib/fakeTrainer.ts` | `?fake=1` trainer |
-| `src/lib/physics.ts` | Speed from power and grade, with inertia |
+| `src/lib/physics.ts` | Speed from power and grade, with a light indoor inertia and a 4 s coast-down |
 | `src/lib/profile.ts` | Rider profile (weights, position, FTP), saved in the browser |
 | `src/lib/gpx.ts` | Reads GPX track points |
 | `src/lib/course.ts` | Course model: distance along the slope, two-pass 75 m elevation smoothing, grade over 50 m |
