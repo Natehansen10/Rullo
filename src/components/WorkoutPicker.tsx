@@ -184,7 +184,7 @@ export function WorkoutPicker({
           </div>
           {picked.description && <p className="px-6 pb-4 text-fg-muted">{picked.description}</p>}
           <div className="border-t border-line px-6 py-4">
-            <WorkoutStrip intervals={picked.intervals} ftpW={ftpW} totalS={Math.max(1, picked.durationS)} heightClass="ww-builder-graph" />
+            <WorkoutStrip intervals={picked.intervals} ftpW={ftpW} totalS={Math.max(1, picked.durationS)} heightClass="ww-builder-graph" detailsSide="above" />
             <p className="pt-3 font-mono text-mono text-fg-subtle">watts at your FTP of {ftpW} W</p>
           </div>
         </section>

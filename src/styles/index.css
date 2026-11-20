@@ -122,6 +122,34 @@
   .ww-strip-compact {
     height: var(--ww-strip-compact-height);
   }
+  /*
+   * Hover details on the workout strip: one mono line on a surface chip.
+   * Absolutely positioned and never a pointer target, so it cannot move the
+   * layout or take a click meant for what it covers.
+   */
+  .ww-strip-tip {
+    position: absolute;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: var(--ww-space-3);
+    padding: var(--ww-space-1) var(--ww-space-2);
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius-sm);
+    background: var(--ww-surface);
+    color: var(--ww-fg-muted);
+    font-family: var(--ww-font-mono);
+    font-size: var(--ww-mono-size);
+    line-height: 16px;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: ww-strip-tip-in var(--ww-dur-fast) var(--ww-ease);
+  }
+  @keyframes ww-strip-tip-in {
+    from {
+      opacity: 0;
+    }
+  }
   .ww-num-control {
     font-size: var(--ww-num-control);
     min-width: 4.5ch;
