@@ -86,7 +86,7 @@ const STEPS = [
  * (Ride this workout, or Done). With a workout the trainer follows its
  * targets (ERG); on a course with no workout it follows the hills (Grade);
  * the rider can always switch on the Ride tab.
- * Locked from the first pedal stroke until New ride.
+ * Open until Start is pressed (connected or not). Locked from Start until New ride.
  */
 export function WorkoutPage({
   s,

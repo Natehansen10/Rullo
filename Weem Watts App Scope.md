@@ -82,7 +82,7 @@ Split into three releases, each rideable on its own.
 - Built-in workouts: Endurance 60, Sweet Spot 3x12, VO2 5x3, Ramp FTP test, plus Nate's ZWO files in `public/workouts/`; ZWO import saved in the browser
 - Workout screen: current interval, time left, next target, strip of all intervals labeled with their watts. ERG follows the workout
 - Course and workout picking live on their own Workout tab; the Ride tab is live data only. Since Nov 20, 2026 the tab is two steps (1. Choose your course, 2. Choose your workout, with difficulty and length filters) and GPX / ZWO import moved to the Profile tab
-- A picked workout loads on the Ride tab and waits for Start workout; riding before that is a free ride and its own lap
+- A picked workout loads on the Ride tab and waits for Start workout. Since Nov 20, 2026 nothing is recorded until Start (Start ride on a free ride): pedaling before it shows live numbers only, and the FIT begins at Start with the workout's first step as lap 1
 - Each interval is a lap in the FIT file
 - Decision reversed (Nov 20, 2026): a workout can now run on a course. A course is where you ride (elevation, speed, distance); a workout is what the trainer does (power targets). Pick one of each, or neither. With both, the workout drives ERG and the course drives speed, distance and the profile; the FIT is a virtual ride with altitude and one lap per interval
 - Decisions (Nov 19, 2026): ~~free rides only (targets on a course are v3.3)~~; step buttons change overall intensity (50 to 150%); ramp test instead of a 20-minute test, with a one-tap "Set FTP"; when the workout ends ERG holds the cool-down watts until End Ride

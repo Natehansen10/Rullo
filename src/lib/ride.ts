@@ -63,7 +63,10 @@ import {
   type CustomWorkoutInput,
 } from './customWorkouts'
 
-/** idle: no ride. ready: connected, waiting for the first pedal stroke. */
+/**
+ * idle: no ride. ready: connected and waiting for Start: numbers are live,
+ * nothing is recorded. riding: from Start (or a resumed ride) to End Ride.
+ */
 export type Phase = 'idle' | 'ready' | 'riding' | 'ended'
 
 /** idle: nothing sent yet. sending: a write is in flight. */
@@ -215,9 +218,14 @@ export interface WorkoutLive {
   /** Cadence cue for the current interval, in rpm. For the rider only: the trainer never sees it. */
   cadenceTargetRpm: number | null
   done: boolean
-  /** The rider pressed Start workout. Before that the ride is a free ride. */
+  /** The workout is running (or has run). It starts with the ride, on Start workout. */
   started: boolean
-  /** Start workout is available: connected, not started yet. */
+  /** Connected and waiting for Start workout (the button is in the top bar). */
+  waiting: boolean
+  /**
+   * A ride is on but its workout never started. Only an unfinished ride
+   * recorded before Start existed can be in this state; the workout row offers Start workout.
+   */
   canStart: boolean
   intensityPct: number
   rampTest: RampTestLive | null
@@ -263,13 +271,13 @@ export interface RideSnapshot {
   /** ERG target power command unsupported by this trainer. */
   ergUnsupported: boolean
   profile: Profile
-  /** Profile can be edited only between rides. */
+  /** Profile can be edited any time except during a ride (Start to End Ride). */
   canEditProfile: boolean
   courses: CourseOption[]
   coursesLoaded: boolean
   /** The confirmed course (where the ride goes), or null for a flat road. Set only by confirmSetup or a resumed ride. */
   course: CourseLive | null
-  /** The setup can be picked and confirmed only before a ride starts. */
+  /** The setup can be picked and confirmed until Start is pressed (connected or not). */
   canChooseCourse: boolean
   /** The picks on the Workout tab. */
   staged: StagedSetup
@@ -455,7 +463,7 @@ export class RideController {
       controlState: this.controlState,
       ergUnsupported: this.ergUnsupported,
       profile: this.profile,
-      canEditProfile: this.phase === 'idle' || this.phase === 'ended',
+      canEditProfile: this.phase !== 'riding',
       courses: this.courses.map((c) => ({
         id: c.id,
         name: c.name,
@@ -467,7 +475,7 @@ export class RideController {
       })),
       coursesLoaded: this.coursesLoaded,
       course: this.courseLive(),
-      canChooseCourse: this.phase === 'idle' && this.rideId === null,
+      canChooseCourse: this.canChoose(),
       staged: {
         course: this.stagedCourse
           ? {
@@ -529,7 +537,8 @@ export class RideController {
       cadenceTargetRpm: done ? null : (iv.cadenceRpm ?? null),
       done,
       started: this.workoutStarted,
-      canStart: !this.workoutStarted && (this.phase === 'ready' || this.phase === 'riding'),
+      waiting: !this.workoutStarted && this.phase === 'ready',
+      canStart: !this.workoutStarted && this.phase === 'riding',
       intensityPct: this.intensityPct,
       rampTest: w.rampTest
         ? { ended: this.testEnded, bestW: this.testBestW, ftpW: this.testEnded ? ftpEstimate : null, applied: this.testApplied }
@@ -592,10 +601,14 @@ export class RideController {
     if (this.zeroMark) this.zeroMark.workoutS = s
   }
 
-  /** Start the loaded workout: the clock starts and ERG follows it. */
+  /**
+   * Start the loaded workout: its clock starts and ERG follows it. Start
+   * (startRide) does this with the ride. On its own it is only for an old
+   * unfinished ride whose workout was never started.
+   */
   startWorkout = () => {
     if (!this.workout || this.workoutStarted) return
-    if (this.phase !== 'ready' && this.phase !== 'riding') return
+    if (this.phase !== 'riding') return
     this.workoutStarted = true
     this.lastWorkoutW = null
     if (this.mode !== 'erg') this.setMode('erg')
@@ -737,7 +750,8 @@ export class RideController {
    * The one way a setup reaches the Ride tab: copy the staged course, start
    * mile and workout onto the ride, and switch to the mode it calls for.
    * Pass a workout id (or null for a free ride) to stage that first:
-   * "Ride this workout" does. Only before a ride starts.
+   * "Ride this workout" does. Allowed until Start is pressed. With the trainer
+   * already connected, the command for the new setup is sent right away.
    */
   confirmSetup = (workoutId?: string | null) => {
     if (!this.canChoose()) return
@@ -748,9 +762,12 @@ export class RideController {
     this.course = this.stagedCourse
     this.startOffsetM = this.stagedCourse ? this.stagedStartM : 0
     this.lastEndM = this.stagedCourse ? this.stagedLastEndM : null
-    this.smoothGrade = 0
+    this.seedGrade()
     this.setRideWorkout(this.workouts.find((x) => x.id === this.stagedWorkoutId) ?? null)
     this.autoMode()
+    // Connected and waiting: the trainer gets the new setup's command even if the mode did not change.
+    this.lastSentGradePct = null
+    this.pushControl()
     this.emit()
   }
 
@@ -905,9 +922,11 @@ export class RideController {
       this.releaseErg()
       this.pushControl()
       if (this.phase === 'idle') {
+        // A resumed ride goes straight on. Otherwise: live numbers, and nothing recorded until Start.
         this.phase = this.rideId ? 'riding' : 'ready'
         this.lastDataAt = 0
         this.lastPhysicsAt = 0
+        if (!this.rideId) this.speed.reset()
         keepAwake(true)
       }
     }
@@ -934,7 +953,8 @@ export class RideController {
       this.smoother.push(r.t, power)
       const pedaling = power > 0 || this.cadenceRpm > 0
 
-      if (this.phase === 'ready' && pedaling) this.beginRide(r.t)
+      // Waiting for Start: speed is live, and nothing else moves or is saved.
+      if (this.phase === 'ready') this.idleStep(r.t, power)
 
       if (this.phase === 'riding') {
         if (this.paused && pedaling) this.resume(r.t)
@@ -945,6 +965,22 @@ export class RideController {
 
     if (this.phase === 'riding' && !this.paused) this.record(r.t, sinceLastMs)
     this.emit()
+  }
+
+  /**
+   * One power reading before Start. The speed model runs at the grade of the
+   * start point so Speed is live; no distance, climbing, clock or pause state.
+   */
+  private idleStep(t: number, power: number) {
+    const gap = this.lastPhysicsAt ? t - this.lastPhysicsAt : 0
+    const dtS = gap > 0 && gap <= MAX_SAMPLE_GAP_MS ? gap / 1000 : 0
+    this.seedGrade()
+    this.speed.step(power, dtS, this.course ? gradeAt(this.course, this.positionM()) : 0)
+  }
+
+  /** The trainer's grade starts at the grade where the rider is, not at 0 (Grade mode before Start). */
+  private seedGrade() {
+    this.smoothGrade = this.course ? gradeAt(this.course, this.positionM()) : 0
   }
 
   /** One power reading while riding: move the bike and the workout clock, and watch for a stop. */
@@ -1035,7 +1071,8 @@ export class RideController {
     this.pausedTotalMs += Math.max(0, t - this.pausedAt)
     this.paused = false
     this.lastPhysicsAt = t
-    this.lastRecordedSec = Math.floor(t / 1000) - 1
+    // Never back before a second already recorded, or before Start.
+    this.lastRecordedSec = Math.max(this.lastRecordedSec, Math.floor(t / 1000) - 1)
     this.lastSample = null
   }
 
@@ -1046,12 +1083,36 @@ export class RideController {
     return now
   }
 
+  /**
+   * Start: the clock, the recording and (if one is loaded) the workout begin
+   * together, from zero. Until this is pressed nothing is saved, however long
+   * the rider pedals. Pressed while not pedaling, the ride starts paused at
+   * 0:00 and the first pedal stroke resumes it, so the FIT file begins there.
+   */
+  startRide = () => {
+    if (this.phase !== 'ready' || this.connection.kind !== 'connected') return
+    const now = Date.now()
+    const pedaling =
+      this.lastDataAt > 0 && now - this.lastDataAt <= MAX_SAMPLE_GAP_MS && (this.lastPowerW > 0 || this.cadenceRpm > 0)
+    this.beginRide(now)
+    if (pedaling) {
+      // Distance and the workout clock count from this moment, not from the last reading.
+      this.lastPhysicsAt = now
+    } else {
+      this.paused = true
+      this.pausedAt = now
+      this.speed.reset()
+    }
+    this.startWorkout()
+    this.emit()
+  }
+
   private beginRide(t: number) {
     this.phase = 'riding'
     this.startedAt = t
     this.distanceM = 0
-    this.speed.reset()
-    this.lastRecordedSec = -1
+    // The first sample is stamped on a whole second after Start, never before it.
+    this.lastRecordedSec = Math.floor(t / 1000)
     this.lastSample = null
     this.climbedM = 0
     this.resetPause()
@@ -1230,8 +1291,8 @@ export class RideController {
       this.course !== null &&
       this.trainerGradePct() !== this.lastSentGradePct &&
       t - this.lastControlAt >= GRADE_SEND_EVERY_MS
-    const retry =
-      this.controlState === 'failed' && this.phase === 'riding' && !this.paused && t - this.lastControlAt >= CONTROL_RETRY_MS
+    const moving = this.phase === 'riding' ? !this.paused : this.lastPowerW > 0 || this.cadenceRpm > 0
+    const retry = this.controlState === 'failed' && moving && t - this.lastControlAt >= CONTROL_RETRY_MS
     if (easing || regrade || retry) this.pushControl()
   }
 
@@ -1356,7 +1417,8 @@ export class RideController {
   // --- rider profile ---
 
   setProfile = (p: Partial<Profile>) => {
-    if (!(this.phase === 'idle' || this.phase === 'ended')) return
+    // Open until Start, like the setup: connected and waiting is not a ride yet.
+    if (this.phase === 'riding') return
     this.profile = normalizeProfile({ ...this.profile, ...p })
     saveProfile(this.profile)
     this.speed.setRider(riderParams(this.profile))
@@ -1377,7 +1439,7 @@ export class RideController {
   }
 
   /**
-   * Before the first pedal stroke there is no ride yet: just disconnect.
+   * Before Start there is no ride yet: just disconnect. Nothing was saved.
    * The confirmed setup stays on the Ride tab; only New ride clears it.
    */
   disconnect = () => {
@@ -1415,6 +1477,8 @@ export class RideController {
     try {
       const samples = await recorder.getSamples(id)
       if (samples.length === 0) {
+        // Start was pressed but the rider never pedaled.
+        this.recordingFailed = true
         this.notice = 'Nothing was recorded.'
         this.emit()
         return
@@ -1476,8 +1540,12 @@ export class RideController {
     this.emit()
   }
 
+  /**
+   * The setup can change until Start: not connected, or connected and waiting.
+   * A resumed ride (rideId set) is locked from Resume.
+   */
   private canChoose(): boolean {
-    return this.phase === 'idle' && this.rideId === null
+    return (this.phase === 'idle' || this.phase === 'ready') && this.rideId === null
   }
 
   /**
@@ -1504,6 +1572,7 @@ export class RideController {
       if (confirmed) {
         this.startOffsetM = this.stagedStartM
         this.lastEndM = this.stagedLastEndM
+        this.seedGrade()
       }
     } catch (err) {
       console.error('Could not read last position:', err)
@@ -1583,11 +1652,13 @@ export class RideController {
     this.recovery = null
     this.course = null
     this.startOffsetM = 0
+    this.smoothGrade = 0
     if (rec.ride.courseId) {
       const c = this.courses.find((x) => x.id === rec.ride.courseId) ?? null
       if (c) {
         this.course = c
         this.startOffsetM = rec.ride.startOffsetM ?? 0
+        this.seedGrade()
       } else {
         this.notice = 'That ride\'s course is no longer available. Continuing as a free ride.'
       }
@@ -1608,6 +1679,8 @@ export class RideController {
         this.notice = 'That ride\'s workout is no longer available. Continuing without it.'
       }
     }
+    // The mode the resumed setup calls for: the workout (ERG), else the hills (Grade).
+    this.autoMode()
     this.emit()
   }
 

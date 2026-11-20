@@ -54,13 +54,13 @@ export function Stepper({
   // At desktop width the row never wraps: the status text takes the space left
   // and may run to two lines inside the row's height.
   return (
-    <div className={`flex flex-wrap items-center gap-6 xl:flex-nowrap ${className}`}>
+    <div className={`flex flex-wrap items-center gap-4 xl:flex-nowrap ${className}`}>
       {typeof label === 'string' ? <span className="ww-label">{label}</span> : label}
       <div className="flex shrink-0 items-center gap-2">
         {down.map(stepButton)}
         <span
           aria-live="polite"
-          className={`ww-num ww-num-control px-4 text-center ${disabled ? 'text-fg-subtle' : 'text-fg'}`}
+          className={`ww-num ww-num-control px-3 text-center ${disabled ? 'text-fg-subtle' : 'text-fg'}`}
         >
           {value}
           {unit && <span className="ww-unit">{unit}</span>}

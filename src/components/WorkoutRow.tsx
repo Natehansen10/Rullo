@@ -9,7 +9,7 @@ interface WorkoutRowProps {
   /** Gray the numbers out when data is stale or the ride is not live. */
   dim?: boolean
   canSkip: boolean
-  /** The ride is over: no Start or Skip buttons. */
+  /** The ride is over: no Skip button. */
   ended?: boolean
   onSkip: () => void
   onStart: () => void
@@ -105,14 +105,12 @@ export function WorkoutRow({
               )}
             </>
           )}
-          {!live.started && !ended && (
-            <>
-              {!live.canStart && !compact && <span className="whitespace-nowrap text-fg-muted">Connect to start</span>}
-              <Button variant="primary" onClick={onStart} disabled={!live.canStart} title={live.canStart ? undefined : 'Connect to start'}>
-                Start workout
-              </Button>
-            </>
+          {/* Start workout is in the top bar. Here: where it is, in words. */}
+          {!live.started && !ended && !live.canStart && !compact && (
+            <span className="whitespace-nowrap text-fg-muted">{live.waiting ? 'Press Start workout' : 'Connect to start'}</span>
           )}
+          {/* Only an old unfinished ride can be riding with its workout not started. */}
+          {live.canStart && !ended && <Button onClick={onStart}>Start workout</Button>}
           {live.started && !live.done && !ended && (
             <Button onClick={onSkip} disabled={!canSkip}>
               {inRamp ? 'End test' : 'Skip interval'}

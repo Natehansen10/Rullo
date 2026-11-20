@@ -26,11 +26,11 @@ npm run preview
 
 ## Ride without the bike: `?fake=1`
 
-Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends power and cadence once a second. The first 3 seconds are 0 W (rider getting on), so you see the Ready state before the ride starts.
+Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends power and cadence once a second. The first 3 seconds are 0 W (rider getting on). Power, cadence and speed are live at once; the status reads "Not recording" and time and distance stay at zero until you press **Start ride** (or **Start workout**).
 
 - Change resistance with the step buttons or keys. Fake power rises and falls with it.
 - In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release, re-engage and ease back in. Like a Kickr Core 2 is reported to, the fake trainer refuses a resistance level while stopped, so restarts show the 25 W fallback and the retry.
-- Press **S** to stop pedaling until you press it again. After 3 seconds the ride auto-pauses; the status shows "Paused" and time, distance and recording stop. Press **S** again and the fake rider spins back up from 0 rpm.
+- Press **S** to stop pedaling until you press it again. After Start, the ride auto-pauses after 3 seconds; the status shows "Paused" and time, distance and recording stop. Press **S** again and the fake rider spins back up from 0 rpm.
 - Press **J** (or open `?fake=1&jitter=1`) for jittery delivery: readings arrive 0.3 to 2.6 s apart. The FIT file should still have a record every second.
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
 - Press **End Ride** twice (the second click confirms) to end and download the FIT file.
@@ -55,7 +55,7 @@ What sets the load:
 | Flat road + workout | ERG | the workout's targets |
 | Flat road + free ride | Resistance or ERG | you |
 
-The mode is picked for you and you can always switch it on the Ride tab (or press **E**).
+The mode is picked for you and you can always switch it on the Ride tab (or press **E**). The control row always says who sets the load right now: "Workout sets the load.", "Hills set the load." or "You set the load." On a course the course row adds "The course sets speed, not the load." or, in Grade, "The course sets speed and the load." With a workout loaded but not started, the trainer holds your own ERG target ("You set the load for now.") until Start workout.
 
 Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/`: FRNKLN - January 6, five 15-minute rides (Quick 15: Recovery Flush, Zone 2 Spin, Ironman Race Pace, Tempo Bursts, Sweet Spot Hit), five 30-minute rides (Easy Street, No Retreat, Iron Will, Red Line, The Caldron), five 45-minute rides (The Road Home, The Grinder, Test of Will, The Crucible Ring, Grit Test), five easy rides (Long Haul III, The Causeway IV, The Levee IV, The Long Road V, Coastal Cruise V), five medium (The Forge IV, Sweat Factory V, Copper Wire IV, Over the Top V, The Rolling Mill V) and five hard (Hour of Power V, The Heat V, The Smelting Pot IV, The Millstone V, Critical Mass IV).
 
@@ -84,11 +84,11 @@ Details and decisions: `docs/workout-builder.md`.
 
 To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`. An optional `"tag"` of `easy`, `medium` or `hard` puts it under that Difficulty filter.
 
-- A confirmed workout shows on the Ride tab but doesn't start on its own. Connect, warm up as long as you like (a free ride: your own ERG target or resistance), then press **Start workout**. That switches to ERG and the trainer follows each interval.
+- A confirmed workout shows on the Ride tab but doesn't start on its own. Connect and spin up as long as you like at your own ERG target or resistance: nothing is recorded yet. Then press **Start workout** in the top bar. The clock, the recording and the workout start together, from the workout's first step, and the trainer follows each interval in ERG. The workout's own warm-up is its first lap.
 - In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.
 - **Skip interval** jumps ahead. In the ramp test, dropping below 50 rpm (or **End test**) ends the test, starts the cool-down and offers **Set FTP**.
 - When the workout ends, ERG holds the cool-down watts until you press End Ride.
-- Each interval is a lap in the FIT file.
+- Each interval is a lap in the FIT file. The file starts at Start workout; pedaling before it is not in the file.
 
 ## Profile
 
@@ -119,7 +119,7 @@ On a course with no workout, the control row switches to **Grade** and the train
 1. Before connecting, pick **Flat road** or a course in step 1 of the Workout tab. **Test Hills** is a made-up 12 mi loop for testing.
 2. **Start at mile** (in the course's overview) defaults to where your last ride on that course ended. Change it, or press **From the start**.
 3. Press **Next**, then **Ride this workout** on a workout, or **Done: go to Ride** for a free ride. The course is on the Ride tab only after that.
-4. Connect and ride. Speed comes from power and grade: climbs slow you down, descents speed you up. With no workout the trainer follows the hills (Grade mode); with a workout it follows the workout.
+4. Connect, then press **Start ride** (or **Start workout**). Speed comes from power and grade: climbs slow you down, descents speed you up. With no workout the trainer follows the hills (Grade mode); with a workout it follows the workout.
 5. The FIT file is marked as a virtual ride with elevation, so Strava shows it as a Virtual Ride.
 
 Import your own GPX on the **Profile** tab. An imported course is picked in step 1 of the Workout tab; it is not on the Ride tab until you confirm it there.
@@ -136,8 +136,8 @@ Import your own GPX on the **Profile** tab. An imported course is picked in step
 
 1. Open https://weem-watts.vercel.app in Chrome or Edge.
 2. Close the Wahoo app and Zwift on your phone and computer. The Kickr allows only one controlling connection.
-3. Press **Connect** and pick the Kickr in the browser's device list. The status shows **Ready**.
-4. Start pedaling. The timer starts on the first pedal stroke. Spinning the flywheel by hand reads 0 W and does not start a ride. Press **Disconnect** to back out before pedaling.
+3. Press **Connect** and pick the Kickr in the browser's device list. The status shows **Not recording**. Power, cadence and speed are live and the trainer already takes your resistance level, ERG target or the course's grade, but time and distance stay at zero and nothing is saved.
+4. Press **Start ride** (**Start workout** with a workout loaded). It is the blue button where Connect was. Time, distance and the recording start from zero at that moment. If you forget, the ride is not saved. Pressed while you are not pedaling, the ride starts paused at 0:00 and begins on your first pedal stroke. Press **Disconnect** to back out before Start. You can still change the course or workout on the Workout tab until you press Start.
 5. Change resistance with the step buttons (-10 / -5 / -1, +1 / +5 / +10) or keys: **Arrow Up / Down** 1%, **+ / -** 5%, **Shift + Arrow** 10%. Stay in one gear. The level is remembered for next time and re-sent after a reconnect.
 6. Stop pedaling and the ride **auto-pauses** after 3 seconds (power and cadence both 0). Time, distance, the workout clock and recording stop; the first pedal stroke resumes. The FIT file marks each pause, so Strava shows moving time. If you stop and never resume, the file ends where you stopped pedaling.
 7. Press **End Ride**, then **Confirm end**. The FIT file downloads. Upload it to Strava or Garmin Connect.

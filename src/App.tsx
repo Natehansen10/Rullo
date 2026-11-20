@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from './components/Button'
 import { ElevationProfile } from './components/ElevationProfile'
 import { ProfilePage } from './components/ProfilePage'
@@ -28,6 +28,8 @@ import { builder, type ReturnTo } from './lib/workoutDraft'
 
 const EMPTY = '--'
 const CONFIRM_MS = 3000
+/** Clicks on End Ride are ignored this long after Start. */
+const START_GUARD_MS = 1000
 
 function formatTime(ms: number): string {
   const total = Math.floor(ms / 1000)
@@ -53,7 +55,8 @@ function status(s: RideSnapshot): { tone: StatusTone; label: string } {
   }
   if (c.kind === 'connecting') return { tone: 'warn', label: 'Connecting' }
   if (s.paused) return { tone: 'idle', label: 'Paused' }
-  if (c.kind === 'connected') return { tone: 'on', label: s.phase === 'ready' ? 'Ready' : 'Connected' }
+  // Connected and waiting for Start: nothing is being saved, and the pill says so.
+  if (c.kind === 'connected') return s.phase === 'ready' ? { tone: 'warn', label: 'Not recording' } : { tone: 'on', label: 'Connected' }
   return { tone: 'idle', label: 'Not connected' }
 }
 
@@ -63,6 +66,8 @@ function isTyping(e: KeyboardEvent): boolean {
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
 }
 
+/** One hint for every mode, so it never changes width: the unit is on the value beside it. */
+const KEY_HINT = '↑↓ 1  ·  +/− 5  ·  shift ↑↓ 10  ·  E mode'
 const MODE_LABEL = { resistance: 'Resistance', erg: 'ERG', grade: 'Grade' } as const
 const TABS = [
   { id: 'ride', label: 'Ride', href: href('ride') },
@@ -70,26 +75,67 @@ const TABS = [
   { id: 'profile', label: 'Profile', href: href('profile') },
 ] as const
 
-function controlStatus(s: RideSnapshot): string | null {
+/** The Start button's words: the workout starts with the ride. */
+function startLabel(s: RideSnapshot): string {
+  return s.workout ? 'Start workout' : 'Start ride'
+}
+
+/**
+ * Who sets the load right now, in plain words: the workout (ERG follows its
+ * targets), the hills (Grade follows the course) or the rider (a resistance
+ * level or their own ERG target). Short: the control row has about 140px for
+ * it at 1280 on a course.
+ */
+function loadOwner(s: RideSnapshot): string {
+  if (s.phase === 'ended') return 'Ride ended.'
+  const erg = s.mode === 'erg' && !s.ergUnsupported
+  const grade = s.mode === 'grade' && !s.gradeUnsupported && !!s.course
+  if (grade) return 'Hills set the load.'
+  const w = s.workout
+  if (erg && w?.started) return w.done ? 'Workout is done.' : 'Workout sets the load.'
+  // A workout is loaded and waiting: the rider's own target or level until Start workout.
+  if (w && !w.started) return 'You set the load for now.'
+  return 'You set the load.'
+}
+
+/** The second line of the control row: what the trainer is doing, or what the rider should do next. */
+function controlDetail(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
   const grade = s.mode === 'grade'
   const started = !!s.workout?.started
-  if (started && !erg && s.controlState !== 'unsupported') return 'Workout targets are off. Switch to ERG.'
-  if (grade && s.gradeUnsupported) return 'No grade control on this trainer. Using resistance.'
-  if (erg && s.ergUnsupported) return 'No ERG on this trainer. Using resistance.'
-  if (!erg && s.controlState === 'unsupported') return 'No resistance control on this trainer'
-  if (s.controlState === 'failed' && s.phase === 'riding' && !s.paused && !(erg && s.ergReleased)) return 'Trainer refused it. Retrying.'
-  if (s.connection.kind !== 'connected' || s.phase === 'ended') {
+  const moving = s.phase === 'riding' ? !s.paused : s.phase === 'ready' && ((s.cadenceRpm ?? 0) > 0 || (s.powerW ?? 0) > 0)
+  if (s.phase === 'ended') return 'Press New ride.'
+  if (started && !s.workout?.done && !erg && s.controlState !== 'unsupported') return 'Workout targets are off.'
+  if (grade && s.gradeUnsupported) return 'No grade control here.'
+  if (erg && s.ergUnsupported) return 'No ERG on this trainer.'
+  if (!erg && s.controlState === 'unsupported') return 'No resistance control.'
+  if (s.controlState === 'failed' && moving && !(erg && s.ergReleased)) return 'Refused. Retrying.'
+  if (s.connection.kind !== 'connected') {
     return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · on connect` : 'Applies on connect'
   }
   if (s.paused) return 'Paused. Pedal to resume.'
-  if (grade) return `Hill feel · trainer at ${s.trainerGradePct.toFixed(1)}% grade`
-  if (erg && s.ergReleased) return 'Released. Spin up to 60 rpm.'
+  if (erg && s.ergReleased && !s.ergUnsupported && s.phase === 'riding') return 'Released until 60 rpm.'
+  // Waiting for Start: say so here too, where the rider's hands are.
+  if (s.phase === 'ready') return `Press ${startLabel(s)}.`
+  if (grade) return `Hill feel · trainer ${s.trainerGradePct.toFixed(1)}%`
   if (erg && s.ergEasing) return 'Easing in to target'
-  if (erg && started) return 'Intensity, every target'
+  if (erg && started) return s.workout?.done ? 'Holding the last target' : 'Intensity, every target'
   if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
   if (s.controlState === 'sending') return 'Setting'
   return null
+}
+
+/**
+ * Control row status: always two lines, each on one line, so nothing moves
+ * when the words change. Who sets the load, then the detail.
+ */
+function controlStatus(s: RideSnapshot): ReactNode {
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate text-fg">{loadOwner(s)}</span>
+      <span className="truncate">{controlDetail(s) ?? '\u00a0'}</span>
+    </span>
+  )
 }
 
 /** Within this many rpm of a cadence cue counts as on target (Zwift prompts at about the same). */
@@ -135,6 +181,8 @@ function Notice({ title, children, actions }: { title: string; children?: ReactN
 export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
+  /** When Start was last pressed. See onEnd. */
+  const startedAtRef = useRef(0)
   const route = useRoute()
   /** Step of the Workout tab. Kept here so the builder can send the rider back to step 2. */
   const [workoutStep, setWorkoutStep] = useState<0 | 1>(0)
@@ -196,7 +244,15 @@ export default function App() {
   const connecting = s.connection.kind === 'connecting'
   const lost = live && (s.connection.kind === 'failed' || s.connection.kind === 'disconnected')
 
+  const onStart = () => {
+    startedAtRef.current = Date.now()
+    go('ride')
+    ride.startRide()
+  }
+
   const onEnd = () => {
+    // End Ride lands where Start was: a double click on Start must not arm it.
+    if (Date.now() - startedAtRef.current < START_GUARD_MS) return
     if (!confirmEnd) {
       setConfirmEnd(true)
       return
@@ -242,12 +298,22 @@ export default function App() {
               {connecting ? 'Connecting' : s.resuming ? 'Connect to resume' : 'Connect'}
             </Button>
           )}
+          {s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
           {live && lost && (
             <Button variant="primary" onClick={ride.connect}>
               Reconnect
             </Button>
           )}
-          {s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
+          {/* Start takes the slot Connect had. Nothing is recorded until it is pressed. */}
+          {s.phase === 'ready' && !lost && (
+            <Button
+              variant={route === 'workout' || route === 'builder' ? 'secondary' : 'primary'}
+              onClick={onStart}
+              disabled={s.connection.kind !== 'connected'}
+            >
+              {startLabel(s)}
+            </Button>
+          )}
           {s.phase === 'riding' && (
             <Button variant={confirmEnd ? 'danger' : 'secondary'} onClick={onEnd}>
               {confirmEnd ? 'Confirm end' : 'End Ride'}
@@ -406,6 +472,7 @@ export default function App() {
                 value={formatTime(s.elapsedMs)}
                 dim={dimRide && s.phase !== 'ended'}
                 dense={dense}
+                action={s.phase === 'ready' && <span className="ww-label whitespace-nowrap text-state-under">Not recording</span>}
                 className={pad}
               />
             </div>
@@ -442,7 +509,7 @@ export default function App() {
                 atMin={s.workout.intensityPct <= INTENSITY_MIN_PCT}
                 atMax={s.workout.intensityPct >= INTENSITY_MAX_PCT}
                 status={controlStatus(s)}
-                hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
+                hint={KEY_HINT}
                 className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             ) : s.mode === 'erg' ? (
@@ -457,7 +524,7 @@ export default function App() {
                 atMin={s.ergTargetW <= ERG_MIN_W}
                 atMax={s.ergTargetW >= ERG_MAX_W}
                 status={controlStatus(s)}
-                hint="↑↓ 1 W  ·  +/− 5 W  ·  shift ↑↓ 10 W  ·  E mode"
+                hint={KEY_HINT}
                 className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             ) : s.mode === 'grade' && !s.gradeUnsupported ? (
@@ -471,7 +538,7 @@ export default function App() {
                 atMin={s.gradeFeelPct <= 0}
                 atMax={s.gradeFeelPct >= 100}
                 status={controlStatus(s)}
-                hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
+                hint={KEY_HINT}
                 className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             ) : (
@@ -486,7 +553,7 @@ export default function App() {
                 atMin={s.resistancePct <= 0}
                 atMax={s.resistancePct >= 100}
                 status={controlStatus(s)}
-                hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
+                hint={KEY_HINT}
                 className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             )}

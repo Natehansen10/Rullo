@@ -1,6 +1,6 @@
 /**
  * Fake trainer for building without the bike. Enabled with ?fake=1.
- * The first 3 seconds send 0 W and 0 rpm (rider getting on), so the Ready state shows.
+ * The first 3 seconds send 0 W and 0 rpm (rider getting on), so the waiting state shows at rest.
  * Resistance changes power the way a harder gear would at the same cadence.
  * ERG holds the target at any cadence above 0, like the real thing (so a
  * restart in ERG is heavy unless the app released it). Like a Kickr Core 2 is
