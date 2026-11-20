@@ -22,8 +22,6 @@ export interface TrainerHandlers {
 
 /** Result of a trainer control command (resistance or ERG target). */
 export type ControlResult = 'ok' | 'unsupported' | 'failed'
-/** @deprecated use ControlResult */
-export type ResistanceResult = ControlResult
 
 export interface Trainer {
   /** Must be called from a user gesture the first time (device picker). */

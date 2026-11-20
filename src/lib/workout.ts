@@ -61,6 +61,10 @@ export interface Interval {
 }
 
 export const RAMP_TEST_FTP_SHARE = 0.75
+/** Sanity limits for imported targets. ERG clamps what is sent anyway; these catch broken files. */
+const MAX_TARGET_PCT = 500
+const MAX_TARGET_W = 2500
+const MAX_INTERVALS = 2000
 
 export function flatten(w: Workout): Interval[] {
   const out: Interval[] = []
@@ -128,11 +132,12 @@ export function formatDuration(s: number): string {
 export function validateWorkout(w: Workout): void {
   const intervals = flatten(w)
   if (intervals.length === 0) throw new Error('The workout has no steps.')
+  if (intervals.length > MAX_INTERVALS) throw new Error(`The workout has more than ${MAX_INTERVALS} intervals.`)
   for (const iv of intervals) {
     if (!(iv.durS > 0) || !Number.isFinite(iv.durS)) throw new Error('A step has no duration.')
     for (const t of [iv.from, iv.to]) {
       const v = 'pct' in t ? t.pct : t.w
-      if (!Number.isFinite(v) || v < 0) throw new Error('A step has a bad target.')
+      if (!Number.isFinite(v) || v < 0 || v > ('pct' in t ? MAX_TARGET_PCT : MAX_TARGET_W)) throw new Error('A step has a bad target.')
     }
   }
   if (totalS(intervals) > 6 * 3600) throw new Error('The workout is longer than 6 hours.')

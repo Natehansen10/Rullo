@@ -51,10 +51,12 @@ export function Stepper({
       {delta < 0 ? `${MINUS}${-delta}` : `+${delta}`}
     </Button>
   )
+  // At desktop width the row never wraps: the status text takes the space left
+  // and may run to two lines inside the row's height.
   return (
-    <div className={`flex flex-wrap items-center gap-6 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-6 xl:flex-nowrap ${className}`}>
       {typeof label === 'string' ? <span className="ww-label">{label}</span> : label}
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         {down.map(stepButton)}
         <span
           aria-live="polite"
@@ -65,8 +67,8 @@ export function Stepper({
         </span>
         {up.map(stepButton)}
       </div>
-      {status && <span className="text-body text-fg-muted">{status}</span>}
-      {hint && <span className="ml-auto font-mono text-mono text-fg-subtle">{hint}</span>}
+      {status && <span className="min-w-0 text-body leading-tight text-fg-muted">{status}</span>}
+      {hint && <span className="ml-auto shrink-0 font-mono text-mono whitespace-nowrap text-fg-subtle">{hint}</span>}
     </div>
   )
 }

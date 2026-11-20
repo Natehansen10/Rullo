@@ -62,6 +62,8 @@ const MODE_KEY = 'ww.mode'
 const ERG_KEY = 'ww.ergW'
 const COURSE_KEY = 'ww.courseId'
 const WORKOUT_KEY = 'ww.workoutId'
+/** Ride id when the browser could not create the ride row (IndexedDB unavailable). Nothing is recorded. */
+const NO_RIDE = -1
 /** A saved position this close to the finish starts the next ride from mile 0. */
 const NEAR_FINISH_M = 160
 
@@ -250,6 +252,7 @@ export class RideController {
   /** Samples held back while a pause is pending: saved if the rider resumes, dropped if the pause is confirmed. */
   private heldSamples: Omit<recorder.SampleRow, 'rideId'>[] = []
   private recovery: recorder.UnfinishedRide | null = null
+  private recordingFailed = false
   private notice: string | null = null
   private resistancePct = loadResistance()
   private profile = loadProfile()
@@ -357,7 +360,7 @@ export class RideController {
           }
         : null,
       resuming: this.phase === 'idle' && this.rideId !== null,
-      canDownload: this.phase === 'ended' && this.rideId !== null,
+      canDownload: this.phase === 'ended' && this.rideId !== null && !this.recordingFailed,
       notice: this.notice,
       resistancePct: this.resistancePct,
       mode: this.mode,
@@ -478,11 +481,19 @@ export class RideController {
     this.testEnded = true
     this.testWindow = []
     const cool = this.intervals[this.intervals.length - 1]
-    this.workoutS = Math.max(this.workoutS, cool.startS)
+    this.jumpWorkoutTo(Math.max(this.workoutS, cool.startS))
     this.syncWorkoutTarget()
   }
 
-  /** Jump to the next interval. In a ramp test's ramp, this ends the test. */
+  /**
+   * Move the workout clock on purpose (skip, end of a ramp test). A pending
+   * auto-pause puts the clock back to where the rider stopped, so that mark moves too.
+   */
+  private jumpWorkoutTo(s: number) {
+    this.workoutS = s
+    if (this.zeroMark) this.zeroMark.workoutS = s
+  }
+
   /** Start the loaded workout: the clock starts and ERG follows it. */
   startWorkout = () => {
     if (!this.workout || this.workoutStarted) return
@@ -498,6 +509,7 @@ export class RideController {
     this.emit()
   }
 
+  /** Jump to the next interval. In a ramp test's ramp, this ends the test. */
   skipInterval = () => {
     if (!this.workout || !this.workoutStarted || this.phase !== 'riding') return
     if (this.inRamp()) {
@@ -506,7 +518,7 @@ export class RideController {
       const total = totalS(this.intervals)
       if (this.workoutS >= total) return
       const next = this.intervals[indexAt(this.intervals, this.workoutS) + 1]
-      this.workoutS = next ? next.startS : total
+      this.jumpWorkoutTo(next ? next.startS : total)
       this.syncWorkoutTarget()
     }
     this.emit()
@@ -595,7 +607,11 @@ export class RideController {
   removeWorkout = async (id: string) => {
     const w = this.workouts.find((x) => x.id === id)
     if (!w || w.source !== 'imported' || !this.canChoose()) return
-    await removeImportedWorkout(id)
+    try {
+      await removeImportedWorkout(id)
+    } catch (err) {
+      console.error('Could not remove the workout:', err)
+    }
     this.workouts = this.workouts.filter((x) => x.id !== id)
     this.refreshWorkoutOptions()
     if (this.workout?.id === id) this.selectWorkout(null)
@@ -783,7 +799,15 @@ export class RideController {
     this.lastSample = null
     this.climbedM = 0
     this.resetPause()
-    this.rideId = recorder.startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined, this.workout?.id)
+    this.rideId = recorder
+      .startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined, this.workout?.id)
+      .catch((err) => {
+        console.error('Could not start recording:', err)
+        this.notice = "This browser isn't saving the ride, so there will be no FIT file. Check that site data is allowed."
+        this.recordingFailed = true
+        this.emit()
+        return NO_RIDE
+      })
   }
 
   private resetPause() {
@@ -851,6 +875,7 @@ export class RideController {
       return
     }
     void this.rideId.then((rideId) => {
+      if (rideId === NO_RIDE) return
       for (const s of [...fills, sample]) void recorder.recordSample({ rideId, ...s })
     })
   }
@@ -1032,7 +1057,7 @@ export class RideController {
   // --- actions ---
 
   connect = () => {
-    if (!this.supported) return
+    if (!this.supported || this.connection.kind === 'connecting' || this.connection.kind === 'connected') return
     this.notice = null
     void this.trainer.connect()
   }
@@ -1061,25 +1086,38 @@ export class RideController {
     this.trainer.disconnect()
     this.emit()
     const id = await this.rideId
-    await recorder.endRide(id, this.endedAt)
+    if (id === NO_RIDE) return
+    try {
+      await recorder.endRide(id, this.endedAt)
+    } catch (err) {
+      console.error('Could not close the ride:', err)
+    }
     await this.download()
   }
 
   download = async () => {
     if (!this.rideId) return
     const id = await this.rideId
-    const samples = await recorder.getSamples(id)
-    if (samples.length === 0) {
-      this.notice = 'Nothing was recorded.'
+    if (id === NO_RIDE) return
+    try {
+      const samples = await recorder.getSamples(id)
+      if (samples.length === 0) {
+        this.notice = 'Nothing was recorded.'
+        this.emit()
+        return
+      }
+      downloadFit(samples, samples[0].t)
+    } catch (err) {
+      console.error('FIT export failed:', err)
+      this.notice = 'Could not build the FIT file. The ride is still saved in this browser; try Download FIT again.'
       this.emit()
-      return
     }
-    downloadFit(samples, samples[0].t)
   }
 
   newRide = () => {
     this.phase = 'idle'
     this.rideId = null
+    this.recordingFailed = false
     this.startedAt = 0
     this.endedAt = 0
     this.distanceM = 0
@@ -1159,7 +1197,11 @@ export class RideController {
   removeCourse = async (id: string) => {
     const c = this.courses.find((x) => x.id === id)
     if (!c || c.source !== 'imported' || !this.canChoose()) return
-    await removeImportedCourse(id)
+    try {
+      await removeImportedCourse(id)
+    } catch (err) {
+      console.error('Could not remove the course:', err)
+    }
     this.courses = this.courses.filter((x) => x.id !== id)
     if (this.course?.id === id) await this.selectCourse(null)
     this.emit()

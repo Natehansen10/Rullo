@@ -74,17 +74,29 @@ export function buildCourse(
   if (xs.length < 2 || x < 100) throw new Error('This GPX has too few points to ride.')
 
   // Fill missing elevation from neighbors (all missing: flat at 0).
-  const known = es.map((e, i) => (e === null ? -1 : i)).filter((i) => i >= 0)
-  const eFilled = es.map((e, i) => {
-    if (e !== null) return e
-    if (known.length === 0) return 0
-    const next = known.find((k) => k > i)
-    const prev = [...known].reverse().find((k) => k < i)
-    if (prev === undefined) return es[next!] as number
-    if (next === undefined) return es[prev] as number
-    const t = (xs[i] - xs[prev]) / (xs[next] - xs[prev])
-    return (es[prev] as number) + t * ((es[next] as number) - (es[prev] as number))
-  })
+  // One pass each way finds the nearest known elevation on both sides of every point.
+  const nextKnown = new Int32Array(es.length).fill(-1)
+  for (let i = es.length - 1, k = -1; i >= 0; i--) {
+    if (es[i] !== null) k = i
+    nextKnown[i] = k
+  }
+  const eFilled: number[] = new Array(es.length)
+  for (let i = 0, prev = -1; i < es.length; i++) {
+    const e = es[i]
+    if (e !== null) {
+      eFilled[i] = e
+      prev = i
+      continue
+    }
+    const next = nextKnown[i]
+    if (prev < 0 && next < 0) eFilled[i] = 0
+    else if (prev < 0) eFilled[i] = es[next] as number
+    else if (next < 0) eFilled[i] = es[prev] as number
+    else {
+      const t = (xs[i] - xs[prev]) / (xs[next] - xs[prev])
+      eFilled[i] = (es[prev] as number) + t * ((es[next] as number) - (es[prev] as number))
+    }
+  }
 
   // Resample on a fixed horizontal grid.
   const n = Math.floor(x / STEP_M) + 1

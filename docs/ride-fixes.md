@@ -90,7 +90,7 @@ Level 0 itself is fine: the same project reports the Core 2's range as raw bytes
 **Chose:**
 
 - **Release in two steps** (`release()` in `src/lib/ble.ts`): first Set Target Power at 25 W (`ERG_RELEASE_W`), then Set Target Resistance Level at the minimum. The first stays inside ERG, which trainers accept at a standstill. If the second is refused, the trainer is holding 25 W, not 150 W.
-- **Retry refused commands.** Any control command the trainer answers "failed" to is sent again 2 s later (`CONTROL_RETRY_MS`), once the rider is pedaling. This also covers the resistance level sent at connect, when the flywheel is stopped. The status text changed from "Tap again" to "Retrying".
+- **Retry refused commands.** Any control command the trainer answers "failed" to is sent again 2 s later (`CONTROL_RETRY_MS`), once the rider is pedaling. This also covers the resistance level sent at connect, when the flywheel is stopped. The status text changed from "Tap again" to "Trainer refused it. Retrying."
 - **Release sooner on a stop:** below 20 rpm for 1 s (`ERG_STOPPED_RPM`, `ERG_STOPPED_AFTER_MS`). The brief said cadence 0; 20 rpm was chosen because a trainer's cadence estimate can read a few rpm while the flywheel coasts down. The 50 rpm for 3 s rule stays.
 - **Re-engage needs 60 rpm held for 1 s** (`ERG_RESUME_AFTER_MS`).
 - **Soft start, 6 s** (`ERG_SOFT_START_MS`): the commanded target ramps in a straight line from the rider's current 3 s power (at least 25 W) to the real target, one update per second. Why 6 s: long enough for the flywheel to be at speed before the full load lands, short enough to cost little of an interval. Wahoo's own "ERG Easy Ramp" takes 10 to 15 s, which felt too long for 3-minute intervals. No ramp when the rider is already at or above the target.
@@ -101,7 +101,7 @@ Level 0 itself is fine: the same project reports the Core 2's range as raw bytes
 
 **Why it can't get stuck:**
 
-- Released while pedaling normally: re-engage is 60 rpm for 1 s, checked on every cadence reading. A rider who settles between 50 and 59 rpm stays released with the "Spin above 60 rpm" message, as before.
+- Released while pedaling normally: re-engage is 60 rpm for 1 s, checked on every cadence reading. A rider who settles between 50 and 59 rpm stays released with the "Released. Spin up to 60 rpm." message.
 - Stuck in the ramp: the ramp is a function of time since engage, so it ends 6 s later whatever happens.
 - Stuck at 25 W: that target is only sent as part of a release, and every engage sends the real one.
 
@@ -110,7 +110,7 @@ Level 0 itself is fine: the same project reports the Core 2's range as raw bytes
 **Test on the next ride (ERG, small ring, middle cog):**
 
 1. **Stop pedaling.** The load should let go within about 2 s, well before the flywheel stops. Before, it fought you for 3 s.
-2. **Restart from a full stop.** The first pedal strokes should feel like spinning up a flywheel and nothing more. If it is still heavy, check the status text: "Trainer didn't take the change. Retrying." means the Kickr refused a command, which confirms suspect 1. Tell me what it said.
+2. **Restart from a full stop.** The first pedal strokes should feel like spinning up a flywheel and nothing more. If it is still heavy, check the status text: "Trainer refused it. Retrying." means the Kickr refused a command, which confirms suspect 1. Tell me what it said.
 3. **Spin to 60 rpm and hold.** About 1 s later the status reads "Easing in to target" and the load builds for 6 s. It should feel like a ramp, not a wall.
 4. **Start of the ride in ERG:** same soft start.
 5. **Drop to 40 rpm for 5 s mid-interval, then spin up.** It should release at 3 s and ease back in.

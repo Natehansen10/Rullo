@@ -45,7 +45,8 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
   let cadence = 0
 
   const onKey = (e: KeyboardEvent) => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const el = e.target as HTMLElement | null
+    if (e.metaKey || e.ctrlKey || e.altKey || el?.tagName === 'INPUT') return
     const k = e.key.toLowerCase()
     if (k === 'd') dropUntil = Date.now() + DROP_MS
     if (k === 'c') lowCadenceUntil = Date.now() + LOW_CADENCE_MS

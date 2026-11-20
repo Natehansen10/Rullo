@@ -5,7 +5,7 @@
 import { BUILTIN_WORKOUTS } from './builtinWorkouts'
 import * as recorder from './recorder'
 import { validateWorkout, type Workout } from './workout'
-import { workoutFromZwo } from './zwo'
+import { MAX_ZWO_BYTES, workoutFromZwo } from './zwo'
 
 interface BuiltinZwoEntry {
   id: string
@@ -32,8 +32,11 @@ async function loadBuiltinZwo(): Promise<Workout[]> {
   return out
 }
 
+/** Parse and validate: a stored row is as untrusted as the file it came from. */
 function fromImported(row: recorder.ImportedWorkoutRow): Workout {
-  return workoutFromZwo(row.zwo, row.id, row.name)
+  const w = workoutFromZwo(String(row.zwo), String(row.id), String(row.name))
+  validateWorkout(w)
+  return w
 }
 
 export async function loadWorkouts(fake: boolean): Promise<Workout[]> {
@@ -59,11 +62,11 @@ export async function loadWorkouts(fake: boolean): Promise<Workout[]> {
 
 /** Parse, validate and save a ZWO file. Throws with a rider-facing message on bad files. */
 export async function importZwoFile(file: File): Promise<Workout> {
+  if (file.size > MAX_ZWO_BYTES) throw new Error('The file is too large for a workout (limit 1 MB).')
   const zwo = await file.text()
   const name = file.name.replace(/\.zwo$/i, '')
   const row: recorder.ImportedWorkoutRow = { id: `imported-${Date.now()}`, name, zwo, addedAt: Date.now() }
   const w = fromImported(row)
-  validateWorkout(w)
   await recorder.saveImportedWorkout({ ...row, name: w.name })
   return w
 }

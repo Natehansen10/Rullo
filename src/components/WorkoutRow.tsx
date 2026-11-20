@@ -9,6 +9,8 @@ interface WorkoutRowProps {
   /** Gray the numbers out when data is stale or the ride is not live. */
   dim?: boolean
   canSkip: boolean
+  /** The ride is over: no Start or Skip buttons. */
+  ended?: boolean
   onSkip: () => void
   onStart: () => void
   onApplyFtp: () => void
@@ -31,6 +33,7 @@ export function WorkoutRow({
   ftpW,
   dim = false,
   canSkip,
+  ended = false,
   onSkip,
   onStart,
   onApplyFtp,
@@ -91,15 +94,15 @@ export function WorkoutRow({
               )}
             </>
           )}
-          {!live.started && (
+          {!live.started && !ended && (
             <>
-              {!live.canStart && <span className="whitespace-nowrap text-fg-muted">Connect to start</span>}
-              <Button variant="primary" onClick={onStart} disabled={!live.canStart}>
+              {!live.canStart && !compact && <span className="whitespace-nowrap text-fg-muted">Connect to start</span>}
+              <Button variant="primary" onClick={onStart} disabled={!live.canStart} title={live.canStart ? undefined : 'Connect to start'}>
                 Start workout
               </Button>
             </>
           )}
-          {live.started && !live.done && (
+          {live.started && !live.done && !ended && (
             <Button onClick={onSkip} disabled={!canSkip}>
               {inRamp ? 'End test' : 'Skip interval'}
             </Button>

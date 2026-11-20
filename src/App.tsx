@@ -54,6 +54,12 @@ function status(s: RideSnapshot): { tone: StatusTone; label: string } {
   return { tone: 'idle', label: 'Not connected' }
 }
 
+/** A key pressed in a field is typing, not a shortcut. */
+function isTyping(e: KeyboardEvent): boolean {
+  const el = e.target as HTMLElement | null
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
+}
+
 const MODE_OPTIONS = ['resistance', 'erg'] as const
 const TABS = [
   { id: 'ride', label: 'Ride', href: href('ride') },
@@ -64,15 +70,15 @@ const TABS = [
 function controlStatus(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
   const started = !!s.workout?.started
-  if (started && !erg && s.controlState !== 'unsupported') return 'Targets are off in Resistance. Press E.'
-  if (erg && s.ergUnsupported) return "This trainer doesn't support ERG. Using your resistance level."
-  if (!erg && s.controlState === 'unsupported') return "This trainer doesn't accept resistance control"
-  if (s.controlState === 'failed' && s.phase === 'riding' && !s.paused && !(erg && s.ergReleased)) return "Trainer didn't take the change. Retrying."
+  if (started && !erg && s.controlState !== 'unsupported') return 'Targets off in Resistance. Press E.'
+  if (erg && s.ergUnsupported) return 'No ERG on this trainer. Using resistance.'
+  if (!erg && s.controlState === 'unsupported') return 'No resistance control on this trainer'
+  if (s.controlState === 'failed' && s.phase === 'riding' && !s.paused && !(erg && s.ergReleased)) return 'Trainer refused it. Retrying.'
   if (s.connection.kind !== 'connected' || s.phase === 'ended') {
     return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · on connect` : 'Applies on connect'
   }
   if (s.paused) return 'Paused. Pedal to resume.'
-  if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
+  if (erg && s.ergReleased) return 'Released. Spin up to 60 rpm.'
   if (erg && s.ergEasing) return 'Easing in to target'
   if (erg && started) return 'Intensity, every target'
   if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
@@ -101,7 +107,7 @@ export default function App() {
   // ERG: arrows 1 W, + / - 5 W, Shift+arrows 10 W. Workout in ERG: intensity 1 / 5 / 10%. E switches mode.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || !isRoute('ride')) return
+      if (e.metaKey || e.ctrlKey || e.altKey || !isRoute('ride') || isTyping(e)) return
       const snap = ride.getSnapshot()
       const erg = snap.mode === 'erg'
       const workout = erg && !!snap.workout?.started
@@ -228,6 +234,7 @@ export default function App() {
         </main>
       ) : (
         <main className="flex flex-1 flex-col gap-4 px-8 py-4">
+          <h1 className="sr-only">Ride</h1>
           {!s.supported && (
             <Notice title="This browser can't connect to your trainer">
               Web Bluetooth is not available here. Open Weem Watts in Chrome or Edge on a desktop computer.
@@ -322,6 +329,7 @@ export default function App() {
                 ftpW={s.profile.ftpW}
                 dim={dimRide}
                 canSkip={s.phase === 'riding'}
+                ended={s.phase === 'ended'}
                 onSkip={ride.skipInterval}
                 onStart={ride.startWorkout}
                 onApplyFtp={ride.applyTestFtp}

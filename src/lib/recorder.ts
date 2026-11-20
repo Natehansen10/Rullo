@@ -144,10 +144,6 @@ export async function getSamples(rideId: number): Promise<SampleRow[]> {
   return db.samples.where('[rideId+t]').between([rideId, Dexie.minKey], [rideId, Dexie.maxKey]).toArray()
 }
 
-export async function getRide(id: number): Promise<RideRow | undefined> {
-  return db.rides.get(id)
-}
-
 export interface UnfinishedRide {
   ride: RideRow
   last: SampleRow | null

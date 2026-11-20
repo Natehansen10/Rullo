@@ -109,11 +109,6 @@ export class SpeedModel {
     return meters
   }
 
-  /** Jump straight to a speed. */
-  setSpeed(v: number): void {
-    this.v = Math.max(0, v)
-  }
-
   reset(): void {
     this.v = 0
     this.coastFrom = null

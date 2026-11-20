@@ -1,6 +1,6 @@
 /** Course catalog: built-in courses shipped in public/courses plus GPX files the rider imported. */
 import { buildCourse, type Course } from './course'
-import { parseGpx } from './gpx'
+import { MAX_GPX_BYTES, parseGpx } from './gpx'
 import * as recorder from './recorder'
 
 interface BuiltinEntry {
@@ -29,7 +29,7 @@ async function loadBuiltins(): Promise<Course[]> {
 }
 
 function fromImported(row: recorder.ImportedCourseRow): Course {
-  return buildCourse(parseGpx(row.gpx).points, { id: row.id, name: row.name, source: 'imported' })
+  return buildCourse(parseGpx(String(row.gpx)).points, { id: String(row.id), name: String(row.name), source: 'imported' })
 }
 
 export async function loadCourses(): Promise<Course[]> {
@@ -53,9 +53,10 @@ export async function loadCourses(): Promise<Course[]> {
 
 /** Parse, validate and save a GPX file. Throws with a rider-facing message on bad files. */
 export async function importGpxFile(file: File): Promise<Course> {
+  if (file.size > MAX_GPX_BYTES) throw new Error('The file is too large for a course (limit 30 MB).')
   const text = await file.text()
   const parsed = parseGpx(text)
-  const name = parsed.name || file.name.replace(/\.gpx$/i, '')
+  const name = parsed.name || file.name.replace(/\.gpx$/i, '').slice(0, 80)
   const row: recorder.ImportedCourseRow = { id: `imported-${Date.now()}`, name, gpx: text, addedAt: Date.now() }
   const course = fromImported(row) // throws if unusable
   await recorder.saveImportedCourse(row)
