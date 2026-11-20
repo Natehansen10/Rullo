@@ -61,15 +61,21 @@ Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO 
 
 ### Build a workout
 
-Press **New workout** (step 2 of the Workout tab, or Profile), or open any workout and press **Edit a copy** to start from it.
+Press **New workout** (first in the list in step 2 of the Workout tab, or on Profile), or open any workout and press **Edit a copy** to start from it. The builder works like Zwift's editor.
 
-- One row per step: **Steady** or **Ramp**, a time, a target, an optional cadence and label. **Add repeat** makes a block of steps that runs several times.
-- Time: `12` is minutes; `12:00`, `90s` and `1h30` also work. Target: `90` is % of FTP and follows your FTP; `225w` is watts and stays fixed. Each row shows what the target comes to at your current FTP.
-- Reorder with ↑ ↓, **Copy** and **Delete** on each row. Keys: **Alt + ↑ / ↓** moves the row, **Ctrl + D** duplicates it.
-- The strip and total time update as you type. Pick a difficulty so the filters find it; the Length filter works on its own.
-- **Save** takes you back to step 2 with the workout selected. An unsaved draft survives a reload.
-- **Cadence** is a cue for you. The Ride tab shows it in the workout row and the Cadence tile ("target 90 rpm"); the trainer holds the power either way. Imported ZWO files keep their cadence targets.
-- Limits are the same as for imported files: 6 hours, 2,000 intervals, 500% or 2,500 W.
+1. **Name it.** Click the title, type, press Enter.
+2. **Add blocks.** Click a tile on the right (Z1 to Z6, Warm up, Cool down, Intervals) to add it after the selected block, or drag the tile to a spot on the graph.
+3. **Set time and power.** Click a block and its fields show right above it. Type a time (`12` is minutes; `12:00`, `90s`) and a power. Or drag the block's top edge for power and its right edge for time.
+4. **Intervals** have a − / + repeat count and Duration One / Power One, Duration Two / Power Two. **Add step** gives a repeat a third step or more.
+5. **Cadence.** Select a block and click the Cadence tile (or drag it onto a block). The × removes it.
+6. **Move and delete.** Drag a block sideways to move it, or onto **Delete block** to remove it. **Undo** (Ctrl + Z) takes back any change.
+7. **Save.** You land back on step 2 with the workout selected.
+
+- **Display** switches the power fields between % FTP and watts. A bare number takes the unit on display; `225w` or `90%` always wins. A % target follows your FTP, a watts target stays fixed.
+- Keys on a block: ← → select, ↑ ↓ power, Shift + ← → time, Alt + ← → move, Delete, Ctrl + D duplicate.
+- **Step list** opens the same workout as typed rows, with a label per step.
+- An unsaved draft survives a reload. Limits are the same as for imported files: 6 hours, 2,000 intervals, 500% or 2,500 W.
+- **Cadence** is a cue for you. The Ride tab shows it in the workout row and the Cadence tile; the trainer holds the power either way.
 - Custom workouts live in this browser only. Clearing site data deletes them; there is no export yet.
 
 Details and decisions: `docs/workout-builder.md`.

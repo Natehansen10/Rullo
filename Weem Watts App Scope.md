@@ -108,12 +108,12 @@ Since Nov 20, 2026 a workout can run on a course, so the race plan becomes a wor
 
 ### Workout builder (built Nov 20, 2026; ride test pending)
 
-Moved out of "Later" on Nov 20, 2026 at Nate's request, ahead of the v3.2 ride test. A step-list editor with cadence cues; decisions and cuts are in `docs/workout-builder.md`.
+Moved out of "Later" on Nov 20, 2026 at Nate's request, ahead of the v3.2 ride test. Laid out after Zwift's workout editor (block palette, a graph to click and drag on, fields above the selected block), with the step list as a second view and cadence cues; decisions and cuts are in `docs/workout-builder.md`.
 
 - Build a workout from nothing, or from a copy of any workout: steady, ramp and repeat steps, time, target in % FTP or watts, cadence cue, label, name, difficulty
 - Saved in the browser as the app's own step list; listed in step 2 of the Workout tab and under "Your files" on the Profile tab
 - Cadence is a cue for the rider (workout row and Cadence tile); ZWO import now reads it. The trainer never gets it
-- **Cut:** ZWO export, free-ride steps, timed text cues, TSS / IF, text syntax, drag graph
+- **Cut:** ZWO export, free-ride blocks, text events, TSS / IF, text syntax
 - **Done when:** build a workout by keyboard, ride it on the Kickr with ERG changing at each step, and see one lap per interval in the FIT
 
 ### Later: Strava auto-upload

@@ -2,7 +2,64 @@
 
 Built Nov 20, 2026, ahead of the v3.2 ride test at Nate's request. Research: `docs/workout-builder-research.md`. Reference screenshots: `docs/builder-screenshots/` (interaction ideas only; the look is DESIGN.md).
 
-## What was built
+## Second pass, Nov 20, 2026: rebuilt after Zwift's editor
+
+Nate asked for the builder to work and look like Zwift's workout editor, in this app's branding. The guide he supplied ("Zwift: how create a new workout works, click by click") is the reference. The step list from the first pass is kept as an optional view of the same data.
+
+### What matches Zwift
+
+| Zwift | Here |
+| --- | --- |
+| + CREATE WORKOUT leads the Custom list | New workout is the first row of the step 2 list, and the first button under Your files |
+| Copy on any workout's overview | Edit a copy in the selected workout's detail card |
+| One screen, no steps or tabs | One panel: header, details, graph and palette, bottom bar, Save |
+| Back arrow top left; leaving discards | ← Back top left; asks once more if there is unsaved work |
+| Title "New Workout", click it to rename, Enter | Same |
+| Description left, tags right | Description left, the difficulty tag (Easy, Medium, Hard) right |
+| Graph with Z1 to Z6 lines and a time axis that starts at 1:00 and grows | Same |
+| Palette on the right: Z1 to Z6, warm up, cool down, intervals, cadence | Same, with Zwift's defaults: 5 min at 50 / 65 / 81 / 95 / 110 / 125%, 10 min ramps, intervals 4 x 1 min on and off |
+| Drag a tile onto the graph; the block is selected | Same. A click on the tile also adds it, after the selected block |
+| Number fields pop up just above the selected block | Same |
+| Width is time, height is power, color follows the zone | Same |
+| Intervals: − / + count, Duration One / Power One, Duration Two / Power Two | Same |
+| Drag the top edge for power, the side edge for time | Same. Time snaps to 15 s (5 s on short workouts), power to 1% |
+| Cadence tile dropped on a block gives a "Cadence" field with an × | Same, default 90 rpm |
+| Delete key, or drag the block to the trash | Same (Delete block is the trash) |
+| DISPLAY: watts or % FTP | Same |
+| Live WORKOUT DURATION | Same |
+| First-run hints on an empty editor | Plain text hints in the same three places |
+| Save | Save |
+
+### Judgment calls and what does not apply
+
+| Call | Why |
+| --- | --- |
+| The look is DESIGN.md, not Zwift's | CLAUDE.md: only DESIGN.md tokens. Zone colors are this app's zone tokens; Save is Cobalt; no orange, no dark header, no hand-drawn notes. |
+| **Free ride and text event tiles are left out** | Both change what happens during a ride: free ride switches ERG off and on mid-workout, and text events need a place on the Ride tab. That is the riskiest code in the app and it has not been ride-tested yet. The first research marked both as M. |
+| Undo added (Zwift has none) | The guide asked for it. Every change can be taken back, up to 100 steps. |
+| A repeat can hold 3 or more steps (Zwift: 2) | The guide asked for it. Add step in the repeat's fields. |
+| Blocks can be dragged to reorder; ← → buttons and Copy sit with the fields | The guide could not confirm reordering in Zwift. Without it a misplaced block means delete and rebuild. |
+| A drop lands where it is dropped; a click adds after the selected block | Not confirmed in Zwift either way. |
+| Author and custom tags are left out | No accounts, and the picker filters on difficulty only. |
+| Stress Points and XP are left out | TSS is still cut (v3.2). |
+| Display unit: a bare number takes the unit on display; a target keeps the unit it was typed in | Zwift saves typed watts as %. This app keeps both, so a watts target stays fixed when FTP changes. |
+| A new workout is named "New workout" until renamed | As in Zwift. Save works without a rename. |
+| The step list stays, closed by default, behind a Step list button | It is the typed, always-visible view the guide's own table recommends, it holds per-step labels, and it shows which field is wrong. It opens by itself when a field has a bad value. |
+| The fields sit in a band above the graph, lined up with the block | Floating them over the blocks would cover the neighbors. The band keeps its height so the graph does not jump. |
+| Route is not part of the workout | As in Zwift, and as in v3.2: course in step 1, workout in step 2. |
+| Save returns to step 2 with the workout selected | The guide's pick; step 2's detail card is this app's "overview". |
+| Keyboard on blocks (arrows, Shift, Alt, Delete, Ctrl + D, Ctrl + Z) | Zwift is mouse-first; this app's rule is that every action works by keyboard. |
+| No drag library | Pointer events only. No new dependency. |
+
+### Checks added
+
+- Built the 3 x 12 workout with tiles and the pop-up fields: 1:09:00, 8 intervals.
+- Dragged a tile to a spot, a top edge, a right edge, a block to a new place and a block onto Delete block. Undo restored each.
+- Display toggle: 90% shows as 198 W at FTP 220; a bare 220 typed in Watts is 220 W.
+- A 5,000 W target and junk in a time field are refused and the field goes back.
+- Every earlier check was run again on this build (keyboard build through the step list, break-it, ride on a flat road and on a course, FIT, recovery, widths 1024 to 1920, contrast, reduced motion).
+
+## First pass: what was built
 
 Option S from the research: a step-list editor, not a drag canvas.
 
