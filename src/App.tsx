@@ -7,6 +7,7 @@ import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { Stepper } from './components/Stepper'
 import { TabNav } from './components/TabNav'
+import { WorkoutBuilder } from './components/WorkoutBuilder'
 import { WorkoutPage } from './components/WorkoutPage'
 import { WorkoutRow } from './components/WorkoutRow'
 import {
@@ -23,6 +24,7 @@ import {
 import { ride, useRide } from './hooks/useRide'
 import { go, href, isRoute, useRoute } from './hooks/useRoute'
 import type { RideSnapshot } from './lib/ride'
+import { builder, type ReturnTo } from './lib/workoutDraft'
 
 const EMPTY = '--'
 const CONFIRM_MS = 3000
@@ -90,6 +92,34 @@ function controlStatus(s: RideSnapshot): string | null {
   return null
 }
 
+/** Within this many rpm of a cadence cue counts as on target (Zwift prompts at about the same). */
+const CADENCE_ON_TARGET_RPM = 5
+
+/**
+ * The workout's cadence cue for the Cadence tile: "target 90", toned on, under
+ * or over once the workout runs. A cue for the rider only; the trainer holds
+ * power in ERG whatever the cadence.
+ */
+function cadenceCue(s: RideSnapshot, live: boolean): ReactNode {
+  const target = s.workout?.cadenceTargetRpm ?? null
+  if (target === null || s.phase === 'ended') return null
+  const judged = live && s.workout?.started && !s.stale && !s.paused && s.cadenceRpm !== null
+  const diff = judged ? (s.cadenceRpm as number) - target : 0
+  const tone = !judged
+    ? 'text-fg-muted'
+    : diff < -CADENCE_ON_TARGET_RPM
+      ? 'text-state-under'
+      : diff > CADENCE_ON_TARGET_RPM
+        ? 'text-state-over'
+        : 'text-state-on'
+  const word = !judged ? '' : diff < -CADENCE_ON_TARGET_RPM ? ' · under' : diff > CADENCE_ON_TARGET_RPM ? ' · over' : ' · on'
+  return (
+    <span className={`font-mono text-mono whitespace-nowrap ${tone}`}>
+      target {target} rpm{word}
+    </span>
+  )
+}
+
 function Notice({ title, children, actions }: { title: string; children?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4">
@@ -106,6 +136,21 @@ export default function App() {
   const s = useRide()
   const [confirmEnd, setConfirmEnd] = useState(false)
   const route = useRoute()
+  /** Step of the Workout tab. Kept here so the builder can send the rider back to step 2. */
+  const [workoutStep, setWorkoutStep] = useState<0 | 1>(0)
+
+  /** Open the workout builder on a new workout, a custom workout (edit) or a copy of any workout. */
+  const openBuilder = (kind: 'new' | 'edit' | 'copy', id: string | null, returnTo: ReturnTo) => {
+    const workout = id ? ride.getWorkout(id) : null
+    if (kind !== 'new' && !workout) return
+    try {
+      builder.open(kind === 'new' || !workout ? { kind: 'new' } : { kind, workout }, returnTo)
+      ride.notify(null)
+      go('builder')
+    } catch (err) {
+      ride.notify(err instanceof Error ? err.message : 'That workout cannot be edited.')
+    }
+  }
 
   // From the saddle. Resistance: arrows 1%, + / - 5%, Shift+arrows 10%.
   // ERG: arrows 1 W, + / - 5 W, Shift+arrows 10 W. Workout in ERG: intensity 1 / 5 / 10%. E switches mode.
@@ -179,13 +224,13 @@ export default function App() {
           <a href={href('ride')} className="ww-wordmark no-underline">
             Weem Watts
           </a>
-          <TabNav tabs={TABS} current={route} />
+          <TabNav tabs={TABS} current={route === 'builder' ? 'workout' : route} />
         </div>
         <div className="flex items-center gap-3">
           <StatusPill tone={pill.tone} label={pill.label} />
           {s.phase === 'idle' && (
             <Button
-              variant={route === 'workout' ? 'secondary' : 'primary'}
+              variant={route === 'workout' || route === 'builder' ? 'secondary' : 'primary'}
               onClick={() => {
                 go('ride')
                 ride.connect()
@@ -231,7 +276,26 @@ export default function App() {
             onRemoveCourse={(id) => void ride.removeCourse(id)}
             onImportWorkout={(f) => void ride.importWorkout(f)}
             onRemoveWorkout={(id) => void ride.removeWorkout(id)}
+            onNewWorkout={() => openBuilder('new', null, 'profile')}
+            onEditWorkout={(id) => openBuilder('edit', id, 'profile')}
+            onCopyWorkout={(id) => openBuilder('copy', id, 'profile')}
             notice={s.notice && <Notice title={s.notice} />}
+          />
+        </main>
+      ) : route === 'builder' ? (
+        <main className="flex flex-1 flex-col px-8 py-6">
+          <WorkoutBuilder
+            ftpW={s.profile.ftpW}
+            locked={!s.canChooseCourse}
+            onSave={ride.saveCustomWorkout}
+            onSaved={() => {
+              setWorkoutStep(1)
+              go('workout')
+            }}
+            onClose={(returnTo) => {
+              if (returnTo === 'workout') setWorkoutStep(1)
+              go(returnTo)
+            }}
           />
         </main>
       ) : route === 'workout' ? (
@@ -242,6 +306,11 @@ export default function App() {
             onSelectCourse={(id) => void ride.selectCourse(id)}
             onStartMi={ride.setStartMi}
             onSelectWorkout={ride.selectWorkout}
+            step={workoutStep}
+            onStep={setWorkoutStep}
+            onNewWorkout={() => openBuilder('new', null, 'workout')}
+            onEditWorkout={(id) => openBuilder('edit', id, 'workout')}
+            onCopyWorkout={(id) => openBuilder('copy', id, 'workout')}
             onDone={() => go('ride')}
           />
         </main>
@@ -302,6 +371,7 @@ export default function App() {
                 unit="rpm"
                 dim={dimLive || s.cadenceRpm === null}
                 dense={dense}
+                action={cadenceCue(s, live)}
                 className={`border-r border-b border-line ${pad}`}
               />
               <MetricTile

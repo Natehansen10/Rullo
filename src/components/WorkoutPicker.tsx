@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { WorkoutLive, WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
+import { Button } from './Button'
 import { PickerRow } from './PickerRow'
 import { SegmentedControl } from './SegmentedControl'
 import { WorkoutStrip } from './WorkoutStrip'
@@ -28,6 +29,11 @@ function lengthOf(w: WorkoutOption): Length | null {
   return LENGTH_BUCKETS.find((b) => min <= b.maxMin)!.id
 }
 
+/** The Length filter a workout of this duration shows under, e.g. "1 h". The builder tells the rider. */
+export function lengthBucketLabel(durationS: number): string {
+  return LENGTH_BUCKETS.find((b) => durationS / 60 <= b.maxMin)!.label
+}
+
 /** First sentence of a description, capped, so long ZWO descriptions stay on one line. */
 function summary(text: string, max = 70): string {
   const first = text.trim().split(/(?<=[.!?])\s/)[0]?.replace(/\s+/g, ' ') ?? ''
@@ -42,13 +48,17 @@ interface WorkoutPickerProps {
   onCourse: boolean
   ftpW: number
   onSelect: (id: string | null) => void
+  /** Open the builder: a new workout, the selected custom workout, or a copy of any workout. */
+  onNew: () => void
+  onEdit: (id: string) => void
+  onCopy: (id: string) => void
 }
 
 /**
  * Step 2 on the Workout tab: a free ride or a workout, filtered by difficulty
  * and length. The selected workout opens its description and interval strip.
  */
-export function WorkoutPicker({ workouts, loaded, selected, onCourse, ftpW, onSelect }: WorkoutPickerProps) {
+export function WorkoutPicker({ workouts, loaded, selected, onCourse, ftpW, onSelect, onNew, onEdit, onCopy }: WorkoutPickerProps) {
   const [difficulty, setDifficulty] = useState<Difficulty>('all')
   const [length, setLength] = useState<Length>('any')
   const filtering = difficulty !== 'all' || length !== 'any'
@@ -75,9 +85,12 @@ export function WorkoutPicker({ workouts, loaded, selected, onCourse, ftpW, onSe
           <span className="ww-label">Length</span>
           <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={setLength} format={lengthLabel} />
         </div>
-        <span className="ml-auto font-mono text-mono text-fg-subtle" aria-live="polite">
-          {shown.length} of {workouts.length} workouts
-        </span>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="font-mono text-mono text-fg-subtle" aria-live="polite">
+            {shown.length} of {workouts.length} workouts
+          </span>
+          <Button onClick={onNew}>New workout</Button>
+        </div>
       </div>
       <div role="radiogroup" aria-label="Workout">
         <PickerRow
@@ -95,12 +108,21 @@ export function WorkoutPicker({ workouts, loaded, selected, onCourse, ftpW, onSe
             title={w.name}
             meta={`${w.tag ? `${w.tag} · ` : ''}${w.rampTest ? 'until you stop' : formatDuration(w.durationS)}${
               w.description ? ` · ${summary(w.description)}` : ''
-            }${w.source === 'imported' ? ' · imported' : ''}`}
+            }${w.source === 'imported' ? ' · imported' : w.source === 'custom' ? ' · custom' : ''}`}
           >
             {selected?.workout.id === w.id && (
               <div className="flex flex-col gap-3">
                 {w.description && <p className="text-fg-muted">{w.description}</p>}
                 <WorkoutStrip intervals={selected.intervals} ftpW={ftpW} totalS={selected.totalS} heightClass="ww-strip-preview" />
+                <div className="flex flex-wrap items-center gap-3">
+                  {w.source === 'custom' && <Button onClick={() => onEdit(w.id)}>Edit</Button>}
+                  <Button onClick={() => onCopy(w.id)}>Edit a copy</Button>
+                  <span className="text-fg-muted">
+                    {w.source === 'custom'
+                      ? 'Change this workout, or start a new one from it.'
+                      : 'Start a new workout from this one. The original stays as it is.'}
+                  </span>
+                </div>
               </div>
             )}
           </PickerRow>

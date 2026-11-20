@@ -18,10 +18,26 @@ interface ProfilePageProps {
   onRemoveCourse: (id: string) => void
   onImportWorkout: (f: File) => void
   onRemoveWorkout: (id: string) => void
+  /** Open the workout builder: a new workout, a custom workout, or a copy of an imported one. */
+  onNewWorkout: () => void
+  onEditWorkout: (id: string) => void
+  onCopyWorkout: (id: string) => void
   notice?: ReactNode
 }
 
-/** One kind of imported file: an import button and the files already added, each with Remove. */
+const CONFIRM_MS = 3000
+
+interface FileItem {
+  id: string
+  name: string
+  meta: string
+  /** A second button before Remove, e.g. Edit. */
+  action?: { label: string; onClick: () => void }
+  /** Removing can't be undone by importing the file again: ask twice. */
+  confirmRemove?: boolean
+}
+
+/** One kind of file: its buttons (import, and New workout for workouts) and the rider's own files, each with Remove. */
 function Files({
   title,
   help,
@@ -31,17 +47,26 @@ function Files({
   disabled,
   onImport,
   onRemove,
+  extra,
 }: {
   title: string
   help: string
   button: string
   accept: string
-  items: { id: string; name: string; meta: string }[]
+  items: FileItem[]
   disabled: boolean
   onImport: (f: File) => void
   onRemove: (id: string) => void
+  /** A button before the import button. */
+  extra?: { label: string; onClick: () => void }
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const [confirming, setConfirming] = useState<string | null>(null)
+  useEffect(() => {
+    if (!confirming) return
+    const t = setTimeout(() => setConfirming(null), CONFIRM_MS)
+    return () => clearTimeout(t)
+  }, [confirming])
   return (
     <div className="border-t border-line first:border-t-0">
       <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
@@ -49,9 +74,16 @@ function Files({
           <span className="font-semibold text-fg">{title}</span>
           <span className="text-fg-muted">{help}</span>
         </div>
-        <Button onClick={() => fileRef.current?.click()} disabled={disabled}>
-          {button}
-        </Button>
+        <div className="flex gap-3">
+          {extra && (
+            <Button onClick={extra.onClick} disabled={disabled}>
+              {extra.label}
+            </Button>
+          )}
+          <Button onClick={() => fileRef.current?.click()} disabled={disabled}>
+            {button}
+          </Button>
+        </div>
         <input
           ref={fileRef}
           type="file"
@@ -68,9 +100,32 @@ function Files({
         <div key={it.id} className="flex items-center gap-4 border-t border-line px-6 py-3">
           <span className="font-semibold whitespace-nowrap text-fg">{it.name}</span>
           <span className="min-w-0 flex-1 truncate font-mono text-mono text-fg-subtle">{it.meta}</span>
-          <Button onClick={() => onRemove(it.id)} disabled={disabled} aria-label={`Remove ${it.name}`}>
-            Remove
-          </Button>
+          {it.action && (
+            <Button onClick={it.action.onClick} disabled={disabled} aria-label={`${it.action.label} ${it.name}`}>
+              {it.action.label}
+            </Button>
+          )}
+          {it.confirmRemove && confirming === it.id ? (
+            <Button
+              variant="danger"
+              onClick={() => {
+                setConfirming(null)
+                onRemove(it.id)
+              }}
+              disabled={disabled}
+              aria-label={`Confirm remove ${it.name}`}
+            >
+              Confirm remove
+            </Button>
+          ) : (
+            <Button
+              onClick={() => (it.confirmRemove ? setConfirming(it.id) : onRemove(it.id))}
+              disabled={disabled}
+              aria-label={`Remove ${it.name}`}
+            >
+              Remove
+            </Button>
+          )}
         </div>
       ))}
     </div>
@@ -153,6 +208,9 @@ export function ProfilePage({
   onRemoveCourse,
   onImportWorkout,
   onRemoveWorkout,
+  onNewWorkout,
+  onEditWorkout,
+  onCopyWorkout,
   notice,
 }: ProfilePageProps) {
   const previewMph = steadySpeedMps(riderParams(profile), PREVIEW_W) * MPS_TO_MPH
@@ -194,7 +252,7 @@ export function ProfilePage({
 
       <div className="flex flex-col gap-1">
         <h2 className="text-title font-semibold text-fg">Your files</h2>
-        <p className="text-fg-muted">Add your own courses and workouts. They are saved in this browser and show on the Workout tab.</p>
+        <p className="text-fg-muted">Your own courses and workouts. They are saved in this browser and show on the Workout tab.</p>
       </div>
       {notice}
       <section aria-label="Your files" className="rounded-lg border border-line bg-surface">
@@ -212,12 +270,28 @@ export function ProfilePage({
         />
         <Files
           title="Workouts"
-          help="ZWO files, the format Zwift and most workout sites use."
+          help="Build your own, or import ZWO files, the format Zwift and most workout sites use."
           button="Import ZWO"
           accept=".zwo,application/xml,text/xml"
+          extra={{ label: 'New workout', onClick: onNewWorkout }}
           items={workouts
-            .filter((w) => w.source === 'imported')
-            .map((w) => ({ id: w.id, name: w.name, meta: formatDuration(w.durationS) }))}
+            .filter((w) => w.source !== 'builtin')
+            .map((w) =>
+              w.source === 'custom'
+                ? {
+                    id: w.id,
+                    name: w.name,
+                    meta: `custom · ${w.tag ?? 'medium'} · ${formatDuration(w.durationS)}`,
+                    action: { label: 'Edit', onClick: () => onEditWorkout(w.id) },
+                    confirmRemove: true,
+                  }
+                : {
+                    id: w.id,
+                    name: w.name,
+                    meta: `imported · ${formatDuration(w.durationS)}`,
+                    action: { label: 'Edit a copy', onClick: () => onCopyWorkout(w.id) },
+                  },
+            )}
           disabled={!editable}
           onImport={onImportWorkout}
           onRemove={onRemoveWorkout}

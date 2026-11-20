@@ -161,3 +161,47 @@
     transform: scale(var(--ww-press-scale));
   }
 }
+
+@layer components {
+  /* Text and number fields: raised, line-strong border. A bad value turns the border red once the field is left. */
+  .ww-field {
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius-md);
+    background: var(--ww-raised);
+    color: var(--ww-fg);
+    padding: var(--ww-space-1) var(--ww-space-2);
+    font-size: var(--ww-body-size);
+    line-height: 20px;
+    min-width: 0;
+    transition: border-color var(--ww-dur-fast) var(--ww-ease);
+  }
+  .ww-field::placeholder {
+    color: var(--ww-fg-subtle);
+    opacity: 1;
+  }
+  .ww-field:disabled {
+    color: var(--ww-fg-subtle);
+  }
+  .ww-field[aria-invalid='true']:not(:focus) {
+    border-color: var(--ww-state-over);
+  }
+}
+
+@layer components {
+  /*
+   * Workout builder step rows: one shared column template so the header and
+   * every row line up. Columns: number, type, time, target, cadence, label, actions.
+   */
+  .ww-step-row {
+    display: grid;
+    grid-template-columns: 3rem 8.25rem 5rem 17.5rem 4rem minmax(4rem, 1fr) auto;
+    align-items: center;
+    column-gap: var(--ww-space-2);
+    min-width: 54rem;
+  }
+  /* A step inside a repeat: indented by the group's rule, columns still aligned with the rows above. */
+  .ww-step-row-inner {
+    grid-template-columns: calc(2.25rem - 1px) 8.25rem 5rem 17.5rem 4rem minmax(4rem, 1fr) auto;
+    min-width: calc(54rem - 2.25rem - 1px);
+  }
+}

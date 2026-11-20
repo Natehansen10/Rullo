@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { RideSnapshot } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
@@ -10,6 +10,12 @@ interface WorkoutPageProps {
   onSelectCourse: (id: string | null) => void
   onStartMi: (mi: number) => void
   onSelectWorkout: (id: string | null) => void
+  /** Which step shows. Kept by the app, so a trip to the builder comes back to step 2. */
+  step: 0 | 1
+  onStep: (step: 0 | 1) => void
+  onNewWorkout: () => void
+  onEditWorkout: (id: string) => void
+  onCopyWorkout: (id: string) => void
   /** Setup done: go to the Ride tab. */
   onDone: () => void
   notice?: ReactNode
@@ -46,8 +52,19 @@ const STEPS = [
  * it follows the hills (Grade); the rider can always switch on the Ride tab.
  * Locked from the first pedal stroke until New ride.
  */
-export function WorkoutPage({ s, notice, onSelectCourse, onStartMi, onSelectWorkout, onDone }: WorkoutPageProps) {
-  const [step, setStep] = useState<0 | 1>(0)
+export function WorkoutPage({
+  s,
+  notice,
+  onSelectCourse,
+  onStartMi,
+  onSelectWorkout,
+  step,
+  onStep: setStep,
+  onNewWorkout,
+  onEditWorkout,
+  onCopyWorkout,
+  onDone,
+}: WorkoutPageProps) {
   const locked = !s.canChooseCourse
   const summary = (
     <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1" aria-live="polite">
@@ -97,6 +114,9 @@ export function WorkoutPage({ s, notice, onSelectCourse, onStartMi, onSelectWork
             onCourse={!!s.course}
             ftpW={s.profile.ftpW}
             onSelect={onSelectWorkout}
+            onNew={onNewWorkout}
+            onEdit={onEditWorkout}
+            onCopy={onCopyWorkout}
           />
         )}
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-4">

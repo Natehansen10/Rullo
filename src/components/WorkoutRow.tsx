@@ -45,10 +45,12 @@ export function WorkoutRow({
   const inRamp = !!test && !test.ended && live.index > 0
   /** Compact row after a ramp test: the FTP estimate takes the place of two stats so the row stays on one line. */
   const estimateShown = compact && !!test?.ended && test.ftpW !== null
+  /** A cadence column shows for the whole workout when any interval has a cue, so the row never shifts mid-ride. */
+  const hasCadence = live.intervals.some((x) => x.cadenceRpm !== undefined)
   return (
     <div className={`flex flex-col ${compact ? 'gap-2' : 'gap-3'} ${className}`}>
-      {/* Compact: one line at desktop width. The name gives way (truncates) before anything wraps. */}
-      <div className={`flex flex-wrap gap-y-2 ${compact ? 'items-center gap-x-6 xl:flex-nowrap' : 'items-end gap-x-8'}`}>
+      {/* One line at desktop width, compact or not. The name gives way (truncates) before anything wraps. */}
+      <div className={`flex flex-wrap gap-y-2 xl:flex-nowrap ${compact ? 'items-center gap-x-6' : 'items-end gap-x-8'}`}>
         <div className={`flex min-w-0 ${compact ? 'items-baseline gap-2' : 'flex-col gap-2'}`}>
           <span className="ww-label">Workout</span>
           <span className="truncate text-title font-semibold text-fg">{live.workout.name}</span>
@@ -61,6 +63,15 @@ export function WorkoutRow({
           inline={compact}
         />
         <Stat label="Target" value={String(live.targetW)} unit={`W · ${Math.round(live.targetPct)}%`} dim={dim} inline={compact} />
+        {hasCadence && (
+          <Stat
+            label={compact ? 'RPM' : 'Cadence'}
+            value={live.cadenceTargetRpm === null ? '--' : String(live.cadenceTargetRpm)}
+            unit={compact ? undefined : 'rpm'}
+            dim={dim || live.cadenceTargetRpm === null}
+            inline={compact}
+          />
+        )}
         <Stat
           label={compact ? 'Left' : inRamp ? 'Step left' : 'Interval left'}
           value={formatClock(live.intervalLeftS)}
@@ -119,6 +130,7 @@ export function WorkoutRow({
       />
       <span className="sr-only">
         Interval {live.index + 1} of {live.intervals.length}, target {live.targetW} watts,{' '}
+        {live.cadenceTargetRpm !== null && `cadence ${live.cadenceTargetRpm} rpm, `}
         {formatClock(live.intervalLeftS)} left
       </span>
     </div>
