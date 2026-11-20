@@ -5,7 +5,7 @@
  * same tab) skip the device picker. Chrome cannot restore it after a page reload.
  * Reconnect loop pattern informed by Croissant Ride ble.ts (Apache-2.0). No code copied.
  */
-import { ERG_RELEASE_W, RECONNECT_INTERVAL_MS, RECONNECT_MAX_TRIES } from '../config'
+import { CRR, ERG_RELEASE_W, RECONNECT_INTERVAL_MS, RECONNECT_MAX_TRIES } from '../config'
 import { CYCLING_POWER_MEASUREMENT, CYCLING_POWER_SERVICE, CyclingPowerParser } from './cyclingPower'
 import {
   CONTROL_POINT,
@@ -13,11 +13,13 @@ import {
   DEFAULT_RESISTANCE_RANGE,
   encodePower,
   encodeResistance,
+  encodeSimulation,
   FTMS_SERVICE,
   FtmsControlPoint,
   INDOOR_BIKE_DATA,
   OP_REQUEST_CONTROL,
   OP_RESET,
+  OP_SET_SIMULATION,
   OP_SET_TARGET_POWER,
   OP_SET_TARGET_RESISTANCE,
   parseIndoorBikeData,
@@ -210,6 +212,31 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
     return 'failed'
   }
 
+  async function setGrade(gradePct: number, cwKgPerM: number): Promise<ControlResult> {
+    const cp = controlPoint
+    if (!cp) return 'unsupported'
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await cp.send(OP_SET_SIMULATION, encodeSimulation(gradePct, CRR, cwKgPerM))
+        return 'ok'
+      } catch (err) {
+        const code = err instanceof ControlPointError ? err.code : undefined
+        if (code === RESULT_NOT_SUPPORTED) return 'unsupported'
+        if (code === RESULT_CONTROL_NOT_PERMITTED && attempt === 0) {
+          try {
+            await cp.send(OP_REQUEST_CONTROL)
+          } catch {
+            return 'failed'
+          }
+          continue
+        }
+        console.warn('Set grade failed:', err)
+        return 'failed'
+      }
+    }
+    return 'failed'
+  }
+
   /**
    * ERG released. Two steps, so the pedals are light whichever one the trainer takes:
    * 1. A low ERG target. This stays in ERG, which trainers accept at a standstill.
@@ -258,6 +285,7 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
     },
     setTargetPower,
     setResistance,
+    setGrade,
     release,
     disconnect() {
       userClosed = true

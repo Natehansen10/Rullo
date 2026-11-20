@@ -40,6 +40,8 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
   let lastTick = 0
   let resistancePct = 20
   let ergW: number | null = null
+  /** Simulation grade in %, or null when not in simulation. Climbs make the same cadence cost more. */
+  let simGradePct: number | null = null
   let lowCadenceUntil = 0
   let stopped = false
   let cadence = 0
@@ -72,7 +74,7 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
     const power =
       ergW !== null
         ? ergW + (Math.random() - 0.5) * 10
-        : (110 + resistancePct * 4.5) * (rpm / 88) + (rpm / 88) * 25 * Math.sin(s / 20) + (Math.random() - 0.5) * 30 * (rpm / 88)
+        : (simGradePct !== null ? 130 + simGradePct * 40 : 110 + resistancePct * 4.5) * (rpm / 88) + (rpm / 88) * 25 * Math.sin(s / 20) + (Math.random() - 0.5) * 30 * (rpm / 88)
     h.onReading({
       t: now,
       powerW: Math.max(1, Math.round(power)),
@@ -85,12 +87,14 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
     if (cadence === 0) return 'failed'
     resistancePct = pct
     ergW = null
+    simGradePct = null
     return 'ok'
   }
 
   const setTargetPower = async (watts: number): Promise<ControlResult> => {
     await new Promise((r) => setTimeout(r, 80))
     ergW = watts
+    simGradePct = null
     return 'ok'
   }
 
@@ -110,6 +114,7 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       dropUntil = 0
       stopped = false
       cadence = 0
+      simGradePct = null
       ergW = null // a fresh connection starts without an ERG target, like a reset trainer
       window.removeEventListener('keydown', onKey)
       window.addEventListener('keydown', onKey)
@@ -119,6 +124,12 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
     },
     setResistance,
     setTargetPower,
+    async setGrade(gradePct: number) {
+      await new Promise((r) => setTimeout(r, 80))
+      simGradePct = gradePct
+      ergW = null
+      return 'ok' as const
+    },
     async release() {
       await setTargetPower(ERG_RELEASE_W)
       return setResistance(0)

@@ -16,6 +16,7 @@ export const OP_REQUEST_CONTROL = 0x00
 export const OP_RESET = 0x01
 export const OP_SET_TARGET_RESISTANCE = 0x04
 export const OP_SET_TARGET_POWER = 0x05
+export const OP_SET_SIMULATION = 0x11
 const OP_RESPONSE = 0x80
 const RESULT_SUCCESS = 0x01
 
@@ -54,6 +55,17 @@ export function percentToLevel(pct: number, r: ResistanceRange): number {
 export function encodePower(watts: number): number[] {
   const v = Math.max(-32768, Math.min(32767, Math.round(watts))) & 0xffff
   return [v & 0xff, v >> 8]
+}
+
+/**
+ * Parameter bytes for Set Indoor Bike Simulation Parameters (FTMS 1.0, 4.16.2.18):
+ * wind speed sint16 (0.001 m/s), grade sint16 (0.01 %), rolling resistance
+ * uint8 (0.0001), wind resistance uint8 (0.01 kg/m). No wind.
+ */
+export function encodeSimulation(gradePct: number, crr: number, cwKgPerM: number): number[] {
+  const g = Math.max(-32768, Math.min(32767, Math.round(gradePct * 100))) & 0xffff
+  const byte = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
+  return [0, 0, g & 0xff, g >> 8, byte(crr * 10000), byte(cwKgPerM * 100)]
 }
 
 /**

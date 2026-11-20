@@ -5,7 +5,13 @@
  */
 import {
   DEFAULT_ERG_FTP_SHARE,
+  DEFAULT_GRADE_FEEL_PCT,
   DEFAULT_RESISTANCE_PCT,
+  AIR_DENSITY,
+  GRADE_MAX_PCT,
+  GRADE_MIN_PCT,
+  GRADE_SEND_EVERY_MS,
+  GRADE_SMOOTH_S,
   ERG_MAX_W,
   ERG_MIN_W,
   ERG_RELEASE_AFTER_MS,
@@ -55,10 +61,12 @@ export type Phase = 'idle' | 'ready' | 'riding' | 'ended'
 export type ControlState = 'idle' | 'sending' | ControlResult
 
 /** resistance: a fixed brake level. erg: the trainer holds a target power. */
-export type ControlMode = 'resistance' | 'erg'
+/** grade: on a course, the trainer follows the hills (simulation). */
+export type ControlMode = 'resistance' | 'erg' | 'grade'
 
 const RESISTANCE_KEY = 'ww.resistancePct'
 const MODE_KEY = 'ww.mode'
+const GRADE_FEEL_KEY = 'ww.gradeFeelPct'
 const ERG_KEY = 'ww.ergW'
 const COURSE_KEY = 'ww.courseId'
 const WORKOUT_KEY = 'ww.workoutId'
@@ -84,14 +92,11 @@ function storageSet(key: string, value: string | null): void {
   }
 }
 
-function loadResistance(): number {
-  try {
-    const v = Number(localStorage.getItem(RESISTANCE_KEY))
-    if (Number.isFinite(v) && v >= 0 && v <= 100 && localStorage.getItem(RESISTANCE_KEY) !== null) return v
-  } catch {
-    // storage unavailable
-  }
-  return DEFAULT_RESISTANCE_PCT
+/** A saved 0 to 100 value, or the fallback when it is missing or out of range. */
+function loadPct(key: string, fallback: number): number {
+  const raw = storageGet(key)
+  const v = Number(raw)
+  return raw !== null && raw !== '' && Number.isFinite(v) && v >= 0 && v <= 100 ? v : fallback
 }
 
 export interface Recovery {
@@ -187,6 +192,14 @@ export interface RideSnapshot {
   notice: string | null
   resistancePct: number
   mode: ControlMode
+  /** Modes on offer: Grade only with a course selected. */
+  modes: ControlMode[]
+  /** Grade mode: how much of the course grade the trainer gets, 0 to 100%. */
+  gradeFeelPct: number
+  /** Grade mode: the grade the trainer is riding right now, in %. */
+  trainerGradePct: number
+  /** The trainer has no simulation (grade) control. */
+  gradeUnsupported: boolean
   ergTargetW: number
   /** ERG is released (low cadence or not yet spun up); the trainer is at minimum resistance. */
   ergReleased: boolean
@@ -255,9 +268,14 @@ export class RideController {
   private recovery: recorder.UnfinishedRide | null = null
   private recordingFailed = false
   private notice: string | null = null
-  private resistancePct = loadResistance()
+  private resistancePct = loadPct(RESISTANCE_KEY, DEFAULT_RESISTANCE_PCT)
   private profile = loadProfile()
   private mode: ControlMode = storageGet(MODE_KEY) === 'erg' ? 'erg' : 'resistance'
+  private gradeFeelPct = loadPct(GRADE_FEEL_KEY, DEFAULT_GRADE_FEEL_PCT)
+  /** Course grade (rise / run) smoothed over GRADE_SMOOTH_S, for the trainer. */
+  private smoothGrade = 0
+  private lastSentGradePct: number | null = null
+  private gradeUnsupported = false
   private ergTargetW = this.loadErgTarget()
   private ergReleased = true
   private lowCadenceSince: number | null = null
@@ -365,6 +383,10 @@ export class RideController {
       notice: this.notice,
       resistancePct: this.resistancePct,
       mode: this.mode,
+      modes: this.course ? ['resistance', 'erg', 'grade'] : ['resistance', 'erg'],
+      gradeFeelPct: this.gradeFeelPct,
+      trainerGradePct: this.trainerGradePct(),
+      gradeUnsupported: this.gradeUnsupported,
       ergTargetW: this.ergW(),
       ergReleased: this.ergReleased,
       ergEasing: this.mode === 'erg' && !this.ergReleased && this.ergRamp !== null,
@@ -589,7 +611,7 @@ export class RideController {
     this.intervals = w ? flatten(w) : []
     this.resetWorkoutRun()
     storageSet(WORKOUT_KEY, w?.id ?? null)
-    if (w) this.setMode('erg')
+    this.autoMode()
     this.emit()
   }
 
@@ -650,6 +672,7 @@ export class RideController {
       // Every connect and reconnect: ERG starts released until the rider is
       // seen spinning, and the current level or target is sent again.
       this.controlState = 'idle'
+      this.lastSentGradePct = null
       this.releaseErg()
       this.pushControl()
       if (this.phase === 'idle') {
@@ -728,7 +751,9 @@ export class RideController {
     if (c) {
       const before = this.positionM()
       const eleBefore = elevationAt(c, before)
-      this.distanceM += this.speed.step(power, dtS, gradeAt(c, before))
+      const grade = gradeAt(c, before)
+      this.smoothGrade += (grade - this.smoothGrade) * Math.min(1, dtS / GRADE_SMOOTH_S)
+      this.distanceM += this.speed.step(power, dtS, grade)
       const rise = elevationAt(c, this.positionM()) - eleBefore
       if (rise > 0) this.climbedM += rise
     } else {
@@ -963,13 +988,24 @@ export class RideController {
     if (this.connection.kind !== 'connected' || this.controlInFlight) return
     const easing = this.mode === 'erg' && !this.ergReleased && !this.ergUnsupported && this.ergRamp !== null
     // No retries while stopped: a trainer that refuses a command at a standstill would refuse it again.
+    const regrade =
+      this.mode === 'grade' &&
+      !this.gradeUnsupported &&
+      this.course !== null &&
+      this.trainerGradePct() !== this.lastSentGradePct &&
+      t - this.lastControlAt >= GRADE_SEND_EVERY_MS
     const retry =
       this.controlState === 'failed' && this.phase === 'riding' && !this.paused && t - this.lastControlAt >= CONTROL_RETRY_MS
-    if (easing || retry) this.pushControl()
+    if (easing || regrade || retry) this.pushControl()
   }
 
   /** What the trainer should be doing right now. */
-  private desiredCommand(): { kind: 'resistance'; pct: number } | { kind: 'power'; watts: number } | { kind: 'release' } {
+  private desiredCommand():
+    | { kind: 'resistance'; pct: number }
+    | { kind: 'power'; watts: number }
+    | { kind: 'release' }
+    | { kind: 'grade'; pct: number } {
+    if (this.mode === 'grade' && this.course && !this.gradeUnsupported) return { kind: 'grade', pct: this.trainerGradePct() }
     if (this.mode === 'erg' && !this.ergUnsupported) {
       return this.ergReleased ? { kind: 'release' } : { kind: 'power', watts: this.commandedErgW(Date.now()) }
     }
@@ -988,19 +1024,23 @@ export class RideController {
     this.controlState = 'sending'
     this.lastControlAt = Date.now()
     const cmd = this.desiredCommand()
+    if (cmd.kind === 'grade') this.lastSentGradePct = cmd.pct
     const send =
       cmd.kind === 'power'
         ? this.trainer.setTargetPower(cmd.watts)
         : cmd.kind === 'release'
           ? this.trainer.release()
-          : this.trainer.setResistance(cmd.pct)
+          : cmd.kind === 'grade'
+            ? this.trainer.setGrade(cmd.pct, 0.5 * AIR_DENSITY * riderParams(this.profile).cdaM2)
+            : this.trainer.setResistance(cmd.pct)
     void send
       .catch((): ControlResult => 'failed')
       .then((result) => {
         this.controlInFlight = false
         this.controlState = result
-        if (cmd.kind !== 'resistance' && result === 'unsupported') {
-          this.ergUnsupported = true
+        if (result === 'unsupported' && cmd.kind !== 'resistance') {
+          if (cmd.kind === 'grade') this.gradeUnsupported = true
+          else this.ergUnsupported = true
           this.controlDirty = true // fall back to the resistance level
         }
         if (this.controlDirty) this.pushControl()
@@ -1033,9 +1073,36 @@ export class RideController {
   /** Change the ERG target by a signed number of watts. */
   stepErg = (delta: number) => this.setErgTarget(this.ergTargetW + delta)
 
+  /**
+   * The mode the setup calls for: a workout rides in ERG, a course without a
+   * workout follows the hills. The rider can still switch by hand afterwards.
+   */
+  private autoMode() {
+    if (this.workout) this.setMode('erg')
+    else if (this.course) this.setMode('grade')
+    else if (this.mode === 'grade') this.setMode('resistance')
+  }
+
+  /** The grade the trainer should ride, in %: smoothed course grade times the feel, inside what it can simulate. */
+  private trainerGradePct(): number {
+    const pct = this.smoothGrade * 100 * (this.gradeFeelPct / 100)
+    return Math.round(Math.min(GRADE_MAX_PCT, Math.max(GRADE_MIN_PCT, pct)) * 10) / 10
+  }
+
+  setGradeFeel = (pct: number) => {
+    const next = Math.min(100, Math.max(0, Math.round(pct)))
+    if (next === this.gradeFeelPct) return
+    this.gradeFeelPct = next
+    storageSet(GRADE_FEEL_KEY, String(next))
+    this.emit()
+  }
+
+  stepGradeFeel = (delta: number) => this.setGradeFeel(this.gradeFeelPct + delta)
+
   setMode = (mode: ControlMode) => {
-    if (mode === this.mode) return
+    if (mode === this.mode || (mode === 'grade' && !this.course)) return
     this.mode = mode
+    this.lastSentGradePct = null
     storageSet(MODE_KEY, mode)
     // Entering ERG engages right away (with a soft start) only if the rider is already spinning.
     if (mode === 'erg' && this.cadenceRpm >= ERG_RESUME_RPM && this.lastDataAt > 0 && !this.paused) this.engageErg(Date.now())
@@ -1044,7 +1111,11 @@ export class RideController {
     this.emit()
   }
 
-  toggleMode = () => this.setMode(this.mode === 'erg' ? 'resistance' : 'erg')
+  /** E key: the next mode on offer. */
+  toggleMode = () => {
+    const modes: ControlMode[] = this.course ? ['resistance', 'erg', 'grade'] : ['resistance', 'erg']
+    this.setMode(modes[(modes.indexOf(this.mode) + 1) % modes.length])
+  }
 
   // --- rider profile ---
 
@@ -1163,6 +1234,8 @@ export class RideController {
     this.startOffsetM = 0
     this.lastEndM = null
     storageSet(COURSE_KEY, c?.id ?? null)
+    this.smoothGrade = 0
+    this.autoMode()
     this.emit()
     if (!c) return
     try {

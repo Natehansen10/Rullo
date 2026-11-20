@@ -1,7 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { POSITIONS, type Position } from '../config'
 import { MPS_TO_MPH, steadySpeedMps } from '../lib/physics'
 import { riderParams, type Profile } from '../lib/profile'
+import type { CourseOption, WorkoutOption } from '../lib/ride'
+import { formatDuration } from '../lib/workout'
+import { Button } from './Button'
 import { SegmentedControl } from './SegmentedControl'
 
 interface ProfilePageProps {
@@ -9,6 +12,69 @@ interface ProfilePageProps {
   onChange: (p: Partial<Profile>) => void
   /** Editing is locked during a ride. */
   editable: boolean
+  courses: CourseOption[]
+  workouts: WorkoutOption[]
+  onImportCourse: (f: File) => void
+  onRemoveCourse: (id: string) => void
+  onImportWorkout: (f: File) => void
+  onRemoveWorkout: (id: string) => void
+  notice?: ReactNode
+}
+
+/** One kind of imported file: an import button and the files already added, each with Remove. */
+function Files({
+  title,
+  help,
+  button,
+  accept,
+  items,
+  disabled,
+  onImport,
+  onRemove,
+}: {
+  title: string
+  help: string
+  button: string
+  accept: string
+  items: { id: string; name: string; meta: string }[]
+  disabled: boolean
+  onImport: (f: File) => void
+  onRemove: (id: string) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  return (
+    <div className="border-t border-line first:border-t-0">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold text-fg">{title}</span>
+          <span className="text-fg-muted">{help}</span>
+        </div>
+        <Button onClick={() => fileRef.current?.click()} disabled={disabled}>
+          {button}
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) onImport(f)
+            e.target.value = ''
+          }}
+        />
+      </div>
+      {items.map((it) => (
+        <div key={it.id} className="flex items-center gap-4 border-t border-line px-6 py-3">
+          <span className="font-semibold whitespace-nowrap text-fg">{it.name}</span>
+          <span className="min-w-0 flex-1 truncate font-mono text-mono text-fg-subtle">{it.meta}</span>
+          <Button onClick={() => onRemove(it.id)} disabled={disabled} aria-label={`Remove ${it.name}`}>
+            Remove
+          </Button>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 const POSITION_LABEL: Record<Position, string> = { hoods: 'Hoods', drops: 'Drops', aero: 'Aero' }
@@ -77,7 +143,18 @@ function Row({ label, htmlFor, help, children }: { label: string; htmlFor?: stri
 }
 
 /** Rider profile on its own screen. Saved in this browser; applies to the next ride. */
-export function ProfilePage({ profile, onChange, editable }: ProfilePageProps) {
+export function ProfilePage({
+  profile,
+  onChange,
+  editable,
+  courses,
+  workouts,
+  onImportCourse,
+  onRemoveCourse,
+  onImportWorkout,
+  onRemoveWorkout,
+  notice,
+}: ProfilePageProps) {
   const previewMph = steadySpeedMps(riderParams(profile), PREVIEW_W) * MPS_TO_MPH
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -113,6 +190,38 @@ export function ProfilePage({ profile, onChange, editable }: ProfilePageProps) {
         <Row label="FTP" htmlFor="ftp-w" help="The power you can hold for about an hour. ERG shows targets as a % of it.">
           <NumberInput id="ftp-w" value={profile.ftpW} step={1} unit="W" disabled={!editable} onCommit={(v) => onChange({ ftpW: v })} />
         </Row>
+      </section>
+
+      <div className="flex flex-col gap-1">
+        <h2 className="text-title font-semibold text-fg">Your files</h2>
+        <p className="text-fg-muted">Add your own courses and workouts. They are saved in this browser and show on the Workout tab.</p>
+      </div>
+      {notice}
+      <section aria-label="Your files" className="rounded-lg border border-line bg-surface">
+        <Files
+          title="Courses"
+          help="GPX files. Any route with elevation works."
+          button="Import GPX"
+          accept=".gpx,application/gpx+xml"
+          items={courses
+            .filter((c) => c.source === 'imported')
+            .map((c) => ({ id: c.id, name: c.name, meta: `${c.lengthMi.toFixed(1)} mi · ${Math.round(c.ascentFt).toLocaleString()} ft climbing` }))}
+          disabled={!editable}
+          onImport={onImportCourse}
+          onRemove={onRemoveCourse}
+        />
+        <Files
+          title="Workouts"
+          help="ZWO files, the format Zwift and most workout sites use."
+          button="Import ZWO"
+          accept=".zwo,application/xml,text/xml"
+          items={workouts
+            .filter((w) => w.source === 'imported')
+            .map((w) => ({ id: w.id, name: w.name, meta: formatDuration(w.durationS) }))}
+          disabled={!editable}
+          onImport={onImportWorkout}
+          onRemove={onRemoveWorkout}
+        />
       </section>
 
       <p className="font-mono text-mono text-fg-subtle">

@@ -81,7 +81,7 @@ Split into three releases, each rideable on its own.
 - Workout = list of steps (duration plus target in % FTP or watts, steady or ramp, repeats)
 - Built-in workouts: Endurance 60, Sweet Spot 3x12, VO2 5x3, Ramp FTP test, plus Nate's ZWO files in `public/workouts/`; ZWO import saved in the browser
 - Workout screen: current interval, time left, next target, strip of all intervals labeled with their watts. ERG follows the workout
-- Course and workout picking (and GPX / ZWO import) live on their own Workout tab; the Ride tab is live data only
+- Course and workout picking live on their own Workout tab; the Ride tab is live data only. Since Nov 20, 2026 the tab is two steps (1. Choose your course, 2. Choose your workout, with difficulty and length filters) and GPX / ZWO import moved to the Profile tab
 - A picked workout loads on the Ride tab and waits for Start workout; riding before that is a free ride and its own lap
 - Each interval is a lap in the FIT file
 - Decision reversed (Nov 20, 2026): a workout can now run on a course. A course is where you ride (elevation, speed, distance); a workout is what the trainer does (power targets). Pick one of each, or neither. With both, the workout drives ERG and the course drives speed, distance and the profile; the FIT is a virtual ride with altitude and one lap per interval
@@ -99,6 +99,8 @@ Since Nov 20, 2026 a workout can run on a course, so the race plan becomes a wor
 - Ghost of your last attempt on the same course
 
 ### v4: Real climbs
+
+**Started early, Nov 20, 2026 (Nate's call, before the v3.2 ride test):** Grade mode. On a course with no workout the trainer follows the hills through FTMS simulation: grade smoothed over 2 seconds, held to 0 to 16%, with a hill feel of 0 to 100% (default 50%) set by the step buttons. With a workout, the workout sets the load in ERG. Still to do from the list below: a ride test on the Kickr, and deciding whether feel needs its own slider.
 
 - SIM mode: grade averaged over 2 seconds and clamped to 0 to 16% (the Core 2 limit), with a "gradient feel" slider
 - Descents use calculated speed, since the Core 2 can't simulate downhill

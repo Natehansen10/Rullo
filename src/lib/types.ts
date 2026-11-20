@@ -32,6 +32,8 @@ export interface Trainer {
   setResistance(pct: number): Promise<ControlResult>
   /** ERG: hold this power in watts. Only call while connected. */
   setTargetPower(watts: number): Promise<ControlResult>
+  /** Simulation: ride this road grade in %, with this wind resistance coefficient (kg/m). Only call while connected. */
+  setGrade(gradePct: number, cwKgPerM: number): Promise<ControlResult>
   /**
    * ERG released: make the pedals as light as the trainer can. 'failed' means
    * it is not fully released yet and the call is worth repeating.

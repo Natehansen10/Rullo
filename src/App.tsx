@@ -13,6 +13,7 @@ import {
   ERG_MAX_W,
   ERG_MIN_W,
   ERG_STEPS_W,
+  GRADE_FEEL_STEPS_PCT,
   INTENSITY_MAX_PCT,
   INTENSITY_MIN_PCT,
   INTENSITY_STEPS_PCT,
@@ -60,7 +61,7 @@ function isTyping(e: KeyboardEvent): boolean {
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
 }
 
-const MODE_OPTIONS = ['resistance', 'erg'] as const
+const MODE_LABEL = { resistance: 'Resistance', erg: 'ERG', grade: 'Grade' } as const
 const TABS = [
   { id: 'ride', label: 'Ride', href: href('ride') },
   { id: 'workout', label: 'Workout', href: href('workout') },
@@ -69,8 +70,10 @@ const TABS = [
 
 function controlStatus(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
+  const grade = s.mode === 'grade'
   const started = !!s.workout?.started
-  if (started && !erg && s.controlState !== 'unsupported') return 'Targets off in Resistance. Press E.'
+  if (started && !erg && s.controlState !== 'unsupported') return 'Workout targets are off. Switch to ERG.'
+  if (grade && s.gradeUnsupported) return 'No grade control on this trainer. Using resistance.'
   if (erg && s.ergUnsupported) return 'No ERG on this trainer. Using resistance.'
   if (!erg && s.controlState === 'unsupported') return 'No resistance control on this trainer'
   if (s.controlState === 'failed' && s.phase === 'riding' && !s.paused && !(erg && s.ergReleased)) return 'Trainer refused it. Retrying.'
@@ -78,6 +81,7 @@ function controlStatus(s: RideSnapshot): string | null {
     return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · on connect` : 'Applies on connect'
   }
   if (s.paused) return 'Paused. Pedal to resume.'
+  if (grade) return `Hill feel · trainer at ${s.trainerGradePct.toFixed(1)}% grade`
   if (erg && s.ergReleased) return 'Released. Spin up to 60 rpm.'
   if (erg && s.ergEasing) return 'Easing in to target'
   if (erg && started) return 'Intensity, every target'
@@ -110,9 +114,10 @@ export default function App() {
       if (e.metaKey || e.ctrlKey || e.altKey || !isRoute('ride') || isTyping(e)) return
       const snap = ride.getSnapshot()
       const erg = snap.mode === 'erg'
+      const grade = snap.mode === 'grade' && !snap.gradeUnsupported
       const workout = erg && !!snap.workout?.started
-      const step = workout ? ride.stepIntensity : erg ? ride.stepErg : ride.stepResistance
-      const [small, mid, large] = workout ? INTENSITY_STEPS_PCT : erg ? ERG_STEPS_W : RESISTANCE_STEPS_PCT
+      const step = workout ? ride.stepIntensity : erg ? ride.stepErg : grade ? ride.stepGradeFeel : ride.stepResistance
+      const [small, mid, large] = workout ? INTENSITY_STEPS_PCT : erg ? ERG_STEPS_W : grade ? GRADE_FEEL_STEPS_PCT : RESISTANCE_STEPS_PCT
       const arrow = e.shiftKey ? large : small
       if (e.key === 'ArrowUp') step(arrow)
       else if (e.key === 'ArrowDown') step(-arrow)
@@ -156,10 +161,10 @@ export default function App() {
   const modeSwitch = (
     <SegmentedControl
       label="Trainer mode"
-      options={MODE_OPTIONS}
+      options={s.modes}
       value={s.mode}
       onChange={ride.setMode}
-      format={(m) => (m === 'erg' ? 'ERG' : 'Resistance')}
+      format={(m) => MODE_LABEL[m]}
     />
   )
 
@@ -180,7 +185,7 @@ export default function App() {
           <StatusPill tone={pill.tone} label={pill.label} />
           {s.phase === 'idle' && (
             <Button
-              variant="primary"
+              variant={route === 'workout' ? 'secondary' : 'primary'}
               onClick={() => {
                 go('ride')
                 ride.connect()
@@ -216,7 +221,18 @@ export default function App() {
 
       {route === 'profile' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
-          <ProfilePage profile={s.profile} onChange={ride.setProfile} editable={s.canEditProfile} />
+          <ProfilePage
+            profile={s.profile}
+            onChange={ride.setProfile}
+            editable={s.canEditProfile}
+            courses={s.courses}
+            workouts={s.workouts}
+            onImportCourse={(f) => void ride.importCourse(f)}
+            onRemoveCourse={(id) => void ride.removeCourse(id)}
+            onImportWorkout={(f) => void ride.importWorkout(f)}
+            onRemoveWorkout={(id) => void ride.removeWorkout(id)}
+            notice={s.notice && <Notice title={s.notice} />}
+          />
         </main>
       ) : route === 'workout' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
@@ -225,11 +241,8 @@ export default function App() {
             notice={s.notice && <Notice title={s.notice} />}
             onSelectCourse={(id) => void ride.selectCourse(id)}
             onStartMi={ride.setStartMi}
-            onImportCourse={(f) => void ride.importCourse(f)}
-            onRemoveCourse={(id) => void ride.removeCourse(id)}
             onSelectWorkout={ride.selectWorkout}
-            onImportWorkout={(f) => void ride.importWorkout(f)}
-            onRemoveWorkout={(id) => void ride.removeWorkout(id)}
+            onDone={() => go('ride')}
           />
         </main>
       ) : (
@@ -364,6 +377,20 @@ export default function App() {
                 atMax={s.ergTargetW >= ERG_MAX_W}
                 status={controlStatus(s)}
                 hint="↑↓ 1 W  ·  +/− 5 W  ·  shift ↑↓ 10 W  ·  E mode"
+                className={`border-t border-line xl:col-span-2 ${pad}`}
+              />
+            ) : s.mode === 'grade' && !s.gradeUnsupported ? (
+              <Stepper
+                label={modeSwitch}
+                value={String(s.gradeFeelPct)}
+                unit="%"
+                steps={GRADE_FEEL_STEPS_PCT}
+                onStep={ride.stepGradeFeel}
+                stepLabel={(d) => `Hill feel ${d > 0 ? 'plus' : 'minus'} ${Math.abs(d)}%`}
+                atMin={s.gradeFeelPct <= 0}
+                atMax={s.gradeFeelPct >= 100}
+                status={controlStatus(s)}
+                hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
                 className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             ) : (

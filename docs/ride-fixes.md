@@ -211,3 +211,37 @@ Before: spindown in the Wahoo app after a 10-minute warm-up, then close the Waho
 | 8 | Stop 30 s before End Ride | Strava: moving time below elapsed time, no flat zero tail | |
 | 9 | Pick Test Hills plus a workout | Both rows on screen with the control row, ERG follows the workout, speed follows the hills | |
 | 10 | 5 minutes at 150 W | Same effort as before the spindown? | Tells us if calibration was the issue |
+
+## Workout tab redo and Grade mode (Nov 20, 2026, later the same day)
+
+Asked for by Nate after the parts above shipped.
+
+**Chose:**
+
+- **Two steps on one tab, not two URLs.** "1. Choose your course" then "2. Choose your workout", with Next, Back and Done. The step lives in the page, so the browser Back button leaves the tab; the Back button in the panel goes to step 1.
+- **Step buttons are the primary action on this page.** DESIGN.md allows one Cobalt button per screen, so Connect in the top bar is secondary while the Workout tab is open. DESIGN.md updated.
+- **Detail card under the selected row.** Clicking a course selects it and opens its overview (distance, climbing, low, high, profile, start mile). Clicking a workout opens its full description and strip. One row open at a time.
+- **Filters.** Difficulty: All, Easy, Medium, Hard. Length: Any, Up to 1 h, 1 to 1.5 h, Over 1.5 h. The picked workout stays in the list even if the filters would hide it. Built-ins got tags: Endurance 60 easy, Sweet Spot 3x12 medium, VO2 5x3 and FRNKLN hard. The ramp test and imported files have no tag and show under All.
+- **Imports moved to Profile**, under "Your files", with the imported files listed there and Remove next to each.
+- **Row names.** Step 1's none option is "Flat road". Step 2's is "Free ride". The setup line always shows both halves ("Test Hills · Free ride").
+
+**Grade mode. This is v4 work, started early at Nate's request. CLAUDE.md and the scope doc record the exception.**
+
+- A third trainer mode beside Resistance and ERG, offered only when a course is picked. Picking a course with no workout selects it; picking a workout selects ERG; the rider can switch at any time (E cycles the modes).
+- The trainer gets FTMS Set Indoor Bike Simulation Parameters (op 0x11): no wind, rolling resistance 0.004, wind resistance from the rider's position, and the grade.
+- **Hill feel instead of a separate slider.** The step buttons set 0 to 100% (default 50%), which is also the "adjust by hand" control. 50% is the common default on other apps and keeps a 6% climb rideable without a full gear range.
+- Grade is smoothed over 2 s, sent at most once a second, and held to 0 to 16%. Descents ride as flat on the trainer; speed on screen still uses the real grade.
+- If the trainer answers "not supported", the row says so and falls back to the resistance level. A refused command is retried like any other.
+- The fake trainer takes a grade: power at the same cadence rises with it.
+
+**Fake-trainer check:** starting at mile 3 of Test Hills (a 6.3 to 6.8% climb), the trainer grade read 3.0 to 3.3% at 50% feel and 6.3% at 100%, and fake power rose from about 290 W to 373 W.
+
+**This is the least-proven change in the repo.** Op 0x11 has never been sent to Nate's Kickr by this app. Test on the next ride:
+
+1. Pick Test Hills, Free ride. The control row should read Grade, 50%.
+2. On the first climb (mile 2.5 to 4) the pedals should get steadily harder and the status should read about half the course grade.
+3. Shift down. It should get easier at the same speed, like outdoors.
+4. On the descent it should feel like a flat road, not a free spin.
+5. Step feel to 100% on a climb: clearly harder within a couple of seconds.
+6. Switch to ERG, then back to Grade. Each switch should take effect within about 2 s.
+7. If the status says "No grade control on this trainer" or "Trainer refused it. Retrying.", tell me which.

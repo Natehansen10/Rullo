@@ -91,6 +91,21 @@ export const ERG_RELEASE_W = 25
 /** A control command the trainer refused is sent again after this long. */
 export const CONTROL_RETRY_MS = 2000
 
+/**
+ * Grade mode: on a course with no workout, the trainer follows the hills
+ * (FTMS simulation). The grade sent is the course grade times the feel,
+ * smoothed over GRADE_SMOOTH_S and held inside what a Kickr Core can do
+ * (it cannot simulate a descent, so those ride as flat).
+ * Feel steps: arrows 1, + / - 5, Shift+arrows 10.
+ */
+export const GRADE_FEEL_STEPS_PCT = [1, 5, 10] as const
+export const DEFAULT_GRADE_FEEL_PCT = 50
+export const GRADE_SMOOTH_S = 2
+export const GRADE_MIN_PCT = 0
+export const GRADE_MAX_PCT = 16
+/** The trainer gets a new grade at most this often. */
+export const GRADE_SEND_EVERY_MS = 1000
+
 /** Workout intensity, % of every workout target. Steps: arrows 1, + / - 5, Shift+arrows 10. */
 export const INTENSITY_STEPS_PCT = [1, 5, 10] as const
 export const INTENSITY_MIN_PCT = 50

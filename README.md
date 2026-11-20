@@ -39,11 +39,27 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 ## Workouts
 
-Open the **Workout** tab before connecting. It is one setup with two halves: **Where** (a course, or a flat road) and **What** (a workout, or none). Pick one of each, or neither: free ride, course only, workout only, or a course plus a workout. The line at the top shows the setup, for example "Test Hills · Sweet Spot 3x12". Import GPX and Import ZWO live there too.
+Open the **Workout** tab before connecting. It is two steps:
 
-With a course plus a workout, the workout drives ERG and the course drives speed, distance and the elevation profile. The trainer does not change resistance from grade (that's v4). The FIT is a virtual ride with altitude and one lap per interval. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/`: FRNKLN - January 6, plus five easy endurance rides tagged "easy" (Long Haul III, The Causeway IV, The Levee IV, The Long Road V, Coastal Cruise V) and five tagged "medium" (The Forge IV, Sweat Factory V, Copper Wire IV, Over the Top V, The Rolling Mill V) and five tagged "hard" (Hour of Power V, The Heat V, The Smelting Pot IV, The Millstone V, Critical Mass IV). **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
+1. **Choose your course.** A flat road or a course. Click a course to open its overview (distance, climbing, low and high points, the elevation profile) and set the start mile. Press **Next**.
+2. **Choose your workout.** A free ride or a workout. Filter by **Difficulty** (easy, medium, hard) and **Length** (up to 1 h, 1 to 1.5 h, over 1.5 h). Click a workout to open its description and interval strip. Press **Done** to go to the Ride tab.
 
-To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`. An optional `"tag": "easy"` shows before the duration in the list.
+What sets the load:
+
+| Setup | Trainer mode | The load comes from |
+| --- | --- | --- |
+| Course + workout | ERG | the workout's targets; the course sets speed, distance and the profile |
+| Course + free ride | Grade | the course's hills (see Grade mode below) |
+| Flat road + workout | ERG | the workout's targets |
+| Flat road + free ride | Resistance or ERG | you |
+
+The mode is picked for you and you can always switch it on the Ride tab (or press **E**).
+
+Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/`: FRNKLN - January 6, five easy rides (Long Haul III, The Causeway IV, The Levee IV, The Long Road V, Coastal Cruise V), five medium (The Forge IV, Sweat Factory V, Copper Wire IV, Over the Top V, The Rolling Mill V) and five hard (Hour of Power V, The Heat V, The Smelting Pot IV, The Millstone V, Critical Mass IV).
+
+**Your own files:** Import GPX and Import ZWO are on the **Profile** tab, under "Your files". Imports are saved in this browser and listed there with Remove.
+
+To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`. An optional `"tag"` of `easy`, `medium` or `hard` puts it under that Difficulty filter.
 
 - A picked workout loads on the Ride tab but doesn't start on its own. Connect, warm up as long as you like (a free ride: your own ERG target or resistance), then press **Start workout**. That switches to ERG and the trainer follows each interval.
 - In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.
@@ -66,14 +82,23 @@ Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG y
 - While released the trainer gets a 25 W target and its minimum resistance level. A command the trainer refuses is sent again 2 seconds later.
 - Mode and target are remembered between rides and re-sent after a reconnect.
 
+## Grade mode
+
+On a course with no workout, the control row switches to **Grade** and the trainer follows the hills (FTMS simulation).
+
+- The step buttons set **hill feel**, 0 to 100% (default 50%): how much of the course grade the trainer gets. At 50% a 6% climb feels like 3%. Speed on screen always uses the real grade.
+- The grade is smoothed over 2 seconds and sent at most once a second. The Kickr Core can't simulate a descent, so descents ride as flat. The top is 16%.
+- Shift gears as you would outside.
+- If the trainer has no simulation control, the row says so and falls back to your resistance level.
+
 ## Ride a course
 
-1. Before connecting, pick **Flat road** or a course under **Where** on the Workout tab. **Test Hills** is a made-up 12 mi loop for testing.
-2. **Start at mile** defaults to where your last ride on that course ended. Change it, or press **From the start**.
-3. Connect and ride. Speed comes from power and grade: climbs slow you down, descents speed you up. The trainer does not change resistance with grade yet (that's v4), so use the resistance buttons on climbs.
+1. Before connecting, pick **Flat road** or a course in step 1 of the Workout tab. **Test Hills** is a made-up 12 mi loop for testing.
+2. **Start at mile** (in the course's overview) defaults to where your last ride on that course ended. Change it, or press **From the start**.
+3. Connect and ride. Speed comes from power and grade: climbs slow you down, descents speed you up. With no workout the trainer follows the hills (Grade mode); with a workout it follows the workout.
 4. The FIT file is marked as a virtual ride with elevation, so Strava shows it as a Virtual Ride.
 
-**Import GPX** loads any GPX file from your computer. It's saved in this browser and listed next time. **Remove** deletes an imported course.
+Import your own GPX on the **Profile** tab.
 
 ### Add a built-in course
 

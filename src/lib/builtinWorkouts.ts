@@ -23,6 +23,7 @@ function rampSteps(stepS: number, startW: number, stepW: number, count: number):
 export const BUILTIN_WORKOUTS: Workout[] = [
   {
     id: 'endurance-60',
+    tag: 'easy',
     name: 'Endurance 60',
     description: 'One long steady block in zone 2.',
     source: 'builtin',
@@ -30,6 +31,7 @@ export const BUILTIN_WORKOUTS: Workout[] = [
   },
   {
     id: 'sweet-spot-3x12',
+    tag: 'medium',
     name: 'Sweet Spot 3x12',
     description: '3 x 12 min at 90% FTP with 5 min easy between.',
     source: 'builtin',
@@ -41,6 +43,7 @@ export const BUILTIN_WORKOUTS: Workout[] = [
   },
   {
     id: 'vo2-5x3',
+    tag: 'hard',
     name: 'VO2 5x3',
     description: '5 x 3 min at 115% FTP with 3 min easy between.',
     source: 'builtin',
