@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { targetPct, targetWatts, zoneOf } from '../lib/workout'
+import { targetPct, targetWatts, zoneAt, ZONES } from '../lib/workout'
 import {
   builder,
   duplicateItem,
@@ -44,7 +44,7 @@ const MIN_SCALE_PCT = 150
 const EMPTY_AXIS_S = 3600
 const NICE_S = [60, 120, 180, 300, 600, 900, 1200, 1800, 2700, 3600]
 /** Top of each zone, Z1 to Z5; Z6 runs on up. */
-const ZONE_TOPS = [55, 75, 90, 105, 120]
+const ZONE_TOPS = ZONES.slice(0, 5).map((z) => z.maxPct as number)
 const MAX_PCT = 500
 const ORDINALS = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
 const ordinal = (i: number) => ORDINALS[i] ?? String(i + 1)
@@ -703,7 +703,7 @@ export function BuilderGraph({ draft, ftpW, unit, selected, onSelect, full }: Bu
                         <g key={k}>
                           <path
                             d={`M${px0},${floor}L${px0},${ya}L${px1},${yb}L${px1},${floor}Z`}
-                            fill={`var(--ww-z${zoneOf((p.v.a + p.v.b) / 2)})`}
+                            fill={`var(--ww-z${zoneAt((p.v.a + p.v.b) / 2, ftpW)})`}
                             stroke="var(--ww-surface)"
                             strokeWidth={1}
                             className="cursor-grab"

@@ -150,15 +150,74 @@ export function wattsAt(intervals: Interval[], tS: number, ftpW: number): number
   return a + (b - a) * f
 }
 
-/** Power zone 1 to 7 for a % FTP (Coggan levels). */
+/**
+ * Power zones (Coggan levels). The single source for every zone boundary in
+ * the app: the workout strip, the builder graph and the zone chart are all
+ * built from this list. `maxPct` is the top of the zone in % FTP, inclusive;
+ * Z7 has no top.
+ */
+export const ZONES = [
+  { zone: 1, name: 'Active recovery', maxPct: 55 },
+  { zone: 2, name: 'Endurance', maxPct: 75 },
+  { zone: 3, name: 'Tempo', maxPct: 90 },
+  { zone: 4, name: 'Threshold', maxPct: 105 },
+  { zone: 5, name: 'VO2 max', maxPct: 120 },
+  { zone: 6, name: 'Anaerobic', maxPct: 150 },
+  { zone: 7, name: 'Neuromuscular', maxPct: null },
+] as const
+
+/** Power zone 1 to 7 for a % FTP. */
 export function zoneOf(pct: number): number {
-  if (pct <= 55) return 1
-  if (pct <= 75) return 2
-  if (pct <= 90) return 3
-  if (pct <= 105) return 4
-  if (pct <= 120) return 5
-  if (pct <= 150) return 6
-  return 7
+  for (const z of ZONES) if (z.maxPct !== null && pct <= z.maxPct) return z.zone
+  return ZONES[ZONES.length - 1].zone
+}
+
+/** The last whole watt of a zone at this FTP: its top % FTP, rounded the way every watt on screen is. */
+function zoneTopW(maxPct: number, ftpW: number): number {
+  return Math.round((maxPct / 100) * ftpW)
+}
+
+/** Power zone 1 to 7 for whole watts at this FTP. */
+export function zoneOfWatts(w: number, ftpW: number): number {
+  const whole = Math.round(w)
+  for (const z of ZONES) if (z.maxPct !== null && whole <= zoneTopW(z.maxPct, ftpW)) return z.zone
+  return ZONES[ZONES.length - 1].zone
+}
+
+/**
+ * The zone a target is drawn in: the zone of the whole watts it comes to at
+ * this FTP. Blocks are labeled in whole watts, so this is what keeps a block's
+ * color and the zone chart's watt ranges in agreement. For a whole % FTP it
+ * is the same as zoneOf (from 100 W FTP up).
+ */
+export function zoneAt(pct: number, ftpW: number): number {
+  return zoneOfWatts((pct / 100) * ftpW, ftpW)
+}
+
+export interface ZoneRange {
+  zone: number
+  name: string
+  /** % FTP, whole numbers. `toPct` is null for the open-ended top zone. */
+  fromPct: number
+  toPct: number | null
+  /** Whole watts at the rider's FTP. `toW` is null for the open-ended top zone. */
+  fromW: number
+  toW: number | null
+}
+
+/** Every zone with its % FTP and watt range at this FTP. No overlap, no gap: each zone starts one above the last. */
+export function zoneRanges(ftpW: number): ZoneRange[] {
+  return ZONES.map((z, i) => {
+    const below = i > 0 ? ZONES[i - 1].maxPct : null
+    return {
+      zone: z.zone,
+      name: z.name,
+      fromPct: below === null ? 0 : below + 1,
+      toPct: z.maxPct,
+      fromW: below === null ? 0 : zoneTopW(below, ftpW) + 1,
+      toW: z.maxPct === null ? null : zoneTopW(z.maxPct, ftpW),
+    }
+  })
 }
 
 export function formatDuration(s: number): string {

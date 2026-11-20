@@ -6,6 +6,7 @@ import type { CourseOption, WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
 import { SegmentedControl } from './SegmentedControl'
+import { ZoneTable } from './ZoneTable'
 
 interface ProfilePageProps {
   profile: Profile
@@ -248,6 +249,14 @@ export function ProfilePage({
         <Row label="FTP" htmlFor="ftp-w" help="The power you can hold for about an hour. ERG shows targets as a % of it.">
           <NumberInput id="ftp-w" value={profile.ftpW} step={1} unit="W" disabled={!editable} onCommit={(v) => onChange({ ftpW: v })} />
         </Row>
+        {/* Right under the FTP field, so it follows the FTP as it changes. */}
+        <div className="flex flex-col gap-3 border-t border-line px-6 py-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-semibold text-fg">Power zones</h2>
+            <span className="text-fg-muted">Watt ranges at your FTP of {profile.ftpW} W. Workout blocks use the same colors.</span>
+          </div>
+          <ZoneTable ftpW={profile.ftpW} />
+        </div>
       </section>
 
       <div className="flex flex-col gap-1">

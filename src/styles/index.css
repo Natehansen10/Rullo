@@ -263,3 +263,24 @@
     border-color: var(--ww-state-over);
   }
 }
+
+@layer components {
+  /* Power zone chart: a plain table, rows split by hairlines. The host panel gives the padding. */
+  .ww-zone-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .ww-zone-table th,
+  .ww-zone-table td {
+    padding: var(--ww-space-2) var(--ww-space-3) var(--ww-space-2) 0;
+    vertical-align: middle;
+  }
+  .ww-zone-table th:last-child,
+  .ww-zone-table td:last-child {
+    padding-right: 0;
+  }
+  .ww-zone-table tbody tr {
+    border-top: 1px solid var(--ww-line);
+  }
+}

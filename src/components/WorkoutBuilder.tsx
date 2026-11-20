@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from 'react'
 import { CUSTOM_TAGS, MAX_DESCRIPTION_CHARS, MAX_LABEL_CHARS, MAX_NAME_CHARS, type CustomTag, type CustomWorkoutInput } from '../lib/customWorkouts'
 import type { SaveWorkoutResult } from '../lib/ride'
-import { flatten, targetPct, targetWatts, totalS, zoneOf, type Target } from '../lib/workout'
+import { flatten, targetPct, targetWatts, totalS, zoneAt, type Target } from '../lib/workout'
 import {
   builder,
   checkDraft,
@@ -65,7 +65,7 @@ function echo(step: DraftStep, ftpW: number): string {
   const b = step.kind === 'ramp' ? parseTarget(step.to) : a
   if (!a || !b) return ''
   const other = (t: Target) => ('w' in t ? `${Math.round(targetPct(t, ftpW))}%` : `${Math.round(targetWatts(t, ftpW))} W`)
-  if (step.kind === 'steady') return `Z${zoneOf(targetPct(a, ftpW))} · ${other(a)}`
+  if (step.kind === 'steady') return `Z${zoneAt(targetPct(a, ftpW), ftpW)} · ${other(a)}`
   // A ramp shows both ends in watts, the unit the trainer is sent.
   return `${Math.round(targetWatts(a, ftpW))}→${Math.round(targetWatts(b, ftpW))} W`
 }
