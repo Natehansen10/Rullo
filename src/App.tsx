@@ -307,9 +307,14 @@ export default function App() {
           <WorkoutPage
             s={s}
             notice={s.notice && <Notice title={s.notice} />}
-            onSelectCourse={(id) => void ride.selectCourse(id)}
+            onStageCourse={(id) => void ride.stageCourse(id)}
             onStartMi={ride.setStartMi}
-            onSelectWorkout={ride.selectWorkout}
+            onStageWorkout={ride.stageWorkout}
+            onConfirm={(workoutId) => {
+              // The only way a setup reaches the Ride tab.
+              ride.confirmSetup(workoutId)
+              go('ride')
+            }}
             step={workoutStep}
             onStep={setWorkoutStep}
             onNewWorkout={() => openBuilder('new', null, 'workout')}
@@ -318,7 +323,6 @@ export default function App() {
             onRemoveWorkout={(id) => void ride.removeWorkout(id)}
             detail={workoutDetail}
             onDetail={setWorkoutDetail}
-            onDone={() => go('ride')}
           />
         </main>
       ) : (

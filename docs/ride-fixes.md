@@ -245,3 +245,38 @@ Asked for by Nate after the parts above shipped.
 5. Step feel to 100% on a climb: clearly harder within a couple of seconds.
 6. Switch to ERG, then back to Grade. Each switch should take effect within about 2 s.
 7. If the status says "No grade control on this trainer" or "Trainer refused it. Retrying.", tell me which.
+
+## After the first workout ride (Nov 20, 2026)
+
+Five fixes from Nate's first real workout ride. Parts 1 and 2 are here.
+
+### Part 1: nothing reaches the Ride tab until it is confirmed
+
+**What was wrong.** Clicking a course card in step 1 put the course on the Ride tab at once and switched the trainer mode to Grade. The last course and workout also came back onto the Ride tab on every page load (from `ww.courseId` and `ww.workoutId`). Importing a GPX on Profile did the same.
+
+**Chose:**
+
+- **Two setups, kept apart.** The Workout tab holds a staged setup: course, start mile, workout. The Ride tab holds the confirmed setup. In `RideController` the staged one is `stagedCourse`, `stagedStartM`, `stagedLastEndM` and `stagedWorkoutId`; the confirmed one is still `course`, `startOffsetM`, `lastEndM` and `workout`. The snapshot has a new `staged` field: `{ course, workout, onRide }`.
+- **One way across.** `confirmSetup(workoutId?)` copies the staged course, start mile and workout onto the ride, then picks the trainer mode. Ride this workout calls it with that workout's id. Done calls it with no id. Nothing else writes the ride's course or workout, except resuming an unfinished ride.
+- **Actions.** `stageCourse(id)` replaces `selectCourse`. `stageWorkout(id)` replaces `selectWorkout`. `setStartMi` now moves the staged start. None of them touch the ride or the trainer mode.
+- **Done confirms the line beside it.** The setup line reads "Picked: Test Hills · Free ride" and Done puts exactly that on the Ride tab. If a workout is still picked from an earlier Ride this workout, the line names it and Done rides it again. Click the Free ride card first for a ride with no workout. One rule, and the button never does something the line does not say.
+- **The highlight means picked.** A highlighted card is the pick on the Workout tab, nothing more. Under the setup line one sentence says where the Ride tab stands: "This is on the Ride tab now." or "Not on the Ride tab yet. The Ride tab has Flat road · Free ride." A workout's overview adds "on the Ride tab now" for the confirmed workout.
+- **Reloads.** The picks are saved under new keys, `ww.stagedCourseId` and `ww.stagedWorkoutId`, and come back on the Workout tab only. The start mile is not saved; it goes back to where the last ride on that course ended. The old keys are no longer read and are deleted on load. A fresh page is always a free ride on a flat road.
+- **Removing and editing.** A removed course or workout is dropped from the picks and from the Ride tab. Editing the confirmed custom workout updates the Ride tab's copy and keeps the trainer mode. A ride in progress keeps what it started with, as before.
+- **Import GPX** picks the new course in step 1. It is not on the Ride tab.
+- **Resume** of an unfinished ride still restores that ride's course and workout. The picks on the Workout tab are left alone.
+- **Lock unchanged.** The Workout tab is locked from Connect until New ride. While locked it shows the ride's own setup.
+
+**Checks (fake trainer, headless Chromium, 1280x720):** 63 assertions, 0 failed. The Ride tab had no course row and no workout row after a fresh load, a GPX import, each of 3 course cards, a start mile change, 5 workout overviews opened and closed, the Free ride card, a reload, and a reload with the old `ww.courseId` and `ww.workoutId` seeded. The trainer mode never moved to Grade while browsing. After Ride this workout the Ride tab had Test Hills and the workout, in ERG. After Done with Free ride it had Test Hills alone, in Grade. Browsing after a confirm left the Ride tab as it was. Reload mid-ride, then Resume: both rows came back and the workout was still running.
+
+### Part 2: New ride clears the setup
+
+**What was wrong.** New ride picked the same course and workout again on purpose, so a finished workout stayed on the Ride tab.
+
+**Chose:**
+
+- **New ride** puts the Ride tab back to a free ride on a flat road: no course row, no workout row. Grade mode drops to Resistance; ERG stays ERG at the rider's own target. The picks on the Workout tab stay, so the same ride is two clicks away (Workout, then Done or Ride this workout). If the ride was on the picked course, its start mile moves to where the ride ended.
+- **Disconnect before the first pedal stroke keeps the setup.** There was no ride, so there is nothing to clear, and the rider just confirmed it. Disconnect now resets the counters only. It also unlocks the Workout tab again.
+- Inside the controller `newRide()` is `resetRide()` (counters) plus `clearRideSetup()`. `disconnect()` calls `resetRide()` only.
+
+**Checks:** rode Test Hills with a workout for about 20 s, End Ride, New ride: no rows, mode ERG, and the Workout tab still showed the picks with "Not on the Ride tab yet. The Ride tab has Flat road · Free ride." Connect without pedaling, then Disconnect: both rows stayed. Removing a confirmed imported course on Profile cleared it from the Ride tab and from the picks, and Grade dropped back. With the fake trainer connected, power, speed and time changed on 5 of 5 one-second reads, cadence on 3 to 4, distance (two decimals of a mile) on 2.
