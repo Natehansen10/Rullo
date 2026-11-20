@@ -1,0 +1,16 @@
+<workout_file>
+  <author>Aside (custom)</author>
+  <name>Quick 15 - Recovery Flush</name>
+  <description>Very easy spin to flush the legs after a hard day or a long run. Keep it conversational.</description>
+  <sportType>bike</sportType>
+  <tags>
+    <tag name="15min"/>
+  </tags>
+  <workout>
+    <Warmup Duration="180" PowerLow="0.4" PowerHigh="0.55"/>
+    <SteadyState Duration="300" Power="0.55" Cadence="90"/>
+    <SteadyState Duration="60" Power="0.55" Cadence="100"/>
+    <SteadyState Duration="180" Power="0.55" Cadence="90"/>
+    <Cooldown Duration="180" PowerLow="0.55" PowerHigh="0.4"/>
+  </workout>
+</workout_file>

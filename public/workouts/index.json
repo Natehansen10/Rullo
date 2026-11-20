@@ -1,4 +1,9 @@
 [
+  { "id": "quick-15-recovery-flush", "file": "quick-15-recovery-flush.zwo", "tag": "easy" },
+  { "id": "quick-15-zone-2-spin", "file": "quick-15-zone-2-spin.zwo", "tag": "easy" },
+  { "id": "quick-15-ironman-race-pace", "file": "quick-15-ironman-race-pace.zwo", "tag": "medium" },
+  { "id": "quick-15-tempo-bursts", "file": "quick-15-tempo-bursts.zwo", "tag": "medium" },
+  { "id": "quick-15-sweet-spot-hit", "file": "quick-15-sweet-spot-hit.zwo", "tag": "hard" },
   { "id": "frnkln-jan-6", "file": "frnkln-jan-6.zwo", "tag": "hard" },
   { "id": "long-haul-iii", "file": "long-haul-iii.zwo", "tag": "easy" },
   { "id": "the-causeway-iv", "file": "the-causeway-iv.zwo", "tag": "easy" },

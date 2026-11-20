@@ -1,0 +1,14 @@
+<workout_file>
+  <author>Aside (custom)</author>
+  <name>Quick 15 - Sweet Spot Hit</name>
+  <description>9 minutes at sweet spot (90% FTP). Quick, time-efficient aerobic strength work.</description>
+  <sportType>bike</sportType>
+  <tags>
+    <tag name="15min"/>
+  </tags>
+  <workout>
+    <Warmup Duration="180" PowerLow="0.45" PowerHigh="0.75"/>
+    <SteadyState Duration="540" Power="0.9"/>
+    <Cooldown Duration="180" PowerLow="0.6" PowerHigh="0.4"/>
+  </workout>
+</workout_file>

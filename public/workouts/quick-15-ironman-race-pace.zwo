@@ -1,0 +1,14 @@
+<workout_file>
+  <author>Aside (custom)</author>
+  <name>Quick 15 - Ironman Race Pace</name>
+  <description>10 minutes at Ironman bike race pace (about 76% FTP). Practice holding the exact watts you plan to race at.</description>
+  <sportType>bike</sportType>
+  <tags>
+    <tag name="15min"/>
+  </tags>
+  <workout>
+    <Warmup Duration="180" PowerLow="0.45" PowerHigh="0.7"/>
+    <SteadyState Duration="600" Power="0.76"/>
+    <Cooldown Duration="120" PowerLow="0.6" PowerHigh="0.45"/>
+  </workout>
+</workout_file>

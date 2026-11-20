@@ -1,0 +1,19 @@
+<workout_file>
+  <author>Aside (custom)</author>
+  <name>Quick 15 - Tempo Bursts</name>
+  <description>Three 2-minute tempo efforts above race pace with short Zone 2 floats between.</description>
+  <sportType>bike</sportType>
+  <tags>
+    <tag name="15min"/>
+  </tags>
+  <workout>
+    <Warmup Duration="180" PowerLow="0.45" PowerHigh="0.7"/>
+    <SteadyState Duration="120" Power="0.85"/>
+    <SteadyState Duration="60" Power="0.65"/>
+    <SteadyState Duration="120" Power="0.85"/>
+    <SteadyState Duration="60" Power="0.65"/>
+    <SteadyState Duration="120" Power="0.85"/>
+    <SteadyState Duration="60" Power="0.65"/>
+    <Cooldown Duration="180" PowerLow="0.6" PowerHigh="0.4"/>
+  </workout>
+</workout_file>

@@ -9,14 +9,23 @@ const DIFFICULTIES = ['all', 'easy', 'medium', 'hard'] as const
 type Difficulty = (typeof DIFFICULTIES)[number]
 const DIFFICULTY_LABEL: Record<Difficulty, string> = { all: 'All', easy: 'Easy', medium: 'Medium', hard: 'Hard' }
 
-const LENGTHS = ['any', 'short', 'mid', 'long'] as const
-type Length = (typeof LENGTHS)[number]
-const LENGTH_LABEL: Record<Length, string> = { any: 'Any', short: 'Up to 1 h', mid: '1 to 1.5 h', long: 'Over 1.5 h' }
-const HOUR_S = 3600
+/** Length buckets, named for the ride they hold. Each takes workouts up to its limit in minutes. */
+const LENGTH_BUCKETS = [
+  { id: '15', label: '15 min', maxMin: 20 },
+  { id: '30', label: '30 min', maxMin: 37 },
+  { id: '45', label: '45 min', maxMin: 50 },
+  { id: '60', label: '1 h', maxMin: 80 },
+  { id: '90', label: '1.5 h', maxMin: 105 },
+  { id: '120', label: '2 h+', maxMin: Infinity },
+] as const
+type Length = 'any' | (typeof LENGTH_BUCKETS)[number]['id']
+const LENGTHS: readonly Length[] = ['any', ...LENGTH_BUCKETS.map((b) => b.id)]
+const lengthLabel = (l: Length) => LENGTH_BUCKETS.find((b) => b.id === l)?.label ?? 'Any'
 
 function lengthOf(w: WorkoutOption): Length | null {
   if (w.rampTest) return null // as long as the rider lasts
-  return w.durationS <= HOUR_S ? 'short' : w.durationS <= 1.5 * HOUR_S ? 'mid' : 'long'
+  const min = w.durationS / 60
+  return LENGTH_BUCKETS.find((b) => min <= b.maxMin)!.id
 }
 
 /** First sentence of a description, capped, so long ZWO descriptions stay on one line. */
@@ -64,7 +73,7 @@ export function WorkoutPicker({ workouts, loaded, selected, onCourse, ftpW, onSe
         </div>
         <div className="flex items-center gap-3">
           <span className="ww-label">Length</span>
-          <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={setLength} format={(l) => LENGTH_LABEL[l]} />
+          <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={setLength} format={lengthLabel} />
         </div>
         <span className="ml-auto font-mono text-mono text-fg-subtle" aria-live="polite">
           {shown.length} of {workouts.length} workouts
