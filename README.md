@@ -41,7 +41,7 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 Open the **Workout** tab before connecting. It is two steps:
 
-1. **Choose your course.** A flat road or a course. Click a course to open its overview (distance, climbing, low and high points, the elevation profile) and set the start mile. Press **Next**.
+1. **Choose your course.** Cards: a flat road, then each course with a small elevation profile, its miles and climbing. Click a course and its overview opens under the cards (distance, climbing, low and high points, the full profile) with the start mile. Press **Next**.
 2. **Choose your workout.** A library of cards, each with a small graph of the workout. **Custom Workout** is the first card and opens the builder; **Free ride** is next. The side menu switches between **All workouts** and **Custom** (the ones you built or imported). Filter by **Length** and **Difficulty**. Click a card to open the workout's overview (graph, description, **Edit a copy**), then press **Ride this workout**.
 
 What sets the load:

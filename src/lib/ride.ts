@@ -32,7 +32,7 @@ import {
   type SmoothingSeconds,
 } from '../config'
 import { bluetoothSupported, createBleTrainer } from './ble'
-import { elevationAt, gradeAt, type Course } from './course'
+import { elevationAt, gradeAt, type Course , profilePoints } from './course'
 import { importGpxFile, loadCourses, removeImportedCourse } from './courses'
 import { createFakeTrainer, isFakeMode } from './fakeTrainer'
 import { downloadFit } from './fit'
@@ -121,6 +121,19 @@ export interface CourseOption {
   description?: string
   lengthMi: number
   ascentFt: number
+  /** A light elevation profile, [meters along, meters up] pairs, for the small graph on the course's card. */
+  profile: [number, number][]
+}
+
+/** Card profiles are sampled once per course, not on every snapshot. */
+const cardProfiles = new WeakMap<Course, [number, number][]>()
+function cardProfile(c: Course): [number, number][] {
+  let pts = cardProfiles.get(c)
+  if (!pts) {
+    pts = profilePoints(c, 80)
+    cardProfiles.set(c, pts)
+  }
+  return pts
 }
 
 export interface CourseLive {
@@ -421,6 +434,7 @@ export class RideController {
         description: c.description,
         lengthMi: c.lengthM / METERS_PER_MILE,
         ascentFt: c.ascentM * FEET_PER_METER,
+        profile: cardProfile(c),
       })),
       coursesLoaded: this.coursesLoaded,
       course: this.courseLive(),

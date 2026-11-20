@@ -18,7 +18,7 @@ Nate's note: the step 2 list was crammed, the "+ New workout" row was too small,
 Calls:
 
 - **"New workout" is now "Custom Workout"** on the tile and on the Profile button. The builder's default title is still "New workout", as in Zwift's editor.
-- **The two steps stay.** The course is still step 1; a workout does not store a route. Step 1 keeps its list layout: there are only a few courses.
+- **The two steps stay.** The course is still step 1; a workout does not store a route. Step 1 is cards too (added later the same day at Nate's request): Flat road, then each course with a small elevation profile; the selected course's overview and start mile sit under the grid.
 - **Free ride is a card**, right after the Custom Workout tile.
 - **No Collections.** There are no plans or collections to show; Difficulty covers it.
 - **Cards sit on the page, not in a panel** (DESIGN.md bans nested panels). The tile is `raised`, not Cobalt: Cobalt never fills anything bigger than a button.

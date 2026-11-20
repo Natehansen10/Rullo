@@ -105,15 +105,15 @@ export function WorkoutPage({
       </div>
       {notice}
       {step === 0 ? (
-        <section aria-label={STEPS[0].title} className="overflow-hidden rounded-lg border border-line bg-surface">
+        <>
           <CoursePicker courses={s.courses} loaded={s.coursesLoaded} selected={s.course} onSelect={onSelectCourse} onStartMi={onStartMi} />
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4">
             {summary}
             <Button variant="primary" onClick={() => setStep(1)}>
               Next: choose your workout
             </Button>
           </div>
-        </section>
+        </>
       ) : (
         <>
           <WorkoutPicker
