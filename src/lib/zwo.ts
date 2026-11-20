@@ -2,9 +2,11 @@
  * ZWO workout import (the XML format Zwift and many workout sites use).
  * Powers in a ZWO file are fractions of FTP; durations are seconds.
  * Supported: Warmup, Cooldown, Ramp, SteadyState, IntervalsT, FreeRide, MaxEffort.
+ * Cadence (and CadenceResting on IntervalsT) becomes a cadence cue for the rider.
+ * CadenceLow / CadenceHigh are ignored, as Zwift itself ignores them.
  * Written from the format as seen in public ZWO files. No code copied.
  */
-import type { RampStep, SteadyStep, Step, Workout } from './workout'
+import { cleanCadence, type RampStep, type SteadyStep, type Step, type Workout } from './workout'
 
 const FREE_RIDE_PCT = 50
 const MAX_EFFORT_PCT = 150
@@ -26,6 +28,12 @@ function num(el: Element, ...names: string[]): number | null {
 }
 
 const pct = (fraction: number) => Math.round(fraction * 1000) / 10
+
+/** A cadence cue from an attribute, as an optional step field. */
+function cadence(el: Element, name = 'Cadence'): { cadenceRpm?: number } {
+  const rpm = cleanCadence(num(el, name) ?? undefined)
+  return rpm === undefined ? {} : { cadenceRpm: rpm }
+}
 
 export interface ParsedZwo {
   name: string
@@ -52,7 +60,7 @@ export function parseZwo(text: string): ParsedZwo {
       const p = num(el, 'Power', 'PowerLow')
       if (p === null) skipped++
       else {
-        steps.push({ type: 'steady', durS: dur, target: { pct: pct(p) } })
+        steps.push({ type: 'steady', durS: dur, target: { pct: pct(p) }, ...cadence(el) })
         intervals++
       }
     } else if ((tag === 'warmup' || tag === 'cooldown' || tag === 'ramp') && dur) {
@@ -66,7 +74,7 @@ export function parseZwo(text: string): ParsedZwo {
       if (tag === 'cooldown' && lo < hi) [lo, hi] = [hi, lo]
       // Some generators use a second Warmup element for a long build; only the first step is the warm-up.
       const label = tag === 'warmup' ? (steps.length === 0 ? 'Warm-up' : 'Build') : tag === 'cooldown' ? 'Cool-down' : undefined
-      steps.push({ type: 'ramp', durS: dur, from: { pct: pct(lo) }, to: { pct: pct(hi) }, label })
+      steps.push({ type: 'ramp', durS: dur, from: { pct: pct(lo) }, to: { pct: pct(hi) }, label, ...cadence(el) })
       intervals++
     } else if (tag === 'intervalst') {
       const times = num(el, 'Repeat') ?? 1
@@ -79,8 +87,8 @@ export function parseZwo(text: string): ParsedZwo {
         continue
       }
       const inner: (SteadyStep | RampStep)[] = [
-        { type: 'steady', durS: onS, target: { pct: pct(on) }, label: 'On' },
-        { type: 'steady', durS: offS, target: { pct: pct(off) }, label: 'Off' },
+        { type: 'steady', durS: onS, target: { pct: pct(on) }, label: 'On', ...cadence(el) },
+        { type: 'steady', durS: offS, target: { pct: pct(off) }, label: 'Off', ...cadence(el, 'CadenceResting') },
       ]
       const reps = Math.max(1, Math.round(times))
       // Checked before anything is expanded: Repeat is the one attribute that multiplies.
@@ -88,7 +96,7 @@ export function parseZwo(text: string): ParsedZwo {
       steps.push({ type: 'repeat', times: reps, steps: inner })
       intervals += reps * 2
     } else if (tag === 'freeride' && dur) {
-      steps.push({ type: 'steady', durS: dur, target: { pct: FREE_RIDE_PCT }, label: 'Free ride' })
+      steps.push({ type: 'steady', durS: dur, target: { pct: FREE_RIDE_PCT }, label: 'Free ride', ...cadence(el) })
       intervals++
     } else if (tag === 'maxeffort' && dur) {
       steps.push({ type: 'steady', durS: dur, target: { pct: MAX_EFFORT_PCT }, label: 'Max effort' })

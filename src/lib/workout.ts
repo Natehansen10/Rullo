@@ -11,6 +11,8 @@ export interface SteadyStep {
   durS: number
   target: Target
   label?: string
+  /** Cadence cue in rpm. Shown to the rider; never sent to the trainer. */
+  cadenceRpm?: number
 }
 
 export interface RampStep {
@@ -19,6 +21,8 @@ export interface RampStep {
   from: Target
   to: Target
   label?: string
+  /** Cadence cue in rpm. Shown to the rider; never sent to the trainer. */
+  cadenceRpm?: number
 }
 
 export interface RepeatStep {
@@ -38,8 +42,8 @@ export interface Workout {
   id: string
   name: string
   description: string
-  source: 'builtin' | 'imported'
-  /** Short category shown in the picker, e.g. "easy". Set in public/workouts/index.json. */
+  source: 'builtin' | 'imported' | 'custom'
+  /** Short category shown in the picker, e.g. "easy". Set in public/workouts/index.json, or in the builder. */
   tag?: string
   steps: Step[]
   /**
@@ -50,6 +54,8 @@ export interface Workout {
   rampTest?: RampTest
   /** Only listed with the fake trainer, for testing. */
   fakeOnly?: boolean
+  /** Custom workouts: when the saved copy last changed. The builder uses it to notice an edit in another tab. */
+  updatedAt?: number
 }
 
 /** One flattened interval. A steady interval has from === to. */
@@ -60,13 +66,36 @@ export interface Interval {
   from: Target
   to: Target
   label: string
+  /** Cadence cue in rpm, if the step has one. */
+  cadenceRpm?: number
 }
 
 export const RAMP_TEST_FTP_SHARE = 0.75
 /** Sanity limits for imported targets. ERG clamps what is sent anyway; these catch broken files. */
-const MAX_TARGET_PCT = 500
-const MAX_TARGET_W = 2500
-const MAX_INTERVALS = 2000
+export const MAX_TARGET_PCT = 500
+export const MAX_TARGET_W = 2500
+export const MAX_INTERVALS = 2000
+export const MAX_WORKOUT_S = 6 * 3600
+/** Cadence cues outside this range are dropped on import and refused in the builder. */
+export const MIN_CADENCE_RPM = 30
+export const MAX_CADENCE_RPM = 200
+
+/** A cadence cue from outside (a file, a stored row): a whole rpm in range, or none. */
+export function cleanCadence(v: unknown): number | undefined {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return undefined
+  const rpm = Math.round(v)
+  return rpm >= MIN_CADENCE_RPM && rpm <= MAX_CADENCE_RPM ? rpm : undefined
+}
+
+/**
+ * Intervals a step list flattens into, counted without expanding it, so a
+ * huge repeat count can be refused before flatten() tries to build it.
+ */
+export function countIntervals(steps: Step[]): number {
+  let n = 0
+  for (const s of steps) n += s.type === 'repeat' ? Math.max(0, s.times) * s.steps.length : 1
+  return n
+}
 
 export function flatten(w: Workout): Interval[] {
   const out: Interval[] = []
@@ -74,7 +103,15 @@ export function flatten(w: Workout): Interval[] {
   const push = (s: SteadyStep | RampStep) => {
     const from = s.type === 'steady' ? s.target : s.from
     const to = s.type === 'steady' ? s.target : s.to
-    out.push({ index: out.length, startS: t, durS: s.durS, from, to, label: s.label ?? '' })
+    out.push({
+      index: out.length,
+      startS: t,
+      durS: s.durS,
+      from,
+      to,
+      label: s.label ?? '',
+      ...(s.cadenceRpm !== undefined ? { cadenceRpm: s.cadenceRpm } : {}),
+    })
     t += s.durS
   }
   for (const s of w.steps) {
@@ -132,6 +169,8 @@ export function formatDuration(s: number): string {
 
 /** Throws with a rider-facing message if the workout can't be ridden. */
 export function validateWorkout(w: Workout): void {
+  // Counted first: a repeat of a billion must not be expanded to find out it is too long.
+  if (!(countIntervals(w.steps) <= MAX_INTERVALS)) throw new Error(`The workout has more than ${MAX_INTERVALS} intervals.`)
   const intervals = flatten(w)
   if (intervals.length === 0) throw new Error('The workout has no steps.')
   if (intervals.length > MAX_INTERVALS) throw new Error(`The workout has more than ${MAX_INTERVALS} intervals.`)
@@ -142,5 +181,5 @@ export function validateWorkout(w: Workout): void {
       if (!Number.isFinite(v) || v < 0 || v > ('pct' in t ? MAX_TARGET_PCT : MAX_TARGET_W)) throw new Error('A step has a bad target.')
     }
   }
-  if (totalS(intervals) > 6 * 3600) throw new Error('The workout is longer than 6 hours.')
+  if (totalS(intervals) > MAX_WORKOUT_S) throw new Error('The workout is longer than 6 hours.')
 }
