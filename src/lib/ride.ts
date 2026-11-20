@@ -1064,6 +1064,8 @@ export class RideController {
     this.heldSamples = []
     if (held.length && this.rideId) {
       void this.rideId.then((rideId) => {
+        // No ride row (the browser is not saving): nothing to write to, as in record().
+        if (rideId === NO_RIDE) return
         for (const s of held) void recorder.recordSample({ rideId, ...s })
       })
     }
