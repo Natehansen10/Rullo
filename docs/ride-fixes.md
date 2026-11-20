@@ -185,3 +185,29 @@ Courses: climbs still slow the rider and descents still speed them up while peda
 **Measured at 1280x720 (page height must be 720 or less):** free ride 720, course 720, workout 720, course + workout 720, course + ramp test after End test 720, course + a 58-interval workout 720, not connected with both picked 720.
 
 **Not handled:** a notice above the panel (crash recovery, trainer lost) still pushes the control row down while it shows.
+
+## Part 8: Quality pass
+
+Findings and their status are in `docs/quality-pass.md`. Judgment calls:
+
+- **Control row never wraps at 1280 px and up.** Shortening the status strings was not enough on its own, so the status text now takes whatever space is left and may run to two lines inside the row.
+- **File limits:** ZWO 1 MB and 2,000 intervals; GPX 30 MB and 500,000 points. A 112-mile course at one point per second is about 3 MB, so real files are far inside these.
+- **`ride.ts` was not split.** It is the right refactor, at the wrong time: every path in it was changed and tested this round.
+- **No new dependencies** were added in any part. `@garmin/fitsdk` was installed only in a scratch folder for validation.
+
+## Next ride checklist (needs the real Kickr)
+
+Before: spindown in the Wahoo app after a 10-minute warm-up, then close the Wahoo app. Small chainring, middle cog. ERG mode.
+
+| # | Do | Expect | If not |
+| --- | --- | --- | --- |
+| 1 | Start pedaling in ERG | Light until 60 rpm holds for a second, then "Easing in to target" for 6 s | Note the status text |
+| 2 | Stop pedaling | Load lets go within 2 s. Speed at 0 within 4 s. "Paused" within 4 s, numbers gray, Time stopped | Time how long "Paused" took |
+| 3 | Restart from a full stop | First strokes are just the flywheel. Then the 6 s ramp | If heavy: was the status "Trainer refused it. Retrying."? |
+| 4 | Drop to 40 rpm for 5 s, spin back up | Releases at 3 s, eases back in | |
+| 5 | Hold 55 rpm | ERG keeps holding | |
+| 6 | Step the target 20 W | Speed moves about 1 mph and settles in about 6 s | |
+| 7 | Put the tab in the background for 10 minutes (YouTube) | FIT has a record every second | Send me the FIT |
+| 8 | Stop 30 s before End Ride | Strava: moving time below elapsed time, no flat zero tail | |
+| 9 | Pick Test Hills plus a workout | Both rows on screen with the control row, ERG follows the workout, speed follows the hills | |
+| 10 | 5 minutes at 150 W | Same effort as before the spindown? | Tells us if calibration was the issue |
