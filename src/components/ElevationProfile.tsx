@@ -10,6 +10,8 @@ interface ElevationProfileProps {
   dim?: boolean
   /** Shown together with a workout: stats on one line and a shorter profile. */
   compact?: boolean
+  /** One plain sentence at the right of the stats line: what the course is setting (speed, or speed and the load). */
+  note?: string
   className?: string
 }
 
@@ -23,7 +25,7 @@ function niceTickMi(lengthMi: number): number {
 }
 
 /** Course elevation profile. Cobalt marks the part ridden this ride and the current position. */
-export function ElevationProfile({ live, dim = false, compact = false, className = '' }: ElevationProfileProps) {
+export function ElevationProfile({ live, dim = false, compact = false, note, className = '' }: ElevationProfileProps) {
   const { course } = live
   const boxRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(800)
@@ -84,6 +86,7 @@ export function ElevationProfile({ live, dim = false, compact = false, className
         <Stat label="Climbed" value={Math.round(live.climbedFt).toLocaleString()} unit="ft" dim={dim} inline={compact} />
         <Stat label="To go" value={live.toGoMi.toFixed(1)} unit="mi" dim={dim} inline={compact} />
         {live.finished && <span className="ww-label text-state-on">Course complete</span>}
+        {note && <span className="ml-auto whitespace-nowrap text-fg-muted">{note}</span>}
       </div>
       <div ref={boxRef} className={`relative ${compact ? 'ww-profile-compact' : 'ww-profile'}`}>
         <svg width={width} height={height} className="absolute inset-0 block" aria-hidden>

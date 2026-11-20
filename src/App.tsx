@@ -98,6 +98,11 @@ function loadOwner(s: RideSnapshot): string {
   return 'You set the load.'
 }
 
+/** The course's part, for the course row: it always sets speed and distance, and the load only in Grade. */
+function courseNote(s: RideSnapshot): string {
+  return s.mode === 'grade' && !s.gradeUnsupported ? 'The course sets speed and the load.' : 'The course sets speed, not the load.'
+}
+
 /** The second line of the control row: what the trainer is doing, or what the rider should do next. */
 function controlDetail(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
@@ -481,6 +486,7 @@ export default function App() {
                 live={s.course}
                 dim={dimRide}
                 compact={both}
+                note={s.phase === 'ended' ? undefined : courseNote(s)}
                 className={`border-t border-line xl:col-span-2 ${both ? 'px-6 py-3' : pad}`}
               />
             )}
