@@ -103,13 +103,14 @@ export function formatDurationField(s: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`
 }
 
-/** "90" and "90%" are % FTP; "225w" is watts. */
-export function parseTarget(text: string): Target | null {
+/** "90%" is % FTP and "225w" is watts. A bare number takes `bare`: % FTP unless the builder is showing watts. */
+export function parseTarget(text: string, bare: 'pct' | 'w' = 'pct'): Target | null {
   const m = /^(\d+(?:\.\d+)?)\s*(%|w|watt|watts)?$/i.exec(text.trim())
   if (!m || text.length > MAX_FIELD_CHARS) return null
   const v = Number(m[1])
   if (!Number.isFinite(v)) return null
-  return m[2] && m[2] !== '%' ? { w: Math.round(v) } : { pct: Math.round(v * 10) / 10 }
+  const watts = m[2] ? m[2] !== '%' : bare === 'w'
+  return watts ? { w: Math.round(v) } : { pct: Math.round(v * 10) / 10 }
 }
 
 export function formatTarget(t: Target): string {
@@ -160,7 +161,7 @@ export function cloneItem<T extends DraftItem>(item: T): T {
 }
 
 export function newDraft(returnTo: ReturnTo): Draft {
-  return { v: 1, id: null, baseUpdatedAt: null, copyOf: null, returnTo, name: '', description: '', tag: 'medium', items: [], dirty: false }
+  return { v: 1, id: null, baseUpdatedAt: null, copyOf: null, returnTo, name: 'New workout', description: '', tag: 'medium', items: [], dirty: false }
 }
 
 function stepToDraft(s: SteadyStep | RampStep): DraftStep {
@@ -204,6 +205,85 @@ export function draftFromWorkout(w: Workout, mode: 'edit' | 'copy', returnTo: Re
     // A copy is new work the moment it exists; an untouched edit is not.
     dirty: !edit,
   }
+}
+
+// --- edits on the item list ---
+
+export function mapStep(items: DraftItem[], uid: string, fn: (s: DraftStep) => DraftStep): DraftItem[] {
+  return items.map((it) =>
+    it.kind === 'repeat' ? { ...it, steps: it.steps.map((s) => (s.uid === uid ? fn(s) : s)) } : it.uid === uid ? fn(it) : it,
+  )
+}
+
+export function swap<T>(list: T[], i: number, j: number): T[] {
+  const out = [...list]
+  ;[out[i], out[j]] = [out[j], out[i]]
+  return out
+}
+
+/**
+ * Move a row one place. Top-level rows trade places. A step inside a repeat
+ * moves within it, and off either end it leaves the repeat (an emptied repeat
+ * is removed).
+ */
+export function moveItem(items: DraftItem[], uid: string, dir: -1 | 1): DraftItem[] {
+  const top = items.findIndex((it) => it.uid === uid)
+  if (top >= 0) {
+    const to = top + dir
+    return to < 0 || to >= items.length ? items : swap(items, top, to)
+  }
+  const ri = items.findIndex((it) => it.kind === 'repeat' && it.steps.some((s) => s.uid === uid))
+  if (ri < 0) return items
+  const rep = items[ri] as DraftRepeat
+  const i = rep.steps.findIndex((s) => s.uid === uid)
+  const to = i + dir
+  if (to >= 0 && to < rep.steps.length) return items.map((it, k) => (k === ri ? { ...rep, steps: swap(rep.steps, i, to) } : it))
+  const rest = rep.steps.filter((s) => s.uid !== uid)
+  const kept: DraftItem[] = rest.length ? [{ ...rep, steps: rest }] : []
+  const moved = dir < 0 ? [rep.steps[i], ...kept] : [...kept, rep.steps[i]]
+  return [...items.slice(0, ri), ...moved, ...items.slice(ri + 1)]
+}
+
+/** Copy a row right after itself. Returns the copy's id for focus. */
+export function duplicateItem(items: DraftItem[], uid: string): { items: DraftItem[]; copyUid: string | null } {
+  let copyUid: string | null = null
+  const dup = <T extends DraftItem>(list: T[]): T[] =>
+    list.flatMap((it) => {
+      if (it.uid !== uid) return [it]
+      const c = cloneItem(it)
+      copyUid = c.uid
+      return [it, c]
+    })
+  const next = dup(items).map((it) => (it.kind === 'repeat' ? { ...it, steps: dup(it.steps) } : it))
+  return { items: next, copyUid }
+}
+
+/** Delete a row. Returns the row that takes its place, for focus. */
+export function removeItem(items: DraftItem[], uid: string): { items: DraftItem[]; nextUid: string | null } {
+  const top = items.findIndex((it) => it.uid === uid)
+  if (top >= 0) {
+    const next = items.filter((it) => it.uid !== uid)
+    return { items: next, nextUid: (next[top] ?? next[top - 1])?.uid ?? null }
+  }
+  let nextUid: string | null = null
+  const next = items.map((it) => {
+    if (it.kind !== 'repeat') return it
+    const i = it.steps.findIndex((s) => s.uid === uid)
+    if (i < 0) return it
+    const steps = it.steps.filter((s) => s.uid !== uid)
+    nextUid = (steps[i] ?? steps[i - 1])?.uid ?? it.uid
+    return { ...it, steps }
+  })
+  return { items: next, nextUid }
+}
+
+/** Move a top-level row to a position among the others (0 is first). */
+export function reorderItem(items: DraftItem[], uid: string, toIndex: number): DraftItem[] {
+  const item = items.find((it) => it.uid === uid)
+  if (!item) return items
+  const rest = items.filter((it) => it.uid !== uid)
+  const at = Math.min(rest.length, Math.max(0, toIndex))
+  return [...rest.slice(0, at), item, ...rest.slice(at)]
 }
 
 // --- checking a draft ---
@@ -384,7 +464,13 @@ export interface BuilderState {
   pending: { target: BuilderTarget; returnTo: ReturnTo; what: string } | null
   /** The stored draft was changed by another tab since this one opened it. */
   changedElsewhere: boolean
+  /** There is a change to take back. */
+  canUndo: boolean
 }
+
+const MAX_UNDO = 100
+/** Changes with the same key this close together are one undo step (a drag, a run of typing). */
+const UNDO_MERGE_MS = 800
 
 function sameTarget(d: Draft, t: BuilderTarget): boolean {
   if (t.kind === 'new') return d.id === null && d.copyOf === null
@@ -398,7 +484,10 @@ function draftFor(t: BuilderTarget, returnTo: ReturnTo): Draft {
 
 class BuilderStore {
   private listeners = new Set<() => void>()
-  private state: BuilderState = { draft: readDraft(), pending: null, changedElsewhere: false }
+  private state: BuilderState = { draft: readDraft(), pending: null, changedElsewhere: false, canUndo: false }
+  private undoStack: Draft[] = []
+  private lastKey: string | null = null
+  private lastAt = 0
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -458,16 +547,38 @@ class BuilderStore {
 
   private replace(draft: Draft | null, pending: BuilderState['pending']) {
     writeDraft(draft)
-    this.set({ draft, pending, changedElsewhere: false })
+    this.undoStack = []
+    this.lastKey = null
+    this.set({ draft, pending, changedElsewhere: false, canUndo: false })
   }
 
-  /** Change the draft. Every change is saved at once. */
-  update(fn: (d: Draft) => Draft) {
+  /**
+   * Change the draft. Every change is saved at once and can be undone. Pass a
+   * `key` for a stream of small changes (a drag, typing in one field) so the
+   * whole stream is a single undo step.
+   */
+  update(fn: (d: Draft) => Draft, key: string | null = null) {
     const cur = this.state.draft
     if (!cur) return
     const next = { ...fn(cur), dirty: true }
+    const now = Date.now()
+    if (!(key !== null && key === this.lastKey && now - this.lastAt < UNDO_MERGE_MS)) {
+      this.undoStack.push(cur)
+      if (this.undoStack.length > MAX_UNDO) this.undoStack.shift()
+    }
+    this.lastKey = key
+    this.lastAt = now
     writeDraft(next)
-    this.set({ draft: next })
+    this.set({ draft: next, canUndo: true })
+  }
+
+  /** Take back the last change. Zwift has no undo; a deleted block there is gone. */
+  undo() {
+    const prev = this.undoStack.pop()
+    if (!prev) return
+    this.lastKey = null
+    writeDraft(prev)
+    this.set({ draft: prev, canUndo: this.undoStack.length > 0 })
   }
 
   /** Saved or thrown away: nothing is left to restore. */

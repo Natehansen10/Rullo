@@ -85,13 +85,23 @@ export function WorkoutPicker({ workouts, loaded, selected, onCourse, ftpW, onSe
           <span className="ww-label">Length</span>
           <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={setLength} format={lengthLabel} />
         </div>
-        <div className="ml-auto flex items-center gap-4">
-          <span className="font-mono text-mono text-fg-subtle" aria-live="polite">
-            {shown.length} of {workouts.length} workouts
-          </span>
-          <Button onClick={onNew}>New workout</Button>
-        </div>
+        <span className="ml-auto font-mono text-mono text-fg-subtle" aria-live="polite">
+          {shown.length} of {workouts.length} workouts
+        </span>
       </div>
+      {/* First in the list, like the create tile that leads a workout library. Not a choice, so not a radio. */}
+      <button
+        type="button"
+        onClick={onNew}
+        aria-label="New workout"
+        className="ww-press flex w-full cursor-pointer items-center gap-4 border-b border-line px-6 py-3 text-left hover:bg-bg"
+      >
+        <span aria-hidden className="flex size-4 shrink-0 items-center justify-center font-semibold text-fg">
+          +
+        </span>
+        <span className="font-semibold whitespace-nowrap text-fg">New workout</span>
+        <span className="min-w-0 truncate font-mono text-mono text-fg-subtle">build your own from blocks</span>
+      </button>
       <div role="radiogroup" aria-label="Workout">
         <PickerRow
           checked={!selected}

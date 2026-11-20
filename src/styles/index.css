@@ -205,3 +205,33 @@
     min-width: calc(54rem - 2.25rem - 1px);
   }
 }
+
+@layer components {
+  /* Workout builder graph: the block canvas. */
+  .ww-builder-graph {
+    height: var(--ww-builder-graph-height);
+  }
+  /* The workout's name as the builder's title. Reads as a title until hovered or focused, then as a field. */
+  .ww-title-field {
+    font-size: var(--ww-title-size);
+    font-weight: 600;
+    color: var(--ww-fg);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--ww-radius-md);
+    padding: var(--ww-space-1) var(--ww-space-2);
+    transition: border-color var(--ww-dur-fast) var(--ww-ease), background-color var(--ww-dur-fast) var(--ww-ease);
+  }
+  .ww-title-field:hover,
+  .ww-title-field:focus {
+    border-color: var(--ww-line-strong);
+    background: var(--ww-raised);
+  }
+  .ww-title-field::placeholder {
+    color: var(--ww-fg-subtle);
+    opacity: 1;
+  }
+  .ww-title-field[aria-invalid='true']:not(:focus) {
+    border-color: var(--ww-state-over);
+  }
+}
