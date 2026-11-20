@@ -30,6 +30,7 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 - Change resistance with the step buttons or keys. Fake power rises and falls with it.
 - In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release and re-engage.
+- Press **J** (or open `?fake=1&jitter=1`) for jittery delivery: readings arrive 0.3 to 2.6 s apart. The FIT file should still have a record every second.
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
 - Press **End Ride** twice (the second click confirms) to end and download the FIT file.
 - On the **Workout** tab pick **Test Intervals** (2 minutes) to watch ERG follow each interval, or **Test Ramp** and press **C** mid-ramp to fail the test and get an FTP estimate. These two show only with `?fake=1`.
@@ -103,7 +104,7 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/course.ts` | Course model: distance along the slope, two-pass 75 m elevation smoothing, grade over 50 m |
 | `src/lib/courses.ts` | Built-in courses plus imported ones (IndexedDB) |
 | `src/lib/ride.ts` | Ride state, smoothing, stale detection, time and distance from timestamps |
-| `src/lib/recorder.ts` | One sample per second to IndexedDB (Dexie) |
+| `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
 | `src/lib/fit.ts` | FIT file writer |
 | `src/lib/wakeLock.ts` | Keeps the screen on while riding |
 

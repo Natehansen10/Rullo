@@ -222,6 +222,8 @@ export class RideController {
   private lastDataAt = 0
   private lastPhysicsAt = 0
   private lastRecordedSec = -1
+  /** The sample last written, kept to fill seconds a late reading skipped. */
+  private lastSample: Omit<recorder.SampleRow, 'rideId'> | null = null
   private recovery: recorder.UnfinishedRide | null = null
   private notice: string | null = null
   private resistancePct = loadResistance()
@@ -619,6 +621,7 @@ export class RideController {
 
   private onReading(r: TrainerReading) {
     if (this.phase !== 'ready' && this.phase !== 'riding') return
+    const sinceLastMs = this.lastDataAt > 0 ? r.t - this.lastDataAt : 0
     this.lastDataAt = r.t
     if (r.cadenceRpm !== undefined) {
       this.cadenceRpm = r.cadenceRpm
@@ -650,7 +653,7 @@ export class RideController {
       this.lastPhysicsAt = r.t
     }
 
-    if (this.phase === 'riding') this.record(r.t)
+    if (this.phase === 'riding') this.record(r.t, sinceLastMs)
     this.emit()
   }
 
@@ -660,17 +663,15 @@ export class RideController {
     this.distanceM = 0
     this.speed.reset()
     this.lastRecordedSec = -1
+    this.lastSample = null
     this.climbedM = 0
     this.rideId = recorder.startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined, this.workout?.id)
   }
 
-  /** One sample per wall-clock second. */
-  private record(t: number) {
-    const sec = Math.floor(t / 1000)
-    if (sec === this.lastRecordedSec || !this.rideId) return
-    this.lastRecordedSec = sec
-    const sample = {
-      t,
+  /** The ride as it stands now, stamped with a whole wall-clock second. */
+  private sampleAt(sec: number): Omit<recorder.SampleRow, 'rideId'> {
+    return {
+      t: sec * 1000,
       powerW: Math.round(this.lastPowerW),
       cadenceRpm: Math.round(this.cadenceRpm),
       speedMps: this.speed.speedMps,
@@ -682,7 +683,43 @@ export class RideController {
         ? { lap: indexAt(this.intervals, Math.min(this.workoutS, totalS(this.intervals) - 0.001)), workoutS: this.workoutS }
         : {}),
     }
-    void this.rideId.then((rideId) => recorder.recordSample({ rideId, ...sample }))
+  }
+
+  /**
+   * Exactly one sample per wall-clock second, stamped on the second.
+   * Readings don't land one per second (the trainer's clock drifts against
+   * ours, and a hidden tab delivers them late), so a reading that skips a
+   * second or two fills them in: power and cadence hold the last values,
+   * distance and position are spread evenly. A gap longer than
+   * MAX_SAMPLE_GAP_MS is a real dropout and stays a gap.
+   */
+  private record(t: number, sinceLastMs: number) {
+    const sec = Math.floor(t / 1000)
+    if (sec <= this.lastRecordedSec || !this.rideId) return
+    const sample = this.sampleAt(sec)
+    const prev = this.lastSample
+    const missed = sec - this.lastRecordedSec - 1
+    const fills: Omit<recorder.SampleRow, 'rideId'>[] = []
+    if (prev && missed > 0 && sinceLastMs <= MAX_SAMPLE_GAP_MS && prev.t === this.lastRecordedSec * 1000) {
+      const mix = (a: number | undefined, b: number | undefined, f: number) =>
+        a === undefined || b === undefined ? a : a + (b - a) * f
+      for (let k = 1; k <= missed; k++) {
+        const f = k / (missed + 1)
+        fills.push({
+          ...prev,
+          t: (this.lastRecordedSec + k) * 1000,
+          distanceM: mix(prev.distanceM, sample.distanceM, f) as number,
+          courseM: mix(prev.courseM, sample.courseM, f),
+          altitudeM: mix(prev.altitudeM, sample.altitudeM, f),
+          workoutS: prev.lap === sample.lap ? mix(prev.workoutS, sample.workoutS, f) : prev.workoutS,
+        })
+      }
+    }
+    this.lastRecordedSec = sec
+    this.lastSample = sample
+    void this.rideId.then((rideId) => {
+      for (const s of [...fills, sample]) void recorder.recordSample({ rideId, ...s })
+    })
   }
 
   // --- trainer control: resistance level or ERG target ---
@@ -961,6 +998,7 @@ export class RideController {
     this.startedAt = rec.ride.startedAt
     this.distanceM = rec.last.distanceM
     this.lastRecordedSec = Math.floor(rec.last.t / 1000)
+    this.lastSample = null
     this.speed.reset()
     this.recovery = null
     this.course = null

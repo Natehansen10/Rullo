@@ -5,19 +5,26 @@
  * Resistance changes power the way a harder gear would at the same cadence.
  * ERG holds the target. Press C to drop cadence to 40 rpm for 6 seconds
  * (tests the ERG low-cadence release).
+ * Press J (or open with ?fake=1&jitter=1) for jittery delivery: readings come
+ * 0.3 to 2.6 s apart, like a hidden tab or a trainer whose clock drifts
+ * (tests that recording still saves one sample every second).
  */
 import type { Trainer, TrainerHandlers } from './types'
 
 const DROP_MS = 5000
 const IDLE_MS = 3000
 const LOW_CADENCE_MS = 6000
+const TICK_MS = 1000
+const JITTER_MIN_MS = 300
+const JITTER_MAX_MS = 2600
 
 export function isFakeMode(): boolean {
   return new URLSearchParams(window.location.search).get('fake') === '1'
 }
 
 export function createFakeTrainer(h: TrainerHandlers): Trainer {
-  let timer: ReturnType<typeof setInterval> | null = null
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let jitter = new URLSearchParams(window.location.search).get('jitter') === '1'
   let dropUntil = 0
   let t0 = 0
   let resistancePct = 20
@@ -27,6 +34,7 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'd' || e.key === 'D') dropUntil = Date.now() + DROP_MS
     if (e.key === 'c' || e.key === 'C') lowCadenceUntil = Date.now() + LOW_CADENCE_MS
+    if (e.key === 'j' || e.key === 'J') jitter = !jitter
   }
 
   const tick = () => {
@@ -50,6 +58,13 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
     })
   }
 
+  /** Tick, then schedule the next one: every second, or unevenly when jittery. */
+  const run = () => {
+    tick()
+    const delay = jitter ? JITTER_MIN_MS + Math.random() * (JITTER_MAX_MS - JITTER_MIN_MS) : TICK_MS
+    timer = setTimeout(run, delay)
+  }
+
   return {
     async connect() {
       h.onStatus({ kind: 'connecting' })
@@ -58,10 +73,9 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       dropUntil = 0
       ergW = null // a fresh connection starts without an ERG target, like a reset trainer
       window.addEventListener('keydown', onKey)
-      if (timer) clearInterval(timer)
-      timer = setInterval(tick, 1000)
+      if (timer) clearTimeout(timer)
       h.onStatus({ kind: 'connected', protocol: 'Fake' })
-      tick()
+      run()
     },
     async setResistance(pct: number) {
       await new Promise((r) => setTimeout(r, 80))
@@ -75,7 +89,7 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       return 'ok' as const
     },
     disconnect() {
-      if (timer) clearInterval(timer)
+      if (timer) clearTimeout(timer)
       timer = null
       window.removeEventListener('keydown', onKey)
       h.onStatus({ kind: 'disconnected' })
