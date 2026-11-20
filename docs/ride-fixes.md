@@ -299,3 +299,117 @@ Five fixes from Nate's first real workout ride. Parts 1 and 2 are here.
 **Checks (headless Chromium, 1280x720, 1024x768, 1920x1080; workout only and course + workout):** every block of four workouts (ramps, steady blocks, repeats, fixed-watt steps, blocks with and without a cadence target) hovered before the start, after the start, and after raising intensity to 110%. 5,591 checks on the Ride tab and 48 in the overview, all passing. The text matched the workout data, FTP and intensity each time. The chip stayed inside the panel and the window at every block. The bounding boxes of the panel, the tiles, the workout row, the control row and everything inside them were the same before and during hover. The key hint stayed on screen at 1280x720.
 
 **Gaps:** the shipped workouts have no ramp with a cadence target, so that pair was not hovered (same code path as a steady block with cadence). The 1px `fg` outline is 2.7:1 against a Z7 block, under the 3:1 rule for graphics; Z1 to Z6 pass. The builder's selected-block outline has the same limit.
+
+### Part 5: nothing is recorded until Start
+
+**What was wrong.** The ride started on the first pedal stroke. Spinning up before a workout was recorded, and it became a free-ride lap ahead of the workout in the FIT file.
+
+**Chose:**
+
+- **Connect shows live numbers only.** Power, cadence and speed are live. Time, distance, course position and climbing stay at zero. No ride row and no samples are written to IndexedDB. The first pedal stroke does nothing but move the live numbers.
+- **One Start button, in the top bar, where Connect was.** Its label is "Start ride", or "Start workout" when a workout is loaded. It is the one primary button on the Ride tab. Disconnect sits to its left as a secondary button. Why the top bar and not a line in the ride panel: it costs no height, so all four ride types still fit 1280x720; both labels are in one place; and the pointer is already there after pressing Connect. The workout row's own Start workout button is now plain text ("Press Start workout"), so there is still one primary on screen.
+- **Start begins everything together, from zero:** the clock, the distance, the recording and, with a workout, the workout from its first step. The workout's warm-up is lap 1.
+- **Start while not pedaling starts paused.** The clock reads 0:00, the pill reads "Paused" and the control row reads "Paused. Pedal to resume." The first pedal stroke resumes, so the FIT file begins there. This reuses the auto-pause that already existed; the other choice (start the clock, then backdate a pause 3 s later) would have made the clock count to 0:03 and jump back.
+- **The first record is never before Start.** The first sample is stamped on the first whole second after the press.
+- **Speed is live before Start.** The speed model runs on every reading at the grade of the start point, and its distance is thrown away. Distance counts from the moment Start is pressed, not from the reading before it.
+- **Trainer control works before Start.** Resistance level, your own ERG target (with the cadence release and soft start) and Grade all work. Grade used to sit at 0% until the ride moved; it now starts at the grade of the start point, so a start on a climb is a climb from the first second. A refused command is retried while waiting too, as long as the pedals are turning.
+- **Making the wait obvious, calmly.** The pill reads "Not recording" in the `warn` tone. The Time tile's label row reads "Not recording". Time and Distance are gray at 0:00 and 0.00. The control row's second line reads "Press Start ride." Nothing flashes or moves.
+- **A stop or a dropout before Start creates nothing.** The pill goes to "Reconnecting" during a dropout and back to "Not recording".
+- **The setup stays open until Start.** The Workout tab used to lock at Connect. Now it locks at Start, so you can connect first and pick after. Confirming a setup with the trainer connected sends the new command at once. The profile is open until Start too. A resumed ride is locked from Resume, as before.
+- **Crash recovery.** A reload before Start has nothing to recover. A reload after Start resumes as before: Connect goes straight back to riding, with no Start. Resume now also puts the trainer mode back to what the setup calls for (ERG with a workout, Grade on a course alone).
+- **Old unfinished rides.** A ride recorded before this change may have a workout that was never started. After Resume the workout row shows a secondary "Start workout" button, so it can still be started mid-ride.
+- **End Ride guard.** End Ride lands where Start was. A click on it in the first second after Start is ignored, so a double click on Start cannot arm "Confirm end".
+- **Start pressed and never pedaled, then End Ride:** the notice reads "Nothing was recorded." and there is no Download button. An empty ride row is left in the browser, marked ended. It has no samples and nothing reads it.
+- **No keyboard shortcut for Start.** One key that starts recording is easy to hit by accident, and the hint line has no room at 1280.
+- **No database change.** Dexie is still at version 4.
+
+**Checks (fake trainer, headless Chromium, FIT decoded with @garmin/fitsdk in a scratch folder):**
+
+Pedaled 20 s before Start in each ride type. In all four: Time read 0:00 and Distance 0.00 the whole time, the pill read "Not recording", and IndexedDB had 0 rides and 0 samples. Over seconds 9 to 20, power changed on 10 to 11 of 11 one-second reads, cadence on 6 to 9, speed on 7 to 11. After Start, Time read 0:00, 0:01, 0:02, 0:03, 0:04, 0:05 on six one-second reads.
+
+| Ride | First record after Start | Records | Holes | Laps | Lap timer sum / session | Lap distance sum / session | Decode errors |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Free ride, flat | 0.29 s | 21 | 0 | 1 | 21 / 21 s | 197.23 / 197.23 m | 0 |
+| Test Hills from mile 3, free ride | 0.52 s | 20 | 0 | 1 | 20 / 20 s | 89.95 / 89.95 m | 0 |
+| Test Intervals, flat | 0.52 s | 40 | 0 | 5 | 40 / 40 s | 333.98 / 333.98 m | 0 |
+| Test Hills from mile 3 + Test Intervals | 0.60 s | 40 | 0 | 5 | 40 / 40 s | 96.80 / 96.80 m | 0 |
+
+Laps of the Test Intervals ride (Start, 20 s of warm-up, then Skip interval three times, 6 s apart):
+
+| Lap | Interval | Starts after Start | Timer | Distance | Avg power |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Warm-up, 132 W | 0.5 s | 19 s | 152.8 m | 132 W |
+| 2 | Hard, 264 W | 19.5 s | 3 s | 25.4 m | 221 W |
+| 3 | Easy, 110 W | 22.5 s | 6 s | 48.9 m | 109 W |
+| 4 | Hard, 264 W | 28.5 s | 6 s | 56.3 m | 262 W |
+| 5 | Easy, 110 W | 34.5 s | 6 s | 50.6 m | 109 W |
+
+Other checks:
+
+- **Dropout (D) before Start:** pill "Reconnecting", then "Not recording". 0 rides, 0 samples.
+- **Stop (S) before Start:** power 0, cadence 0, speed 0.0, pill still "Not recording". 0 rides, 0 samples.
+- **Start while stopped:** pill "Paused", Time 0:00, 1 ride row, 0 samples after 5 s. On the first pedal stroke Time counted 0:00 to 0:07 over 8 reads. The first sample was 0.06 s after the pedaling began and 5.1 s after Start.
+- **After Start:** auto-pause (S) froze Time at 0:08; resume, dropout (D) and low cadence (C) behaved as documented above. FIT timer events: start 0, stop 7, start 14, stop 20, start 26, stop 37; timer 27 s, elapsed 38 s; 0 decode errors.
+- **Start while stopped, never pedal, End Ride:** "Nothing was recorded.", no Download button, no recovery notice after a reload.
+- **Double click on Start:** the ride started and End Ride was not armed.
+- **Reload before Start:** no recovery notice, no course row, no workout row, 0 rides, 0 samples.
+- **Reload 26 s into a workout on Test Hills:** Resume brought back the course row, the workout row (running, Skip interval showing) and the position (9.0 mi to go before and after). Connect went straight to riding. End Ride gave a FIT with 0 decode errors, 2 laps, timer 32 s, elapsed 38 s.
+- **Old ride with an unstarted workout (seeded in IndexedDB):** Resume, Connect, then the row's Start workout started it; FIT had 0 decode errors.
+- **Setup changed while connected and waiting:** flat free ride (about 217 W in Resistance) to Test Hills from mile 3 (Grade, about 303 W within 3 s) to the same course from mile 0 (about 159 W) to course + workout (ERG at the rider's 145 W: 145 W). Still 0 rides and 0 samples.
+- **Layout:** at 1280x720 in free, course, workout and course + workout, waiting and started, the page did not scroll (scroll height 720), the key hint was one line (17 px tall) ending at y 631 or 639, and no status line was cut off. Same at 1440x900 and 1920x1080, and with reduced motion. With a strip block hovered the chip stayed on screen (bottom at y 604 and 608). At 1024x768 the panel is one column and the page scrolls, as it did before (course + workout: 948 px tall waiting, 940 px before this change; the course note wraps to its own line there).
+- **Contrast:** no new pairs. "Not recording" is `state-under` on `surface` (5.9:1). Status lines are `fg` (17.4:1) and `fg-muted` (7.1:1) on `surface`.
+
+**Test on the next Kickr ride:**
+
+1. Connect and pedal for a minute without pressing Start. Power, cadence and speed should move. Time and Distance should stay at 0:00 and 0.00, and the pill should read "Not recording". Is it obvious enough from the saddle that nothing is being saved?
+2. Before Start, change the resistance level, then switch to ERG. The Kickr should respond to both.
+3. Press Start workout while pedaling. Time and Distance should count from zero and the workout should begin at its first step.
+4. On another ride, press Start ride while stopped. It should read "Paused" at 0:00 and begin on your first pedal stroke.
+5. Upload the FIT to Strava. It should begin at Start, with one lap per interval and no lap for the spin-up.
+6. Connect first, then pick a course and workout on the Workout tab and press Ride this workout. The Ride tab should show them and the Kickr should take the new mode without a reconnect.
+
+### Part 4: what sets the load
+
+**The rule, confirmed.** Course + workout: the workout sets the load (ERG) and the course only sets speed, distance and the profile. Course + free ride: the hills set the load (Grade). `autoMode()` already did this at `confirmSetup`. Two gaps were fixed: Grade before Start sat at 0% (see part 5), and a resumed ride kept whatever mode was last saved instead of the mode its setup calls for.
+
+**Chose:**
+
+- **The control row says who is in charge, always.** Its status is now two fixed lines. The first is who sets the load. The second is the detail. Both follow the trainer mode, so they change when the rider presses E or uses the mode switch.
+- **The course row says the course's part.** At the right end of its stats line: "The course sets speed, not the load." or, in Grade, "The course sets speed and the load." The suggested one-liner "Workout sets the load. Course sets speed." did not fit the control row at 1280 (about 180 px there), so the course half moved to the course row.
+- **A workout loaded but not started, on a course or not:** ERG at the rider's own target, and the words say so: "You set the load for now." Kept as it was. It is the right load for spinning up, and Start workout hands over to the workout with the soft start.
+- **Switching by hand mid-workout:** the first line follows the mode ("Hills set the load." or "You set the load.") and the second reads "Workout targets are off." The workout clock keeps running, as before.
+- **After the workout ends:** "Workout is done." and "Holding the last target". ERG holds the last interval's watts until End Ride, as before.
+- **Shorter detail lines,** so each fits on one line: "Released until 60 rpm.", "Hill feel · trainer 3.3%", "Refused. Retrying.", "No ERG on this trainer."
+- **One key hint for every mode:** "↑↓ 1 · +/− 5 · shift ↑↓ 10 · E mode". The unit is on the value beside it. With the Stepper's gaps at 16 px this gives the status about 180 px at 1280 on a course. The longest line is 159 px.
+
+| State | Mode | Line 1 | Line 2 | Course row |
+| --- | --- | --- | --- | --- |
+| Free ride, flat | Resistance | You set the load. | (empty) | |
+| Free ride, flat | ERG | You set the load. | 66% FTP | |
+| Course + free ride | Grade | Hills set the load. | Hill feel · trainer 3.3% | The course sets speed and the load. |
+| Workout only, before Start | ERG, own target | You set the load for now. | Press Start workout. | |
+| Workout only, after Start | ERG | Workout sets the load. | Intensity, every target | |
+| Course + workout, before Start | ERG, own target | You set the load for now. | Press Start workout. | The course sets speed, not the load. |
+| Course + workout, after Start | ERG | Workout sets the load. | Intensity, every target | The course sets speed, not the load. |
+| Workout finished, ride goes on | ERG | Workout is done. | Holding the last target | The course sets speed, not the load. |
+| Mid-workout, switched to Grade | Grade | Hills set the load. | Workout targets are off. | The course sets speed and the load. |
+| Mid-workout, switched to Resistance | Resistance | You set the load. | Workout targets are off. | The course sets speed, not the load. |
+| Any, waiting for Start | any | as above | Press Start ride. | as above |
+| Any, paused | any | as above | Paused. Pedal to resume. | as above |
+
+**Checks (fake trainer, Test Hills from mile 3, a 6.3 to 6.8% climb):**
+
+- **Course + workout holds the target on the climb.** Target 132 W: power averaged 134 W over 5 s while speed was 4.6 mph. After the workout ended, power averaged 178 W against the last target of 176 W.
+- **Course + free ride follows the grade.** Power averaged 289 W at 9.4 mph with the trainer at 3.3% (50% feel). The same rider on a flat road in Resistance: 217 W at 19.6 mph.
+- **Grade before Start.** Connected at mile 3 and not started: 283 to 303 W. At mile 0 (flat): 159 W.
+- **Switching by hand on a course free ride:** Grade 289 W, E to Resistance 233 W, E to ERG 144 W (target 145 W), E back to Grade. The words changed with each switch, as in the table.
+- **Switching by hand mid-workout:** E to Grade 241 W with "Workout targets are off.", then Resistance, then ERG by the mode switch: back to "Workout sets the load."
+- Every line in the table was read from the screen. None was cut off at 1280.
+
+**Test on the next Kickr ride:**
+
+1. Ride a course with a workout. On a climb the Kickr should hold the workout's target and only the speed should drop. The control row should read "Workout sets the load."
+2. Ride a course with no workout. The control row should read "Hills set the load." and a climb should feel harder.
+3. Connect at a start mile that is on a climb and pedal before Start. It should already feel like the climb.
+4. Mid-workout press E. The words should change to match what you feel, and "Workout targets are off." should show until you are back in ERG.
+5. Can you read both lines of the control row from the saddle?
