@@ -4,5 +4,10 @@
   { "id": "the-causeway-iv", "file": "the-causeway-iv.zwo", "tag": "easy" },
   { "id": "the-levee-iv", "file": "the-levee-iv.zwo", "tag": "easy" },
   { "id": "the-long-road-v", "file": "the-long-road-v.zwo", "tag": "easy" },
-  { "id": "coastal-cruise-v", "file": "coastal-cruise-v.zwo", "tag": "easy" }
+  { "id": "coastal-cruise-v", "file": "coastal-cruise-v.zwo", "tag": "easy" },
+  { "id": "the-forge-iv", "file": "the-forge-iv.zwo", "tag": "medium" },
+  { "id": "sweat-factory-v", "file": "sweat-factory-v.zwo", "tag": "medium" },
+  { "id": "copper-wire-iv", "file": "copper-wire-iv.zwo", "tag": "medium" },
+  { "id": "over-the-top-v", "file": "over-the-top-v.zwo", "tag": "medium" },
+  { "id": "the-rolling-mill-v", "file": "the-rolling-mill-v.zwo", "tag": "medium" }
 ]
