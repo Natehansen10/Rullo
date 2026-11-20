@@ -418,7 +418,8 @@ export default function App() {
             </Notice>
           )}
           {s.connection.kind === 'failed' && (
-            <Notice title={live ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
+            // Lost while waiting for Start puts the ride back to idle, so the phase alone cannot tell the two apart.
+            <Notice title={live || s.connection.lost ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
           )}
           {s.recovery && s.coursesLoaded && s.workoutsLoaded && s.phase === 'idle' && !s.resuming && (
             <Notice
@@ -583,7 +584,7 @@ export default function App() {
               {s.connection.kind === 'connected' ? `${s.connection.protocol}` : 'Kickr Core 2 over FTMS'}
               {' · '}power smoothed over {s.smoothing}s
             </span>
-            {s.fake && <span>FAKE TRAINER · D drop data · C low cadence · S stop pedaling · J jitter</span>}
+            {s.fake && <span>FAKE TRAINER · D drop data · C low cadence · S stop pedaling · J jitter · X lose trainer</span>}
           </footer>
         </main>
       )}
