@@ -415,3 +415,32 @@ Other checks:
 3. Connect at a start mile that is on a climb and pedal before Start. It should already feel like the climb.
 4. Mid-workout press E. The words should change to match what you feel, and "Workout targets are off." should show until you are back in ERG.
 5. Can you read both lines of the control row from the saddle?
+
+### Part 6: known gaps
+
+The final review of parts 1 to 5 left a short list. Closed here.
+
+**Notice title after a lost trainer (gap 1)**
+
+- **What was wrong.** Connected and waiting for Start, a lost trainer showed the notice title "Pairing failed". The phase goes back to idle on a failed connection, and the title was picked from the phase.
+- **Chose.** The failed status now says whether a connected trainer was lost. The title is "Trainer lost" after a loss, waiting or mid-ride, and "Pairing failed" only when the connection never came up.
+- **After a loss while waiting:** the pill reads "Not connected", the button is Connect, and the confirmed setup stays on the Ride tab. Nothing was saved.
+- **After a loss mid-ride:** the pill reads "Disconnected" and the button is Reconnect, as before.
+- **The text under the title** now ends "then connect again." The button is Connect in one case and Reconnect in the other, so the text no longer names it.
+- **Fake trainer.** X loses the trainer for good: 3 reconnect attempts, 1 second apart, then failed. It is in the footer hint.
+- **Checks.** Title, pill and button read in all three cases. Never connected was read on the real connection code with Web Bluetooth stubbed. Lost while waiting on Test Hills + Test Intervals: both rows stayed, 0 rides, 0 samples, and Connect then Start workout worked.
+- **Not run:** the real 30-attempt reconnect loop to its end. Needs the Kickr (unplug it mid-ride and wait).
+
+**Old unfinished ride whose workout never started (gap 5)**
+
+- **Re-tested** with a seeded ride: 30 samples, a workout id, no `workoutS`. Steps: reload, Resume, Connect, the row's Start workout, Skip interval twice, End Ride.
+- The workout started from its first step. No screen had more than one primary button.
+- **FIT:** 0 decode errors, 55 records, 4 laps. The earlier free riding is lap 1 (34 s), then Warm-up 8 s, Hard 6 s, Easy 7 s. Lap sums against the session: timer 55 / 55 s, elapsed 119 / 119 s, distance 414.97 / 414.97 m.
+- **One fix.** Lap distances were rounded to the centimeter one by one, so their sum could be 1 cm off the session. Laps are now cut in whole centimeters. This covers every ride with laps.
+
+**Two leftovers (gap 6)**
+
+- `cancelPendingPause` wrote held samples even when there was no ride row (IndexedDB unavailable). It now skips the write, as `record()` does. Type-checked only.
+- **Paused wins.** Paused mid-workout in Grade or Resistance, the control row's second line stayed "Workout targets are off." It now reads "Paused. Pedal to resume." in every mode, so a stopped rider is told how to go on. "Workout targets are off." comes back on the first pedal stroke. The words table in part 4 says so.
+
+**Regression after the merge with main:** 20 s of pedaling before Start on a workout and on a free ride: Time 0:00, Distance 0.00, 0 rides and 0 samples. After Start both counted from zero.
