@@ -34,4 +34,9 @@ export interface Trainer {
   setResistance(pct: number): Promise<ControlResult>
   /** ERG: hold this power in watts. Only call while connected. */
   setTargetPower(watts: number): Promise<ControlResult>
+  /**
+   * ERG released: make the pedals as light as the trainer can. 'failed' means
+   * it is not fully released yet and the call is worth repeating.
+   */
+  release(): Promise<ControlResult>
 }

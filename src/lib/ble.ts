@@ -5,7 +5,7 @@
  * same tab) skip the device picker. Chrome cannot restore it after a page reload.
  * Reconnect loop pattern informed by Croissant Ride ble.ts (Apache-2.0). No code copied.
  */
-import { RECONNECT_INTERVAL_MS, RECONNECT_MAX_TRIES } from '../config'
+import { ERG_RELEASE_W, RECONNECT_INTERVAL_MS, RECONNECT_MAX_TRIES } from '../config'
 import { CYCLING_POWER_MEASUREMENT, CYCLING_POWER_SERVICE, CyclingPowerParser } from './cyclingPower'
 import {
   CONTROL_POINT,
@@ -153,6 +153,78 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
     }
   }
 
+  async function setTargetPower(watts: number): Promise<ControlResult> {
+    const cp = controlPoint
+    if (!cp) return 'unsupported'
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await cp.send(OP_SET_TARGET_POWER, encodePower(watts))
+        return 'ok'
+      } catch (err) {
+        const code = err instanceof ControlPointError ? err.code : undefined
+        if (code === RESULT_NOT_SUPPORTED) return 'unsupported'
+        if (code === RESULT_CONTROL_NOT_PERMITTED && attempt === 0) {
+          try {
+            await cp.send(OP_REQUEST_CONTROL)
+          } catch {
+            return 'failed'
+          }
+          continue
+        }
+        console.warn('Set target power failed:', err)
+        return 'failed'
+      }
+    }
+    return 'failed'
+  }
+
+  async function setResistance(pct: number): Promise<ControlResult> {
+    const cp = controlPoint
+    if (!cp) return 'unsupported'
+    const level = percentToLevel(pct, resistanceRange)
+    const send = () => cp.send(OP_SET_TARGET_RESISTANCE, encodeResistance(level, resistanceFormat))
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await send()
+        formatSettled = true
+        return 'ok'
+      } catch (err) {
+        const code = err instanceof ControlPointError ? err.code : undefined
+        if (code === RESULT_NOT_SUPPORTED) return 'unsupported'
+        if (code === RESULT_INVALID_PARAMETER && !formatSettled && resistanceFormat === 'sint16') {
+          resistanceFormat = 'uint8'
+          continue
+        }
+        if (code === RESULT_CONTROL_NOT_PERMITTED) {
+          try {
+            await cp.send(OP_REQUEST_CONTROL)
+          } catch {
+            return 'failed'
+          }
+          continue
+        }
+        console.warn('Set resistance failed:', err)
+        return 'failed'
+      }
+    }
+    return 'failed'
+  }
+
+  /**
+   * ERG released. Two steps, so the pedals are light whichever one the trainer takes:
+   * 1. A low ERG target. This stays in ERG, which trainers accept at a standstill.
+   * 2. Minimum resistance level, which leaves ERG. A Kickr Core 2 has been
+   *    reported to answer "operation failed" to this while the flywheel is
+   *    nearly stopped; then step 1 still holds, and 'failed' asks for a retry.
+   */
+  async function release(): Promise<ControlResult> {
+    const low = await setTargetPower(ERG_RELEASE_W)
+    const level = await setResistance(0)
+    if (level === 'ok') return 'ok'
+    if (level === 'unsupported') return low === 'ok' ? 'ok' : low
+    return 'failed'
+  }
+
   return {
     async connect() {
       userClosed = false
@@ -184,61 +256,9 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
         })
       }
     },
-    async setTargetPower(watts: number): Promise<ControlResult> {
-      const cp = controlPoint
-      if (!cp) return 'unsupported'
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          await cp.send(OP_SET_TARGET_POWER, encodePower(watts))
-          return 'ok'
-        } catch (err) {
-          const code = err instanceof ControlPointError ? err.code : undefined
-          if (code === RESULT_NOT_SUPPORTED) return 'unsupported'
-          if (code === RESULT_CONTROL_NOT_PERMITTED && attempt === 0) {
-            try {
-              await cp.send(OP_REQUEST_CONTROL)
-            } catch {
-              return 'failed'
-            }
-            continue
-          }
-          console.warn('Set target power failed:', err)
-          return 'failed'
-        }
-      }
-      return 'failed'
-    },
-    async setResistance(pct: number): Promise<ControlResult> {
-      const cp = controlPoint
-      if (!cp) return 'unsupported'
-      const level = percentToLevel(pct, resistanceRange)
-      const send = () => cp.send(OP_SET_TARGET_RESISTANCE, encodeResistance(level, resistanceFormat))
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await send()
-          formatSettled = true
-          return 'ok'
-        } catch (err) {
-          const code = err instanceof ControlPointError ? err.code : undefined
-          if (code === RESULT_NOT_SUPPORTED) return 'unsupported'
-          if (code === RESULT_INVALID_PARAMETER && !formatSettled && resistanceFormat === 'sint16') {
-            resistanceFormat = 'uint8'
-            continue
-          }
-          if (code === RESULT_CONTROL_NOT_PERMITTED) {
-            try {
-              await cp.send(OP_REQUEST_CONTROL)
-            } catch {
-              return 'failed'
-            }
-            continue
-          }
-          console.warn('Set resistance failed:', err)
-          return 'failed'
-        }
-      }
-      return 'failed'
-    },
+    setTargetPower,
+    setResistance,
+    release,
     disconnect() {
       userClosed = true
       generation++

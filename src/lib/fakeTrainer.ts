@@ -3,7 +3,9 @@
  * The first 3 seconds send 0 W and 0 rpm (rider getting on), so the Ready state shows.
  * Resistance changes power the way a harder gear would at the same cadence.
  * ERG holds the target at any cadence above 0, like the real thing (so a
- * restart in ERG is heavy until the app releases it).
+ * restart in ERG is heavy unless the app released it). Like a Kickr Core 2 is
+ * reported to, it refuses a resistance level while the flywheel is stopped,
+ * so the app's retry is exercised on every stop.
  *
  * Keys:
  *   D  drop data for 5 seconds (stale / Reconnecting state)
@@ -14,7 +16,8 @@
  *      apart, like a hidden tab or a trainer whose clock drifts (recording
  *      must still save one sample every second)
  */
-import type { Trainer, TrainerHandlers } from './types'
+import { ERG_RELEASE_W } from '../config'
+import type { ControlResult, Trainer, TrainerHandlers } from './types'
 
 const DROP_MS = 5000
 const IDLE_MS = 3000
@@ -76,6 +79,20 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
     })
   }
 
+  const setResistance = async (pct: number): Promise<ControlResult> => {
+    await new Promise((r) => setTimeout(r, 80))
+    if (cadence === 0) return 'failed'
+    resistancePct = pct
+    ergW = null
+    return 'ok'
+  }
+
+  const setTargetPower = async (watts: number): Promise<ControlResult> => {
+    await new Promise((r) => setTimeout(r, 80))
+    ergW = watts
+    return 'ok'
+  }
+
   /** Tick, then schedule the next one: every second, or unevenly when jittery. */
   const run = () => {
     tick()
@@ -99,16 +116,11 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       h.onStatus({ kind: 'connected', protocol: 'Fake' })
       run()
     },
-    async setResistance(pct: number) {
-      await new Promise((r) => setTimeout(r, 80))
-      resistancePct = pct
-      ergW = null
-      return 'ok' as const
-    },
-    async setTargetPower(watts: number) {
-      await new Promise((r) => setTimeout(r, 80))
-      ergW = watts
-      return 'ok' as const
+    setResistance,
+    setTargetPower,
+    async release() {
+      await setTargetPower(ERG_RELEASE_W)
+      return setResistance(0)
     },
     disconnect() {
       if (timer) clearTimeout(timer)

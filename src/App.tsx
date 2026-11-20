@@ -67,12 +67,13 @@ function controlStatus(s: RideSnapshot): string | null {
   if (started && !erg && s.controlState !== 'unsupported') return 'Workout targets are off in Resistance. Press E for ERG.'
   if (erg && s.ergUnsupported) return "This trainer doesn't support ERG. Using your resistance level."
   if (!erg && s.controlState === 'unsupported') return "This trainer doesn't accept resistance control"
-  if (s.controlState === 'failed') return "Trainer didn't take the change. Tap again."
+  if (s.controlState === 'failed' && s.phase === 'riding' && !s.paused && !(erg && s.ergReleased)) return "Trainer didn't take the change. Retrying."
   if (s.connection.kind !== 'connected' || s.phase === 'ended') {
     return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
   }
   if (s.paused) return 'Paused. Pedal to resume.'
   if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
+  if (erg && s.ergEasing) return 'Easing in to target'
   if (erg && started) return 'Intensity, every target'
   if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
   if (s.controlState === 'sending') return 'Setting'

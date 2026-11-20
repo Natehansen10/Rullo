@@ -10,7 +10,12 @@ import {
   ERG_MIN_W,
   ERG_RELEASE_AFTER_MS,
   ERG_RELEASE_RPM,
+  ERG_RESUME_AFTER_MS,
   ERG_RESUME_RPM,
+  ERG_SOFT_START_MS,
+  ERG_STOPPED_AFTER_MS,
+  ERG_STOPPED_RPM,
+  CONTROL_RETRY_MS,
   AUTO_PAUSE_AFTER_MS,
   DEFAULT_SMOOTHING,
   INTENSITY_MAX_PCT,
@@ -182,6 +187,8 @@ export interface RideSnapshot {
   ergTargetW: number
   /** ERG is released (low cadence or not yet spun up); the trainer is at minimum resistance. */
   ergReleased: boolean
+  /** ERG just engaged and is ramping up to the target (soft start). */
+  ergEasing: boolean
   /** State of the latest control command. */
   controlState: ControlState
   /** ERG target power command unsupported by this trainer. */
@@ -250,6 +257,11 @@ export class RideController {
   private ergTargetW = this.loadErgTarget()
   private ergReleased = true
   private lowCadenceSince: number | null = null
+  private stoppedSince: number | null = null
+  private resumeSince: number | null = null
+  /** Soft start in progress: when ERG engaged and the power it ramps up from. */
+  private ergRamp: { startAt: number; fromW: number } | null = null
+  private lastControlAt = 0
   private ergUnsupported = false
   private controlState: ControlState = 'idle'
   private controlInFlight = false
@@ -351,6 +363,7 @@ export class RideController {
       mode: this.mode,
       ergTargetW: this.ergW(),
       ergReleased: this.ergReleased,
+      ergEasing: this.mode === 'erg' && !this.ergReleased && this.ergRamp !== null,
       controlState: this.controlState,
       ergUnsupported: this.ergUnsupported,
       profile: this.profile,
@@ -477,7 +490,11 @@ export class RideController {
     this.workoutStarted = true
     this.lastWorkoutW = null
     if (this.mode !== 'erg') this.setMode('erg')
-    else this.syncWorkoutTarget()
+    else {
+      // Already holding the rider's own target: ease into the workout's.
+      if (!this.ergReleased) this.startErgRamp(Date.now())
+      this.syncWorkoutTarget()
+    }
     this.emit()
   }
 
@@ -618,11 +635,10 @@ export class RideController {
     this.connection = s
     if (s.kind === 'connected') {
       this.notice = null
-      // Every connect and reconnect: ERG starts released until the rider spins up,
-      // and the current level or target is sent again.
+      // Every connect and reconnect: ERG starts released until the rider is
+      // seen spinning, and the current level or target is sent again.
       this.controlState = 'idle'
-      this.ergReleased = this.cadenceRpm < ERG_RESUME_RPM || this.lastDataAt === 0
-      this.lowCadenceSince = null
+      this.releaseErg()
       this.pushControl()
       if (this.phase === 'idle') {
         this.phase = this.rideId ? 'riding' : 'ready'
@@ -646,6 +662,7 @@ export class RideController {
       this.cadenceRpm = r.cadenceRpm
       this.checkErgCadence(r.t)
     }
+    this.nudgeControl(r.t)
 
     if (r.powerW !== undefined) {
       const power = Math.max(0, r.powerW)
@@ -852,37 +869,88 @@ export class RideController {
     return Math.round((this.profile.ftpW * DEFAULT_ERG_FTP_SHARE) / 5) * 5
   }
 
-  /** ERG low-cadence release: let go below 50 rpm held 3 s, re-engage at 60 rpm. */
+  /**
+   * ERG release and re-engage, from cadence.
+   * Release: below 50 rpm held 3 s, or clearly stopped (below 20 rpm) held 1 s.
+   * Re-engage: 60 rpm held 1 s, then a soft start.
+   */
   private checkErgCadence(t: number) {
     if (this.mode !== 'erg') return
     const rpm = this.cadenceRpm
     if (this.ergReleased) {
       if (rpm >= ERG_RESUME_RPM) {
-        this.ergReleased = false
-        this.lowCadenceSince = null
-        this.pushControl()
+        this.resumeSince ??= t
+        if (t - this.resumeSince >= ERG_RESUME_AFTER_MS) {
+          this.engageErg(t)
+          this.pushControl()
+        }
+      } else {
+        this.resumeSince = null
       }
       return
     }
-    if (rpm < ERG_RELEASE_RPM) {
-      this.lowCadenceSince ??= t
-      if (t - this.lowCadenceSince >= ERG_RELEASE_AFTER_MS) {
-        this.ergReleased = true
-        // Can't hold the ramp any more: that's the end of the test.
-        if (this.inRamp()) this.endRampTest()
-        this.pushControl()
-      }
-    } else {
-      this.lowCadenceSince = null
+    this.lowCadenceSince = rpm < ERG_RELEASE_RPM ? (this.lowCadenceSince ?? t) : null
+    this.stoppedSince = rpm < ERG_STOPPED_RPM ? (this.stoppedSince ?? t) : null
+    const low = this.lowCadenceSince !== null && t - this.lowCadenceSince >= ERG_RELEASE_AFTER_MS
+    const stopped = this.stoppedSince !== null && t - this.stoppedSince >= ERG_STOPPED_AFTER_MS
+    if (low || stopped) {
+      this.releaseErg()
+      // Can't hold the ramp any more: that's the end of the test.
+      if (this.inRamp()) this.endRampTest()
+      this.pushControl()
     }
   }
 
+  private releaseErg() {
+    this.ergReleased = true
+    this.ergRamp = null
+    this.lowCadenceSince = null
+    this.stoppedSince = null
+    this.resumeSince = null
+  }
+
+  private engageErg(t: number) {
+    this.ergReleased = false
+    this.lowCadenceSince = null
+    this.stoppedSince = null
+    this.resumeSince = null
+    this.startErgRamp(t)
+  }
+
+  /** Soft start: ramp from about the rider's current power. No ramp if that is already at or above the target. */
+  private startErgRamp(t: number) {
+    const current = this.smoother.average(DEFAULT_SMOOTHING) ?? this.lastPowerW
+    const fromW = Math.max(ERG_MIN_W, Math.round(current))
+    this.ergRamp = fromW < this.ergW() ? { startAt: t, fromW } : null
+  }
+
+  /** The watts to command right now: the target, or partway there during a soft start. */
+  private commandedErgW(now: number): number {
+    const target = this.ergW()
+    const ramp = this.ergRamp
+    if (!ramp) return target
+    const f = (now - ramp.startAt) / ERG_SOFT_START_MS
+    if (f >= 1 || target <= ramp.fromW) {
+      this.ergRamp = null
+      return target
+    }
+    return Math.round(ramp.fromW + (target - ramp.fromW) * Math.max(0, f))
+  }
+
+  /** On every reading: step a soft start along, and send a refused command again. */
+  private nudgeControl(t: number) {
+    if (this.connection.kind !== 'connected' || this.controlInFlight) return
+    const easing = this.mode === 'erg' && !this.ergReleased && !this.ergUnsupported && this.ergRamp !== null
+    // No retries while stopped: a trainer that refuses a command at a standstill would refuse it again.
+    const retry =
+      this.controlState === 'failed' && this.phase === 'riding' && !this.paused && t - this.lastControlAt >= CONTROL_RETRY_MS
+    if (easing || retry) this.pushControl()
+  }
+
   /** What the trainer should be doing right now. */
-  private desiredCommand(): { kind: 'resistance'; pct: number } | { kind: 'power'; watts: number } {
+  private desiredCommand(): { kind: 'resistance'; pct: number } | { kind: 'power'; watts: number } | { kind: 'release' } {
     if (this.mode === 'erg' && !this.ergUnsupported) {
-      return this.ergReleased
-        ? { kind: 'resistance', pct: 0 } // released: easy spin-up
-        : { kind: 'power', watts: this.ergW() }
+      return this.ergReleased ? { kind: 'release' } : { kind: 'power', watts: this.commandedErgW(Date.now()) }
     }
     return { kind: 'resistance', pct: this.resistancePct }
   }
@@ -897,15 +965,20 @@ export class RideController {
     this.controlInFlight = true
     this.controlDirty = false
     this.controlState = 'sending'
+    this.lastControlAt = Date.now()
     const cmd = this.desiredCommand()
     const send =
-      cmd.kind === 'power' ? this.trainer.setTargetPower(cmd.watts) : this.trainer.setResistance(cmd.pct)
+      cmd.kind === 'power'
+        ? this.trainer.setTargetPower(cmd.watts)
+        : cmd.kind === 'release'
+          ? this.trainer.release()
+          : this.trainer.setResistance(cmd.pct)
     void send
       .catch((): ControlResult => 'failed')
       .then((result) => {
         this.controlInFlight = false
         this.controlState = result
-        if (cmd.kind === 'power' && result === 'unsupported') {
+        if (cmd.kind !== 'resistance' && result === 'unsupported') {
           this.ergUnsupported = true
           this.controlDirty = true // fall back to the resistance level
         }
@@ -943,9 +1016,9 @@ export class RideController {
     if (mode === this.mode) return
     this.mode = mode
     storageSet(MODE_KEY, mode)
-    // Entering ERG engages right away only if the rider is already spinning.
-    this.ergReleased = !(this.cadenceRpm >= ERG_RESUME_RPM && this.lastDataAt > 0)
-    this.lowCadenceSince = null
+    // Entering ERG engages right away (with a soft start) only if the rider is already spinning.
+    if (mode === 'erg' && this.cadenceRpm >= ERG_RESUME_RPM && this.lastDataAt > 0 && !this.paused) this.engageErg(Date.now())
+    else this.releaseErg()
     this.pushControl()
     this.emit()
   }

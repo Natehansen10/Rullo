@@ -60,6 +60,25 @@ export const DEFAULT_ERG_FTP_SHARE = 0.65
 export const ERG_RELEASE_RPM = 50
 export const ERG_RELEASE_AFTER_MS = 3000
 export const ERG_RESUME_RPM = 60
+/**
+ * A rider below this cadence has clearly stopped: release after 1 s, not 3,
+ * so the brake lets go while the flywheel is still turning.
+ */
+export const ERG_STOPPED_RPM = 20
+export const ERG_STOPPED_AFTER_MS = 1000
+/** Re-engage only after the resume cadence has held this long, so one stray cadence reading can't slam the load on. */
+export const ERG_RESUME_AFTER_MS = 1000
+/**
+ * Soft start: when ERG engages, the target ramps from about the rider's
+ * current power to the real target over this long. 6 s is long enough for the
+ * flywheel to be up to speed before the full load arrives, and short enough
+ * to cost little of an interval. (Wahoo's own ERG Easy Ramp takes 10 to 15 s.)
+ */
+export const ERG_SOFT_START_MS = 6000
+/** While released the trainer is also given this ERG target, so it is light even if it refuses to leave ERG. */
+export const ERG_RELEASE_W = 25
+/** A control command the trainer refused is sent again after this long. */
+export const CONTROL_RETRY_MS = 2000
 
 /** Workout intensity, % of every workout target. Steps: arrows 1, + / - 5, Shift+arrows 10. */
 export const INTENSITY_STEPS_PCT = [1, 5, 10] as const

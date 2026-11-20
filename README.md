@@ -29,7 +29,7 @@ npm run preview
 Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends power and cadence once a second. The first 3 seconds are 0 W (rider getting on), so you see the Ready state before the ride starts.
 
 - Change resistance with the step buttons or keys. Fake power rises and falls with it.
-- In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release and re-engage.
+- In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release, re-engage and ease back in. Like a Kickr Core 2 is reported to, the fake trainer refuses a resistance level while stopped, so restarts show the 25 W fallback and the retry.
 - Press **S** to stop pedaling until you press it again. After 3 seconds the ride auto-pauses; the status shows "Paused" and time, distance and recording stop. Press **S** again and the fake rider spins back up from 0 rpm.
 - Press **J** (or open `?fake=1&jitter=1`) for jittery delivery: readings arrive 0.3 to 2.6 s apart. The FIT file should still have a record every second.
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
@@ -59,7 +59,9 @@ Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG y
 
 - Step buttons: -10 / -5 / -1 and +1 / +5 / +10 W. Keys: **Arrow Up / Down** 1 W, **+ / -** 5 W, **Shift + Arrow** 10 W.
 - The target also shows as % of your FTP.
-- **Low-cadence release:** below 50 rpm for 3 seconds, ERG lets go so you can spin back up. It re-engages at 60 rpm. A ride in ERG starts released until you reach 60 rpm.
+- **Low-cadence release:** below 50 rpm for 3 seconds, or stopped (below 20 rpm) for 1 second, ERG lets go so you can spin back up. A ride in ERG starts released.
+- **Soft start:** ERG re-engages once you hold 60 rpm for a second, then ramps from your current power to the target over 6 seconds. The same ramp runs when a ride or workout starts in ERG. The status reads "Easing in to target" while it does.
+- While released the trainer gets a 25 W target and its minimum resistance level. A command the trainer refuses is sent again 2 seconds later.
 - Mode and target are remembered between rides and re-sent after a reconnect.
 
 ## Ride a course
@@ -98,6 +100,7 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/config.ts` | Profile defaults, drag by position, rolling resistance, ERG limits, timeouts |
 | `src/lib/ble.ts` | Web Bluetooth connect and reconnect loop |
 | `src/lib/ftms.ts` | FTMS parsing, the control point queue (Request Control, Reset, Set Target Resistance, Set Target Power), resistance range |
+| `src/lib/ble.ts` also | The ERG release sequence: a low ERG target, then minimum resistance |
 | `src/lib/cyclingPower.ts` | Cycling Power fallback, cadence from crank revolutions |
 | `src/lib/fakeTrainer.ts` | `?fake=1` trainer |
 | `src/lib/physics.ts` | Speed from power and grade, with inertia |

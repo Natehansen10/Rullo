@@ -75,3 +75,45 @@ In the throttled run the ride clock advanced 62 s over 61.5 s of wall time and t
 2. Start again. Time and distance pick up on the first pedal stroke, with no jump in distance.
 3. Stop for a minute mid-ride, then at the end stop pedaling and wait 30 s before End Ride. On Strava, moving time should be shorter than elapsed time by about those stops, and the power graph should not end in a flat zero line.
 4. Does the Kickr send cadence 0 promptly when you stop? If "Paused" takes much longer than 4 s to appear, the Kickr is holding its last cadence value and the 3 s timer needs to start from power 0 alone. Tell me how long it took.
+
+## Part 4: Light restarts in ERG
+
+**What the investigation found.** The released state sent one command: Set Target Resistance Level (FTMS op 0x04) at the bottom of the trainer's range. On the ride, restarts made 135 to 165 W at 40 to 52 rpm, which is about the ERG target. So the trainer was most likely still holding ERG. Four things could cause that, and the code had all four:
+
+1. **The Kickr may refuse the release.** An open-source Kickr Core 2 project (kickrBridge, MIT) records that a real Core 2 "sometimes returns FTMS Control Point result 0x04 Operation Failed for Set Target Resistance when the flywheel is nearly stationary." Our release was sent exactly then (3 s after the rider stopped), and a failed command was never sent again. The trainer would stay in ERG at the full target. This is the leading suspect. It is one third-party report, not confirmed on Nate's trainer.
+2. **Release took 3 s.** For those 3 s the brake fights a slowing flywheel. Wahoo's own support pages say ERG at low rpm can "apply 100% of its force."
+3. **One cadence reading of 60 re-engaged ERG.** A single stray reading during a hard first pedal stroke would put the full target on at 45 rpm.
+4. **Re-engage went straight to the full target.**
+
+Level 0 itself is fine: the same project reports the Core 2's range as raw bytes `00 00 64 00 01 00` (0 to 100, step 1), and our 0% maps to raw 0, the lightest brake setting.
+
+**Chose:**
+
+- **Release in two steps** (`release()` in `src/lib/ble.ts`): first Set Target Power at 25 W (`ERG_RELEASE_W`), then Set Target Resistance Level at the minimum. The first stays inside ERG, which trainers accept at a standstill. If the second is refused, the trainer is holding 25 W, not 150 W.
+- **Retry refused commands.** Any control command the trainer answers "failed" to is sent again 2 s later (`CONTROL_RETRY_MS`), once the rider is pedaling. This also covers the resistance level sent at connect, when the flywheel is stopped. The status text changed from "Tap again" to "Retrying".
+- **Release sooner on a stop:** below 20 rpm for 1 s (`ERG_STOPPED_RPM`, `ERG_STOPPED_AFTER_MS`). The brief said cadence 0; 20 rpm was chosen because a trainer's cadence estimate can read a few rpm while the flywheel coasts down. The 50 rpm for 3 s rule stays.
+- **Re-engage needs 60 rpm held for 1 s** (`ERG_RESUME_AFTER_MS`).
+- **Soft start, 6 s** (`ERG_SOFT_START_MS`): the commanded target ramps in a straight line from the rider's current 3 s power (at least 25 W) to the real target, one update per second. Why 6 s: long enough for the flywheel to be at speed before the full load lands, short enough to cost little of an interval. Wahoo's own "ERG Easy Ramp" takes 10 to 15 s, which felt too long for 3-minute intervals. No ramp when the rider is already at or above the target.
+- The soft start runs on every engage: ride start, after a release, switching Resistance to ERG while pedaling, after a reconnect, and when Start workout is pressed.
+- Every connect and reconnect now starts released (it used to engage at once if the last cadence seen was 60 or more).
+
+**Considered and not done:** releasing into simulation mode at 0% grade (op 0x11), which Croissant Ride does. It is a command this app has never sent to the Kickr, and with normal road coefficients a flat road at 60 rpm in a big gear is over 100 W, so it is not obviously lighter. The two-step release uses only commands the Kickr has already accepted. Worth trying if restarts are still heavy.
+
+**Why it can't get stuck:**
+
+- Released while pedaling normally: re-engage is 60 rpm for 1 s, checked on every cadence reading. A rider who settles between 50 and 59 rpm stays released with the "Spin above 60 rpm" message, as before.
+- Stuck in the ramp: the ramp is a function of time since engage, so it ends 6 s later whatever happens.
+- Stuck at 25 W: that target is only sent as part of a release, and every engage sends the real one.
+
+**Fake trainer:** ERG now holds its target at any cadence above 0, and a resistance level is refused while stopped, so each restart shows the 25 W fallback, the retry, the re-engage and the ramp. Trace from the fake (1 s power): stop, then `0 0 0` paused, restart `23 28 91 130` (released, spinning up), `46 65 81 92 113 126 144` (easing in), `141 147 148` (target 145 W).
+
+**Test on the next ride (ERG, small ring, middle cog):**
+
+1. **Stop pedaling.** The load should let go within about 2 s, well before the flywheel stops. Before, it fought you for 3 s.
+2. **Restart from a full stop.** The first pedal strokes should feel like spinning up a flywheel and nothing more. If it is still heavy, check the status text: "Trainer didn't take the change. Retrying." means the Kickr refused a command, which confirms suspect 1. Tell me what it said.
+3. **Spin to 60 rpm and hold.** About 1 s later the status reads "Easing in to target" and the load builds for 6 s. It should feel like a ramp, not a wall.
+4. **Start of the ride in ERG:** same soft start.
+5. **Drop to 40 rpm for 5 s mid-interval, then spin up.** It should release at 3 s and ease back in.
+6. **Grind at 55 rpm on purpose.** ERG must hold. It should only let go below 50.
+7. If the 6 s ramp feels too slow or too quick, say so. It is one constant.
+8. Gear matters: a big gear makes any restart heavy because you are accelerating the flywheel. Small chainring, middle cog.

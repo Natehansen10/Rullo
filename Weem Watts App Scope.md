@@ -71,7 +71,7 @@ Split into three releases, each rideable on its own.
 
 - Rider profile, saved in the browser (no account): rider weight (lb), bike weight (lb), riding position (hoods, drops or aero, which sets drag) and FTP (W). Replaces the constants in `src/config.ts`; speed and distance read from it. Editable only between rides. Changing it never rewrites past rides
 - ERG mode: FTMS Set Target Power. One-tap switch between Resistance and ERG; in ERG the step buttons change target watts and show % of FTP
-- Low-cadence release: below 50 rpm for 3 seconds ERG lets go; it re-engages at 60 rpm. A ride in ERG starts released until the rider reaches 60 rpm
+- Low-cadence release: below 50 rpm for 3 seconds ERG lets go; it re-engages at 60 rpm. A ride in ERG starts released until the rider reaches 60 rpm. Changed Nov 20, 2026 after the first ride: a full stop releases after 1 second, re-engage needs 60 rpm held for 1 second, and the target ramps in over 6 seconds
 - Target re-sent after every reconnect; mode and target remembered between rides
 - Fake trainer follows ERG and can simulate low cadence
 - **Done when:** in ERG at a fixed target, changing cadence or gear keeps power within about 10 W of target; dropping below 50 rpm releases the load and spinning back up re-engages it
