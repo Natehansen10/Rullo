@@ -9,5 +9,10 @@
   { "id": "sweat-factory-v", "file": "sweat-factory-v.zwo", "tag": "medium" },
   { "id": "copper-wire-iv", "file": "copper-wire-iv.zwo", "tag": "medium" },
   { "id": "over-the-top-v", "file": "over-the-top-v.zwo", "tag": "medium" },
-  { "id": "the-rolling-mill-v", "file": "the-rolling-mill-v.zwo", "tag": "medium" }
+  { "id": "the-rolling-mill-v", "file": "the-rolling-mill-v.zwo", "tag": "medium" },
+  { "id": "hour-of-power-v", "file": "hour-of-power-v.zwo", "tag": "hard" },
+  { "id": "the-heat-v", "file": "the-heat-v.zwo", "tag": "hard" },
+  { "id": "the-smelting-pot-iv", "file": "the-smelting-pot-iv.zwo", "tag": "hard" },
+  { "id": "the-millstone-v", "file": "the-millstone-v.zwo", "tag": "hard" },
+  { "id": "critical-mass-iv", "file": "critical-mass-iv.zwo", "tag": "hard" }
 ]

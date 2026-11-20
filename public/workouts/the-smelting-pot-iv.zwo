@@ -1,0 +1,15 @@
+<workout_file>
+  <author>The Workout Generator</author>
+  <name>The Smelting Pot IV</name>
+  <description>3 effort blocks peaking at 92% in 90 minutes. Pace from the start — going too hard early ruins the back half. This increases the power you can hold for 20-60 minutes. The payoff comes in races when you can hold a pace others can&apos;t.</description>
+  <sportType>bike</sportType>
+  <workout>
+    <Warmup Duration="540" PowerLow="0.45" PowerHigh="0.70"/>
+    <SteadyState Duration="1176" Power="0.92"/>
+    <SteadyState Duration="426" Power="0.53"/>
+    <SteadyState Duration="1176" Power="0.92"/>
+    <SteadyState Duration="426" Power="0.53"/>
+    <SteadyState Duration="1176" Power="0.92"/>
+    <Cooldown Duration="480" PowerLow="0.40" PowerHigh="0.55"/>
+  </workout>
+</workout_file>

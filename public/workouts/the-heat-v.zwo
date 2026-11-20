@@ -1,0 +1,13 @@
+<workout_file>
+  <author>The Workout Generator</author>
+  <name>The Heat V</name>
+  <description>2 effort blocks peaking at 84% in 120 minutes. Find a rhythm and commit to it — the clock is your only opponent. This builds the pacing discipline that separates podium from pack. Conversation is not possible — single words at most between breaths.</description>
+  <sportType>bike</sportType>
+  <workout>
+    <Warmup Duration="300" PowerLow="0.45" PowerHigh="0.68"/>
+    <SteadyState Duration="2964" Power="0.84"/>
+    <SteadyState Duration="671" Power="0.45"/>
+    <SteadyState Duration="2964" Power="0.84"/>
+    <Cooldown Duration="301" PowerLow="0.40" PowerHigh="0.55"/>
+  </workout>
+</workout_file>
