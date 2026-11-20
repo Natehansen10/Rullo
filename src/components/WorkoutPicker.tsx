@@ -42,10 +42,13 @@ interface WorkoutPickerProps {
   onCourse: boolean
   ftpW: number
   onSelect: (id: string | null) => void
-  /** The selected workout's overview is open (in place of the grid). */
-  detail: boolean
-  onDetail: (open: boolean) => void
-  /** Ride the selected workout: on to the Ride tab. */
+  /**
+   * The workout whose overview is open (in place of the grid), or null. Looking
+   * at a workout does not load it: only "Ride this workout" does.
+   */
+  detail: string | null
+  onDetail: (id: string | null) => void
+  /** On to the Ride tab. */
   onRide: () => void
   /** Open the builder: a new workout, the selected custom workout, or a copy of any workout. */
   onNew: () => void
@@ -105,12 +108,12 @@ export function WorkoutPicker({
       w.id === selected?.workout.id ||
       ((difficulty === 'all' || w.tag === difficulty) && (length === 'any' || lengthOf(w) === length)),
   )
-  const picked = selected ? (workouts.find((w) => w.id === selected.workout.id) ?? null) : null
+  const picked = detail ? (workouts.find((w) => w.id === detail) ?? null) : null
 
   const menu = (
     <nav aria-label="Workout lists" className="flex w-[11rem] shrink-0 flex-col gap-1">
       {VIEWS.map((v) => {
-        const active = view === v && !(detail && picked)
+        const active = view === v && !picked
         return (
           <button
             key={v}
@@ -118,7 +121,7 @@ export function WorkoutPicker({
             aria-pressed={view === v}
             onClick={() => {
               setView(v)
-              onDetail(false)
+              onDetail(null)
             }}
             className={`ww-press flex cursor-pointer items-baseline justify-between gap-2 rounded-md border px-3 py-2 text-left font-semibold ${
               active ? 'border-line-strong bg-surface text-fg' : 'border-transparent text-fg-muted hover:text-fg'
@@ -133,21 +136,22 @@ export function WorkoutPicker({
     </nav>
   )
 
-  if (detail && picked && selected) {
+  if (picked) {
+    const loadedNow = selected?.workout.id === picked.id
     return (
       <div className="flex items-start gap-6">
         {menu}
         <section aria-label="Workout overview" className="flex min-w-0 flex-1 flex-col rounded-lg border border-line bg-surface">
           <div className="flex flex-wrap items-center gap-4 border-b border-line px-6 py-3">
-            <Button onClick={() => onDetail(false)}>← All workouts</Button>
+            <Button onClick={() => onDetail(null)}>← All workouts</Button>
             <h2 className="min-w-0 flex-1 truncate text-title font-semibold text-fg">{picked.name}</h2>
           </div>
           <div className="flex flex-wrap items-end justify-between gap-6 px-6 py-4">
             <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
               <Stat label="Duration" value={picked.rampTest ? '--' : formatDuration(picked.durationS)} dim={false} inline />
-              <Stat label="Intervals" value={String(selected.intervals.length)} dim={false} inline />
+              <Stat label="Intervals" value={String(picked.intervals.length)} dim={false} inline />
               <span className="font-mono text-mono text-fg-subtle">
-                {[picked.tag, picked.source === 'builtin' ? null : picked.source, picked.rampTest ? 'runs until you stop' : null].filter(Boolean).join(' · ')}
+                {[picked.tag, picked.source === 'builtin' ? null : picked.source, picked.rampTest ? 'runs until you stop' : null, loadedNow ? 'loaded for your next ride' : null].filter(Boolean).join(' · ')}
               </span>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
@@ -159,21 +163,28 @@ export function WorkoutPicker({
                   onClick={() => {
                     if (!confirmDelete) return setConfirmDelete(true)
                     setConfirmDelete(false)
-                    onDetail(false)
+                    onDetail(null)
                     onRemove(picked.id)
                   }}
                 >
                   {confirmDelete ? 'Confirm delete' : 'Delete'}
                 </Button>
               )}
-              <Button variant="primary" onClick={onRide}>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  // The one place a workout is loaded for the ride.
+                  onSelect(picked.id)
+                  onRide()
+                }}
+              >
                 Ride this workout
               </Button>
             </div>
           </div>
           {picked.description && <p className="px-6 pb-4 text-fg-muted">{picked.description}</p>}
           <div className="border-t border-line px-6 py-4">
-            <WorkoutStrip intervals={selected.intervals} ftpW={ftpW} totalS={selected.totalS} heightClass="ww-builder-graph" />
+            <WorkoutStrip intervals={picked.intervals} ftpW={ftpW} totalS={Math.max(1, picked.durationS)} heightClass="ww-builder-graph" />
             <p className="pt-3 font-mono text-mono text-fg-subtle">watts at your FTP of {ftpW} W</p>
           </div>
         </section>
@@ -243,8 +254,7 @@ export function WorkoutPicker({
                   role="radio"
                   aria-checked={checked}
                   onClick={() => {
-                    onSelect(w.id)
-                    onDetail(true)
+                    onDetail(w.id)
                   }}
                   className={`${CARD} ${checked ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
                 >

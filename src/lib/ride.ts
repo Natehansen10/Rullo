@@ -662,8 +662,9 @@ export class RideController {
       const w = await importZwoFile(file)
       this.workouts = [...this.workouts, w]
       this.refreshWorkoutOptions()
+      // Importing lists the workout; it is loaded for a ride only when picked on the Workout tab.
       this.notice = null
-      this.selectWorkout(w.id)
+      this.emit()
     } catch (err) {
       this.notice = err instanceof Error ? `Import failed: ${err.message}` : 'Import failed.'
       this.emit()
@@ -707,7 +708,8 @@ export class RideController {
       this.workouts = at >= 0 ? this.workouts.map((x) => (x.id === w.id ? w : x)) : [...this.workouts, w]
       this.refreshWorkoutOptions()
       this.notice = null
-      this.selectWorkout(w.id)
+      // Saving does not load the workout for the ride. If it is the one already loaded, the edit is picked up.
+      if (this.workout?.id === w.id) this.selectWorkout(w.id)
       this.announceWorkouts()
       return { ok: true, id: w.id }
     } catch (err) {

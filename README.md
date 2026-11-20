@@ -42,7 +42,7 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 Open the **Workout** tab before connecting. It is two steps:
 
 1. **Choose your course.** Cards: a flat road, then each course with a small elevation profile, its miles and climbing. Click a course and its overview opens under the cards (distance, climbing, low and high points, the full profile) with the start mile. Press **Next**.
-2. **Choose your workout.** A library of cards, each with a small graph of the workout. **Custom Workout** is the first card and opens the builder; **Free ride** is next. The side menu switches between **All workouts** and **Custom** (the ones you built or imported). Filter by **Length** and **Difficulty**. Click a card to open the workout's overview (graph, description, **Edit a copy**), then press **Ride this workout**.
+2. **Choose your workout.** A library of cards, each with a small graph of the workout. **Custom Workout** is the first card and opens the builder; **Free ride** is next. The side menu switches between **All workouts** and **Custom** (the ones you built or imported). Filter by **Length** and **Difficulty**. Click a card to open the workout's overview (graph, description, **Edit a copy**). Looking at a workout does not load it: press **Ride this workout** to load it on the Ride tab. The **Free ride** card clears it.
 
 What sets the load:
 
@@ -69,7 +69,7 @@ Press **Custom Workout** (the first card in step 2 of the Workout tab, or the bu
 4. **Intervals** have a − / + repeat count and Duration One / Power One, Duration Two / Power Two. **Add step** gives a repeat a third step or more.
 5. **Cadence.** Select a block and click the Cadence tile (or drag it onto a block). The × removes it.
 6. **Move and delete.** Drag a block sideways to move it, or onto **Delete block** to remove it. **Undo** (Ctrl + Z) takes back any change.
-7. **Save.** You land on the workout's overview, ready to ride.
+7. **Save.** You land on the workout's overview. Press **Ride this workout** to load it.
 
 - **Display** switches the power fields between % FTP and watts. A bare number takes the unit on display; `225w` or `90%` always wins. A % target follows your FTP, a watts target stays fixed.
 - Keys on a block: ← → select, ↑ ↓ power, Shift + ← → time, Alt + ← → move, Delete, Ctrl + D duplicate.

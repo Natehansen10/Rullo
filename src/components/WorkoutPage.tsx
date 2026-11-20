@@ -18,8 +18,8 @@ interface WorkoutPageProps {
   onCopyWorkout: (id: string) => void
   onRemoveWorkout: (id: string) => void
   /** The selected workout's overview is open. Kept by the app, so saving in the builder lands on it. */
-  detail: boolean
-  onDetail: (open: boolean) => void
+  detail: string | null
+  onDetail: (id: string | null) => void
   /** Setup done: go to the Ride tab. */
   onDone: () => void
   notice?: ReactNode
@@ -136,7 +136,7 @@ export function WorkoutPage({
             <div className="flex shrink-0 gap-3">
               <Button onClick={() => setStep(0)}>Back</Button>
               {/* In a workout's overview, "Ride this workout" is the one primary button. */}
-              {!(detail && s.workout) && (
+              {!detail && (
                 <Button variant="primary" onClick={onDone}>
                   Done: go to Ride
                 </Button>

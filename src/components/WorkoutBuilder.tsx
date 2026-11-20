@@ -298,8 +298,8 @@ interface WorkoutBuilderProps {
   /** A ride is on: nothing can be edited or saved. */
   locked: boolean
   onSave: (input: CustomWorkoutInput, overwrite: boolean) => Promise<SaveWorkoutResult>
-  /** Saved: back to step 2 of the Workout tab, where the workout is now selected. */
-  onSaved: () => void
+  /** Saved: back to step 2 of the Workout tab, on the saved workout's overview. It is not loaded for the ride until picked. */
+  onSaved: (id: string) => void
   /** Cancelled: back to where the rider came from. */
   onClose: (returnTo: Draft['returnTo']) => void
 }
@@ -463,7 +463,7 @@ export function WorkoutBuilder({ ftpW, locked, onSave, onSaved, onClose }: Worko
     setSaving(false)
     if (res.ok) {
       builder.clear()
-      onSaved()
+      onSaved(res.id)
     } else setFailure({ message: res.message, conflict: res.conflict })
   }
 

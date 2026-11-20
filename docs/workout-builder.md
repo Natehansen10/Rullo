@@ -25,6 +25,15 @@ Calls:
 - **One primary per screen:** Done on the grid, Ride this workout on the overview.
 - **Delete in the overview** asks twice, for custom and imported workouts.
 
+### Fix, Nov 20, 2026: nothing loads until it is chosen
+
+Nate opened the Ramp FTP test's overview, backed out, and found it loaded on the Ride tab. Clicking a card used to load the workout. Now:
+
+- Clicking a workout card only opens its overview. **Ride this workout** is the one place a workout is loaded. The Free ride card clears it.
+- Saving in the builder and importing a ZWO list the workout but do not load it. Editing the workout that is already loaded still picks up the edit.
+- The grid marks the loaded workout; its overview says "loaded for your next ride".
+- Not changed: picking a course card in step 1 still loads the course, and importing a GPX on Profile still selects it.
+
 ## Second pass, Nov 20, 2026: rebuilt after Zwift's editor
 
 Nate asked for the builder to work and look like Zwift's workout editor, in this app's branding. The guide he supplied ("Zwift: how create a new workout works, click by click") is the reference. The step list from the first pass is kept as an optional view of the same data.
