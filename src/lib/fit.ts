@@ -124,7 +124,7 @@ interface Totals {
 }
 
 /** The timer was stopped between these two samples: an auto-pause, or a dropout longer than MAX_SAMPLE_GAP_MS. */
-function stoppedBetween(a: SampleRow, b: SampleRow): boolean {
+export function stoppedBetween(a: SampleRow, b: SampleRow): boolean {
   return (b.pausedMs ?? 0) > (a.pausedMs ?? 0) || b.t - a.t > MAX_SAMPLE_GAP_MS
 }
 
@@ -177,6 +177,27 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
     maxPower,
     ascentM,
   }
+}
+
+/** A whole ride's numbers, as the FIT session message carries them. */
+export interface RideTotals {
+  /** Time of the first sample: the FIT file's start. */
+  startT: number
+  /** Moving time: the timer, pauses and dropouts left out. */
+  timerMs: number
+  distanceM: number
+  avgPowerW: number
+  ascentM: number
+}
+
+/**
+ * The totals buildFit writes into the session message, from the same code,
+ * so a ride listed in the app and its FIT file can't disagree.
+ */
+export function rideTotals(samples: SampleRow[]): RideTotals {
+  if (samples.length === 0) throw new Error('No samples')
+  const t = totals(samples, undefined, 0, undefined)
+  return { startT: t.startT, timerMs: t.timerMs, distanceM: t.distanceM, avgPowerW: t.avgPower, ascentM: t.ascentM }
 }
 
 /** Contiguous runs of samples with the same lap (interval) number. No lap numbers: one run. */

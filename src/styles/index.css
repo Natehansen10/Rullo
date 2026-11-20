@@ -265,22 +265,55 @@
 }
 
 @layer components {
-  /* Power zone chart: a plain table, rows split by hairlines. The host panel gives the padding. */
-  .ww-zone-table {
+  /* Plain data tables (the power zone chart, ride history): rows split by hairlines. The host panel gives the padding. */
+  .ww-table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
   }
-  .ww-zone-table th,
-  .ww-zone-table td {
+  .ww-table th,
+  .ww-table td {
     padding: var(--ww-space-2) var(--ww-space-3) var(--ww-space-2) 0;
     vertical-align: middle;
   }
-  .ww-zone-table th:last-child,
-  .ww-zone-table td:last-child {
+  .ww-table th:last-child,
+  .ww-table td:last-child {
     padding-right: 0;
   }
-  .ww-zone-table tbody tr {
+  .ww-table tbody tr {
     border-top: 1px solid var(--ww-line);
+  }
+  /* Ride history: full panel width, so the rows carry the panel's side padding themselves. */
+  .ww-history th,
+  .ww-history td {
+    padding: var(--ww-space-3) var(--ww-space-4) var(--ww-space-3) 0;
+  }
+  .ww-history th:first-child,
+  .ww-history td:first-child {
+    padding-left: var(--ww-space-6);
+  }
+  .ww-history th:last-child,
+  .ww-history td:last-child {
+    padding-right: var(--ww-space-6);
+  }
+  .ww-history thead tr {
+    border-top: 1px solid var(--ww-line);
+  }
+  /* The ride's date and setup take the width left over and truncate, never wrap. */
+  .ww-history-ride {
+    width: 100%;
+    max-width: 0;
+  }
+  /* Home: a left rail (rider, zones) and a main column. One column on a narrow window. */
+  .ww-home {
+    display: grid;
+    grid-template-columns: var(--ww-home-rail) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--ww-space-6);
+  }
+  @media (max-width: 899px) {
+    .ww-home {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 }

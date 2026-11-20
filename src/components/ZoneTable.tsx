@@ -14,7 +14,7 @@ interface ZoneTableProps {
 export function ZoneTable({ ftpW, className = '' }: ZoneTableProps) {
   const rows = zoneRanges(ftpW)
   return (
-    <table className={`ww-zone-table ${className}`}>
+    <table className={`ww-table ww-zone-table ${className}`}>
       <caption className="sr-only">Power zones at an FTP of {ftpW} watts</caption>
       <thead>
         <tr>

@@ -198,6 +198,11 @@ export async function getSamples(rideId: number): Promise<SampleRow[]> {
   return db.samples.where('[rideId+t]').between([rideId, Dexie.minKey], [rideId, Dexie.maxKey]).toArray()
 }
 
+/** Every ride that was ended, in no particular order. An unfinished ride (crash, reload) is not one of them. */
+export async function listEndedRides(): Promise<RideRow[]> {
+  return db.rides.where('status').equals('ended').toArray()
+}
+
 export interface UnfinishedRide {
   ride: RideRow
   last: SampleRow | null

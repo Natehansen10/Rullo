@@ -116,6 +116,17 @@ Moved out of "Later" on Nov 20, 2026 at Nate's request, ahead of the v3.2 ride t
 - **Cut:** ZWO export, free-ride blocks, text events, TSS / IF, text syntax
 - **Done when:** build a workout by keyboard, ride it on the Kickr with ERG changing at each step, and see one lap per interval in the FIT
 
+### Home tab and power zones (built Nov 20, 2026; no ride test needed)
+
+Asked for by Nate on Nov 20, 2026, ahead of the v3.2 ride test. No trainer code changed. Laid out after Zwift's home screen (a left rail with the rider, a main column of cards), drawn with this system's tokens; decisions are in `docs/home-tab.md`.
+
+- Home is the first tab and where the app opens (`#/`). The Ride tab moved to `#/ride`
+- Rider summary (FTP, weight in lb), power zones chart (Z1 to Z7 with % FTP and watts), totals from saved rides (all rides and the last 7 days: rides, time, miles, feet climbed, best 20-minute power), and ride history with Download FIT on each ride
+- One primary button: Set up a ride, or Go to Ride once a setup is on the Ride tab
+- The zones chart is also on the Profile tab under the FTP field. Zone boundaries live in one list that the chart, the workout strip and the builder all use
+- Read from the rides already saved in the browser. No new storage, no server
+- **Cut:** W/lb (it needs kg to mean anything), TSS / IF, charts of past rides, deleting a ride, streaks and goals, placeholders for anything not built
+
 ### Later: Strava auto-upload
 
 Moved out of v3 on Nov 19, 2026: it needs a server function to keep the Strava client secret, and the guardrails hold server features until going public is a real decision. Manual upload at strava.com/upload/select works meanwhile.

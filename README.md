@@ -8,6 +8,15 @@ A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence
 
 Chrome or Edge on desktop only (needs Web Bluetooth).
 
+## Tabs
+
+- **Home** (`#/`, where the app opens): your FTP and weight, your power zones, totals from your saved rides (all rides and the last 7 days), and your ride history with a **Download FIT** button on every ride. One button takes you to the next step: **Set up a ride**, or **Go to Ride** once a setup is on the Ride tab.
+- **Ride** (`#/ride`): live numbers only.
+- **Workout** (`#/workout`): pick a course and a workout.
+- **Profile** (`#/profile`): weights, position, FTP, your power zones and your own files.
+
+Ride history is read from the rides saved in this browser. Nothing is uploaded. A ride that was never ended (a reload or a crash) is not in the list until you end it from the Ride tab.
+
 ## Run locally
 
 ```bash
@@ -26,7 +35,7 @@ npm run preview
 
 ## Ride without the bike: `?fake=1`
 
-Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends power and cadence once a second. The first 3 seconds are 0 W (rider getting on). Power, cadence and speed are live at once; the status reads "Not recording" and time and distance stay at zero until you press **Start ride** (or **Start workout**).
+Open http://localhost:5173/?fake=1 and press **Connect** (it takes you to the Ride tab). A fake trainer sends power and cadence once a second. The first 3 seconds are 0 W (rider getting on). Power, cadence and speed are live at once; the status reads "Not recording" and time and distance stay at zero until you press **Start ride** (or **Start workout**).
 
 - Change resistance with the step buttons or keys. Fake power rises and falls with it.
 - In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release, re-engage and ease back in. Like a Kickr Core 2 is reported to, the fake trainer refuses a resistance level while stopped, so restarts show the 25 W fallback and the retry.
@@ -94,6 +103,10 @@ To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "..."
 
 Open the **Profile** tab (`#/profile`) and set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these. The profile is saved in this browser and applies to your next ride; past rides don't change.
 
+### Power zones
+
+Under the FTP field, and on Home: your seven power zones (Z1 Active recovery to Z7 Neuromuscular) with the % FTP range and the watt range at your FTP. Change the FTP and the watts follow. Workout blocks use the same boundaries and colors, so a block's color always matches the chart.
+
 ## ERG mode
 
 Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG you set a target in watts and the Kickr holds it at any cadence or gear.
@@ -160,6 +173,7 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/courses.ts` | Built-in courses plus imported ones (IndexedDB) |
 | `src/lib/ride.ts` | Ride state, smoothing, stale detection, auto-pause, time and distance from timestamps |
 | `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
+| `src/lib/history.ts` | Ride history for the Home tab: each finished ride's time, distance, power and climbing from its saved samples, with the FIT writer's own totals; kept in memory for the session |
 | `src/lib/fit.ts` | FIT file writer: records, one lap per workout interval, timer stop / start events around pauses |
 | `src/lib/wakeLock.ts` | Keeps the screen on while riding |
 | `src/lib/customWorkouts.ts` | Workouts built in the app: stored step lists, cleaned and validated on load |
