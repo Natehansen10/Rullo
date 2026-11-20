@@ -397,7 +397,7 @@ Other checks:
 | Mid-workout, switched to Grade | Grade | Hills set the load. | Workout targets are off. | The course sets speed and the load. |
 | Mid-workout, switched to Resistance | Resistance | You set the load. | Workout targets are off. | The course sets speed, not the load. |
 | Any, waiting for Start | any | as above | Press Start ride. | as above |
-| Any, paused | any | as above | Paused. Pedal to resume. | as above |
+| Any, paused (this wins over every other second line, "Workout targets are off." included) | any | as above | Paused. Pedal to resume. | as above |
 
 **Checks (fake trainer, Test Hills from mile 3, a 6.3 to 6.8% climb):**
 

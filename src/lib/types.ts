@@ -13,7 +13,11 @@ export type ConnectionStatus =
   | { kind: 'connecting' }
   | { kind: 'connected'; protocol: 'FTMS' | 'Cycling Power' | 'Fake' }
   | { kind: 'reconnecting'; attempt: number; max: number }
-  | { kind: 'failed'; message: string }
+  /**
+   * `lost` is set when a trainer that was connected dropped and the reconnect
+   * attempts ran out. Without it, the connection never came up (pairing failed).
+   */
+  | { kind: 'failed'; message: string; lost?: boolean }
 
 export interface TrainerHandlers {
   onReading: (r: TrainerReading) => void
