@@ -280,3 +280,22 @@ Five fixes from Nate's first real workout ride. Parts 1 and 2 are here.
 - Inside the controller `newRide()` is `resetRide()` (counters) plus `clearRideSetup()`. `disconnect()` calls `resetRide()` only.
 
 **Checks:** rode Test Hills with a workout for about 20 s, End Ride, New ride: no rows, mode ERG, and the Workout tab still showed the picks with "Not on the Ride tab yet. The Ride tab has Flat road · Free ride." Connect without pedaling, then Disconnect: both rows stayed. Removing a confirmed imported course on Profile cleared it from the Ride tab and from the picks, and Grade dropped back. With the fake trainer connected, power, speed and time changed on 5 of 5 one-second reads, cadence on 3 to 4, distance (two decimals of a mile) on 2.
+
+### Part 3: Hover on the workout strip
+
+**What it does.** Pointing at a block of the workout strip outlines it (1px `fg`) and shows one mono line on a small chip: the label if the block has one, the zone (swatch and code), the target watts after intensity, % FTP, the length (m:ss or h:mm:ss) and the cadence target in rpm if it has one. A ramp shows start and end ("155→177 W  70→80% FTP"). It works on the Ride tab's workout row (full and compact) and in the workout overview on the Workout tab (100% intensity, your FTP).
+
+**Chose:**
+
+- **An overlay, not a row.** The chip is positioned inside the strip, 4px below it on the Ride tab (it lands in the padding between the workout row and the control row, so it covers no number and no button) and above it in the overview (so the "watts at your FTP" note stays readable). It is centered on the block, kept inside the strip's width at the first and last block, and flips to the other side if it would leave the window. That happens at 1024 wide with a course and a workout, where it covers part of the stats line while you hover.
+- **It never takes a click and never takes space**, so nothing on the Ride tab moves or resizes.
+- **The whole column over a block is the hover target**, so 20-second blocks are easy to hit. The chip is tied to the block, not the mouse, so it does not slide around.
+- **% FTP is worked out from the watts shown**, the same way the row's Target does it, so the two always agree.
+- **Look:** `surface` chip, 1px `line-strong` border, radius 4, mono 11px, values in `fg` (17.4:1), units in `fg-muted` (7.1:1). No shadow, blur or gradient. It fades in over 120ms; with reduced motion there is no fade.
+- **Not on the small card graphs.** The card is a button; its click opens the overview, which has the details.
+- **Not in the builder.** It did not come free: the builder's graph is a separate canvas with drag handlers, and it already shows the selected block's fields.
+- **Mouse and pen only.** No tab stops were added to the Ride tab. Touch is ignored.
+
+**Checks (headless Chromium, 1280x720, 1024x768, 1920x1080; workout only and course + workout):** every block of four workouts (ramps, steady blocks, repeats, fixed-watt steps, blocks with and without a cadence target) hovered before the start, after the start, and after raising intensity to 110%. 5,591 checks on the Ride tab and 48 in the overview, all passing. The text matched the workout data, FTP and intensity each time. The chip stayed inside the panel and the window at every block. The bounding boxes of the panel, the tiles, the workout row, the control row and everything inside them were the same before and during hover. The key hint stayed on screen at 1280x720.
+
+**Gaps:** the shipped workouts have no ramp with a cadence target, so that pair was not hovered (same code path as a steady block with cadence). The 1px `fg` outline is 2.7:1 against a Z7 block, under the 3:1 rule for graphics; Z1 to Z6 pass. The builder's selected-block outline has the same limit.
