@@ -70,20 +70,27 @@ export function encodeResistance(level: number, format: 'sint16' | 'uint8'): num
 
 /**
  * Parse an Indoor Bike Data (0x2AD2) notification.
- * Flag bit 0 ("More Data") is inverted: when it is 0, Instantaneous Speed IS present.
+ * Fields follow the flags in spec order (FTMS 1.0, 4.9.1). Flag bit 0
+ * ("More Data") is inverted: when it is 0, Instantaneous Speed IS present.
  * Trainers may split one reading across packets, so every field is optional.
+ * Power is the trainer's own instantaneous power, sint16 watts, used as is.
+ * A packet shorter than its flags claim yields the fields that fit.
  */
 export function parseIndoorBikeData(view: DataView, t: number): TrainerReading {
+  const out: TrainerReading = { t }
+  if (view.byteLength < 2) return out
   const flags = view.getUint16(0, true)
   let o = 2
-  const out: TrainerReading = { t }
+  const fits = (size: number) => o + size <= view.byteLength
 
   if ((flags & 0x0001) === 0) {
+    if (!fits(2)) return out
     out.trainerSpeedKph = view.getUint16(o, true) / 100 // 0.01 km/h
     o += 2
   }
   if (flags & 0x0002) o += 2 // average speed
   if (flags & 0x0004) {
+    if (!fits(2)) return out
     out.cadenceRpm = view.getUint16(o, true) / 2 // 0.5 rpm
     o += 2
   }
@@ -91,6 +98,7 @@ export function parseIndoorBikeData(view: DataView, t: number): TrainerReading {
   if (flags & 0x0010) o += 3 // total distance, uint24
   if (flags & 0x0020) o += 2 // resistance level
   if (flags & 0x0040) {
+    if (!fits(2)) return out
     out.powerW = view.getInt16(o, true) // signed
     o += 2
   }

@@ -17,13 +17,14 @@ export class CyclingPowerParser {
   private cadence = 0
 
   parse(view: DataView, t: number): TrainerReading {
+    if (view.byteLength < 4) return { t }
     const flags = view.getUint16(0, true)
     const out: TrainerReading = { t, powerW: view.getInt16(2, true) }
     let o = 4
     if (flags & 0x0001) o += 1 // pedal power balance
     if (flags & 0x0004) o += 2 // accumulated torque
     if (flags & 0x0010) o += 6 // wheel revolution data
-    if (flags & 0x0020) {
+    if (flags & 0x0020 && o + 4 <= view.byteLength) {
       const revs = view.getUint16(o, true)
       const eventTime = view.getUint16(o + 2, true) // 1/1024 s
       out.cadenceRpm = this.updateCadence(revs, eventTime, t)

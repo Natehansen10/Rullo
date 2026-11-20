@@ -147,3 +147,24 @@ Courses: climbs still slow the rider and descents still speed them up while peda
 1. Stop pedaling: speed should be at 0 within about 4 s and distance should not move while paused.
 2. Step the ERG target by 20 W: speed should start moving at once and settle within about 6 s, by roughly 1 mph.
 3. Speed should not flicker second to second at a steady target. If it does, the share needs to go up.
+
+## Part 6: Is power calibrated?
+
+**Finding: no bug in the power path. The number on screen is the Kickr's own.**
+
+- **Field order.** `parseIndoorBikeData` reads the flags in FTMS 1.0 order: speed (present when bit 0, "More Data", is 0), average speed, cadence, average cadence, total distance (3 bytes), resistance level, power. Checked with 13 hand-built packets: a typical Kickr packet (flags 0x0044), More Data set, every optional field before power, trailing fields, a reading split across two packets, negative power, and truncated packets.
+- **No scaling.** Power is read as a signed 16-bit watt value and used as is. The only change anywhere is clamping negatives to 0.
+- **Smoothing.** 1 s shows the last reading, 3 s the mean of the last 3, 10 s the mean of the last 10 (checked at 1 Hz). The FIT file stores the unsmoothed reading.
+- **FTMS was in use.** The app only falls back to Cycling Power when the trainer has no FTMS service, and ERG cannot work over the fallback. ERG held the target, so FTMS was in use. The footer also shows the protocol while connected.
+- **ERG agreed.** The trainer held 145 to 179 W within about 1 W of what the app asked for. The app and the Kickr agree on what a watt is; whether the Kickr's watt is a true watt is the spindown's job.
+
+**Changed anyway (hardening, not a fix):** both parsers now stop cleanly on a packet shorter than its flags claim. Before, that would have thrown inside the Bluetooth event handler.
+
+**Why 180 W may have felt brutal:**
+
+1. **Calibration drift.** Run a spindown in the Wahoo app after a 10-minute warm-up. Close the Wahoo app before opening Weem Watts.
+2. **Gear.** In ERG the trainer sets the load; the gear sets flywheel speed. A big gear spins the flywheel fast (more momentum, feels like a flat road). A small gear feels like a climb but is quieter and more accurate. Use the small chainring and a middle cog.
+3. **The restarts.** Each one was a low-cadence grind at full target, which costs far more than steady riding (part 4).
+4. **FTP may be set high.** The app default is 220 W, so 180 W is 82% of FTP, tempo. If true FTP is nearer 200 W, 180 W is 90%, which is hard to hold for long. The ramp test will settle it.
+
+**Test on the next ride:** after the spindown, ride 5 minutes at 150 W in ERG and see whether it feels like the same effort as before.
