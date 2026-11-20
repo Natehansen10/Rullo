@@ -1,13 +1,18 @@
 /**
- * Fake 1 Hz trainer for building without the bike. Enabled with ?fake=1.
+ * Fake trainer for building without the bike. Enabled with ?fake=1.
  * The first 3 seconds send 0 W and 0 rpm (rider getting on), so the Ready state shows.
- * Press D to drop data for 5 seconds and test the stale / Reconnecting state.
  * Resistance changes power the way a harder gear would at the same cadence.
- * ERG holds the target. Press C to drop cadence to 40 rpm for 6 seconds
- * (tests the ERG low-cadence release).
- * Press J (or open with ?fake=1&jitter=1) for jittery delivery: readings come
- * 0.3 to 2.6 s apart, like a hidden tab or a trainer whose clock drifts
- * (tests that recording still saves one sample every second).
+ * ERG holds the target at any cadence above 0, like the real thing (so a
+ * restart in ERG is heavy until the app releases it).
+ *
+ * Keys:
+ *   D  drop data for 5 seconds (stale / Reconnecting state)
+ *   C  drop cadence to 40 rpm for 6 seconds (ERG low-cadence release)
+ *   S  stop pedaling until pressed again (auto-pause, ERG release, then a
+ *      spin-up from 0 rpm so the soft re-engage shows in the power)
+ *   J  jittery delivery, also ?fake=1&jitter=1: readings come 0.3 to 2.6 s
+ *      apart, like a hidden tab or a trainer whose clock drifts (recording
+ *      must still save one sample every second)
  */
 import type { Trainer, TrainerHandlers } from './types'
 
@@ -17,6 +22,8 @@ const LOW_CADENCE_MS = 6000
 const TICK_MS = 1000
 const JITTER_MIN_MS = 300
 const JITTER_MAX_MS = 2600
+/** How fast the fake rider spins up after a stop, rpm per second. */
+const SPIN_UP_RPM_PER_S = 22
 
 export function isFakeMode(): boolean {
   return new URLSearchParams(window.location.search).get('fake') === '1'
@@ -27,34 +34,45 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
   let jitter = new URLSearchParams(window.location.search).get('jitter') === '1'
   let dropUntil = 0
   let t0 = 0
+  let lastTick = 0
   let resistancePct = 20
   let ergW: number | null = null
   let lowCadenceUntil = 0
+  let stopped = false
+  let cadence = 0
 
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'd' || e.key === 'D') dropUntil = Date.now() + DROP_MS
-    if (e.key === 'c' || e.key === 'C') lowCadenceUntil = Date.now() + LOW_CADENCE_MS
-    if (e.key === 'j' || e.key === 'J') jitter = !jitter
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const k = e.key.toLowerCase()
+    if (k === 'd') dropUntil = Date.now() + DROP_MS
+    if (k === 'c') lowCadenceUntil = Date.now() + LOW_CADENCE_MS
+    if (k === 's') stopped = !stopped
+    if (k === 'j') jitter = !jitter
   }
 
   const tick = () => {
     const now = Date.now()
+    const dtS = lastTick ? (now - lastTick) / 1000 : 1
+    lastTick = now
+    const s = (now - t0) / 1000
+    const idle = now - t0 < IDLE_MS
+    // Cadence chases what the rider is doing. Stopping is quick; spinning up takes a few seconds.
+    const want = stopped || idle ? 0 : now < lowCadenceUntil ? 40 : 88 + 4 * Math.sin(s / 13)
+    cadence = want < cadence ? want : Math.min(want, cadence + SPIN_UP_RPM_PER_S * dtS)
     if (now < dropUntil) return
-    if (now - t0 < IDLE_MS) {
+    if (cadence === 0) {
       h.onReading({ t: now, powerW: 0, cadenceRpm: 0 })
       return
     }
-    const s = (now - t0) / 1000
-    const lowCadence = now < lowCadenceUntil
-    const cadence = lowCadence ? 40 + (Math.random() - 0.5) * 2 : 88 + 4 * Math.sin(s / 13) + (Math.random() - 0.5) * 3
+    const rpm = cadence + (Math.random() - 0.5) * (cadence > 60 ? 3 : 2)
     const power =
       ergW !== null
         ? ergW + (Math.random() - 0.5) * 10
-        : (110 + resistancePct * 4.5) * (cadence / 88) + 25 * Math.sin(s / 20) + (Math.random() - 0.5) * 30
+        : (110 + resistancePct * 4.5) * (rpm / 88) + (rpm / 88) * 25 * Math.sin(s / 20) + (Math.random() - 0.5) * 30 * (rpm / 88)
     h.onReading({
       t: now,
-      powerW: Math.round(power),
-      cadenceRpm: Math.round(cadence * 2) / 2,
+      powerW: Math.max(1, Math.round(power)),
+      cadenceRpm: Math.round(rpm * 2) / 2,
     })
   }
 
@@ -70,8 +88,12 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       h.onStatus({ kind: 'connecting' })
       await new Promise((r) => setTimeout(r, 400))
       t0 = Date.now()
+      lastTick = 0
       dropUntil = 0
+      stopped = false
+      cadence = 0
       ergW = null // a fresh connection starts without an ERG target, like a reset trainer
+      window.removeEventListener('keydown', onKey)
       window.addEventListener('keydown', onKey)
       if (timer) clearTimeout(timer)
       h.onStatus({ kind: 'connected', protocol: 'Fake' })

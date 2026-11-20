@@ -35,6 +35,8 @@ export const RECONNECT_INTERVAL_MS = 2000
 export const RECONNECT_MAX_TRIES = 30
 /** Gaps between samples longer than this add no distance. */
 export const MAX_SAMPLE_GAP_MS = 3000
+/** Auto-pause: power and cadence both 0 for this long. The first reading with either above 0 resumes. */
+export const AUTO_PAUSE_AFTER_MS = 3000
 /** Timeout for one FTMS control point write to get its reply. */
 export const CONTROL_POINT_TIMEOUT_MS = 3000
 

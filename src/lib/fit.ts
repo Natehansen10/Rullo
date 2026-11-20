@@ -1,7 +1,9 @@
 /**
  * Minimal FIT activity file writer (Garmin FIT protocol 2.0).
  * Messages: file_id, event (timer start), record x N with a lap after each
- * workout interval, event (timer stop), last lap, session, activity. Sport cycling; sub-sport indoor cycling for a free
+ * workout interval and a timer stop / start pair around each pause or dropout,
+ * event (timer stop), last lap, session, activity. total_timer_time leaves the
+ * pauses out; total_elapsed_time covers the whole ride. Sport cycling; sub-sport indoor cycling for a free
  * ride, virtual activity (Strava: Virtual Ride) for a course ride, which also
  * gets altitude on every record and total ascent.
  * Written from the FIT protocol docs. Structure informed by GPX Rider fit.mjs (MIT).
@@ -108,6 +110,8 @@ const fitTime = (ms: number) => Math.round(ms / 1000) - FIT_EPOCH_OFFSET_S
 interface Totals {
   startT: number
   endT: number
+  /** Time of the last sample in the run. */
+  lastT: number
   elapsedMs: number
   timerMs: number
   distanceM: number
@@ -119,10 +123,15 @@ interface Totals {
   ascentM: number
 }
 
+/** The timer was stopped between these two samples: an auto-pause, or a dropout longer than MAX_SAMPLE_GAP_MS. */
+function stoppedBetween(a: SampleRow, b: SampleRow): boolean {
+  return (b.pausedMs ?? 0) > (a.pausedMs ?? 0) || b.t - a.t > MAX_SAMPLE_GAP_MS
+}
+
 /**
  * Totals for a run of samples. Each sample counts for the time until the next
- * sample (the next run's first sample for a lap), or 1 s for the last one.
- * Gaps longer than MAX_SAMPLE_GAP_MS add elapsed time but no timer time.
+ * sample (the next run's first sample for a lap), or 1 s for the last one and
+ * for the one before a pause. Paused time adds elapsed time but no timer time.
  * So laps add up exactly to the session.
  */
 function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: number, prevAltM: number | undefined): Totals {
@@ -137,8 +146,7 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
   let alt = prevAltM
   run.forEach((s, i) => {
     const after = run[i + 1] ?? next
-    const dt = after ? after.t - s.t : 1000
-    if (dt <= MAX_SAMPLE_GAP_MS) timerMs += dt
+    timerMs += after && !stoppedBetween(s, after) ? after.t - s.t : 1000
     powerSum += s.powerW
     maxPower = Math.max(maxPower, s.powerW)
     maxCadence = Math.max(maxCadence, s.cadenceRpm)
@@ -158,6 +166,7 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
   return {
     startT: first.t,
     endT,
+    lastT: last.t,
     elapsedMs: endT - first.t,
     timerMs: Math.max(1000, timerMs),
     distanceM: Math.max(0, last.distanceM - startDistanceM),
@@ -241,7 +250,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
   const writeLap = (index: number, t: Totals) =>
     w.write(3, [
       index,
-      fitTime(t.endT - 1000),
+      fitTime(t.lastT),
       EVENT_LAP,
       EVENT_TYPE_STOP,
       fitTime(t.startT),
@@ -263,6 +272,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
   // Laps on a workout ride are its intervals; otherwise the whole ride is one lap.
   const runs = splitLaps(samples)
   let lastWritten = -1
+  let prev: SampleRow | undefined
   let lastAlt = samples.find((s) => s.altitudeM !== undefined)?.altitudeM ?? 0
   let lapStartDistance = 0
   let lapPrevAlt: number | undefined
@@ -270,8 +280,13 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
   runs.forEach((run, i) => {
     for (const s of run) {
       const ts = fitTime(s.t)
-      if (ts === lastWritten) continue // one record per second
+      if (ts <= lastWritten) continue // one record per second
       lastWritten = ts
+      if (prev && stoppedBetween(prev, s)) {
+        w.write(1, [fitTime(prev.t), EVENT_TIMER, EVENT_TYPE_STOP_ALL])
+        w.write(1, [ts, EVENT_TIMER, EVENT_TYPE_START])
+      }
+      prev = s
       const values = [ts, s.powerW, Math.min(254, s.cadenceRpm), s.speedMps * 1000, s.distanceM * 100]
       if (onCourse) {
         if (s.altitudeM !== undefined) lastAlt = s.altitudeM

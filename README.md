@@ -30,6 +30,7 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 - Change resistance with the step buttons or keys. Fake power rises and falls with it.
 - In **ERG**, fake power follows the target. Press **C** to drop cadence to 40 rpm for 6 seconds and watch ERG release and re-engage.
+- Press **S** to stop pedaling until you press it again. After 3 seconds the ride auto-pauses; the status shows "Paused" and time, distance and recording stop. Press **S** again and the fake rider spins back up from 0 rpm.
 - Press **J** (or open `?fake=1&jitter=1`) for jittery delivery: readings arrive 0.3 to 2.6 s apart. The FIT file should still have a record every second.
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
 - Press **End Ride** twice (the second click confirms) to end and download the FIT file.
@@ -85,7 +86,8 @@ Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG y
 3. Press **Connect** and pick the Kickr in the browser's device list. The status shows **Ready**.
 4. Start pedaling. The timer starts on the first pedal stroke. Spinning the flywheel by hand reads 0 W and does not start a ride. Press **Disconnect** to back out before pedaling.
 5. Change resistance with the step buttons (-10 / -5 / -1, +1 / +5 / +10) or keys: **Arrow Up / Down** 1%, **+ / -** 5%, **Shift + Arrow** 10%. Stay in one gear. The level is remembered for next time and re-sent after a reconnect.
-6. Press **End Ride**, then **Confirm end**. The FIT file downloads. Upload it to Strava or Garmin Connect.
+6. Stop pedaling and the ride **auto-pauses** after 3 seconds (power and cadence both 0). Time, distance, the workout clock and recording stop; the first pedal stroke resumes. The FIT file marks each pause, so Strava shows moving time. If you stop and never resume, the file ends where you stopped pedaling.
+7. Press **End Ride**, then **Confirm end**. The FIT file downloads. Upload it to Strava or Garmin Connect.
 
 If the trainer drops, the app retries every 2 seconds, up to 30 times. After a page reload, Chrome needs you to pick the trainer again.
 
@@ -103,9 +105,9 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/gpx.ts` | Reads GPX track points |
 | `src/lib/course.ts` | Course model: distance along the slope, two-pass 75 m elevation smoothing, grade over 50 m |
 | `src/lib/courses.ts` | Built-in courses plus imported ones (IndexedDB) |
-| `src/lib/ride.ts` | Ride state, smoothing, stale detection, time and distance from timestamps |
+| `src/lib/ride.ts` | Ride state, smoothing, stale detection, auto-pause, time and distance from timestamps |
 | `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
-| `src/lib/fit.ts` | FIT file writer |
+| `src/lib/fit.ts` | FIT file writer: records, one lap per workout interval, timer stop / start events around pauses |
 | `src/lib/wakeLock.ts` | Keeps the screen on while riding |
 
 Speed comes from power on a flat road, not from the trainer, so it reads the same in any gear. Set your weights and position in **Profile**.

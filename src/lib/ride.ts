@@ -11,6 +11,7 @@ import {
   ERG_RELEASE_AFTER_MS,
   ERG_RELEASE_RPM,
   ERG_RESUME_RPM,
+  AUTO_PAUSE_AFTER_MS,
   DEFAULT_SMOOTHING,
   INTENSITY_MAX_PCT,
   INTENSITY_MIN_PCT,
@@ -161,6 +162,8 @@ export interface RideSnapshot {
   connection: ConnectionStatus
   /** No data for STALE_AFTER_MS while a ride needs it. Numbers must not read as live. */
   stale: boolean
+  /** Auto-paused: the rider stopped pedaling. Time, distance, the workout clock and recording are stopped. */
+  paused: boolean
   fake: boolean
   supported: boolean
   smoothing: SmoothingSeconds
@@ -224,6 +227,21 @@ export class RideController {
   private lastRecordedSec = -1
   /** The sample last written, kept to fill seconds a late reading skipped. */
   private lastSample: Omit<recorder.SampleRow, 'rideId'> | null = null
+  /** Auto-pause. pausedAt is when the rider stopped; pausedTotalMs is every finished pause and dropout. */
+  private paused = false
+  private pausedAt = 0
+  private pausedTotalMs = 0
+  /** First reading of a run of zero power and zero cadence, and the ride as it stood just before it. */
+  private zeroSince: number | null = null
+  private zeroMark: {
+    distanceM: number
+    climbedM: number
+    workoutS: number
+    lastRecordedSec: number
+    lastSample: Omit<recorder.SampleRow, 'rideId'> | null
+  } | null = null
+  /** Samples held back while a pause is pending: saved if the rider resumes, dropped if the pause is confirmed. */
+  private heldSamples: Omit<recorder.SampleRow, 'rideId'>[] = []
   private recovery: recorder.UnfinishedRide | null = null
   private notice: string | null = null
   private resistancePct = loadResistance()
@@ -302,14 +320,15 @@ export class RideController {
 
     let elapsedMs = 0
     if (this.startedAt > 0) {
-      if (this.phase === 'riding') elapsedMs = now - this.startedAt
-      else if (this.phase === 'ended') elapsedMs = this.endedAt - this.startedAt
+      if (this.phase === 'riding') elapsedMs = this.clockEnd(now) - this.startedAt - this.pausedTotalMs
+      else if (this.phase === 'ended') elapsedMs = this.endedAt - this.startedAt - this.pausedTotalMs
     }
 
     return {
       phase: this.phase,
       connection: this.connection,
       stale,
+      paused: this.phase === 'riding' && this.paused,
       fake: this.fake,
       supported: this.supported,
       smoothing: this.smoothing,
@@ -632,29 +651,116 @@ export class RideController {
       const power = Math.max(0, r.powerW)
       this.lastPowerW = power
       this.smoother.push(r.t, power)
+      const pedaling = power > 0 || this.cadenceRpm > 0
 
-      if (this.phase === 'ready' && (power > 0 || this.cadenceRpm > 0)) this.beginRide(r.t)
+      if (this.phase === 'ready' && pedaling) this.beginRide(r.t)
 
       if (this.phase === 'riding') {
-        const gap = this.lastPhysicsAt ? r.t - this.lastPhysicsAt : 0
-        const dtS = gap > 0 && gap <= MAX_SAMPLE_GAP_MS ? gap / 1000 : 0
-        const c = this.course
-        if (c) {
-          const before = this.positionM()
-          const eleBefore = elevationAt(c, before)
-          this.distanceM += this.speed.step(power, dtS, gradeAt(c, before))
-          const rise = elevationAt(c, this.positionM()) - eleBefore
-          if (rise > 0) this.climbedM += rise
-        } else {
-          this.distanceM += this.speed.step(power, dtS)
-        }
-        this.advanceWorkout(dtS, r.t, power)
+        if (this.paused && pedaling) this.resume(r.t)
+        if (!this.paused) this.advance(r.t, power, pedaling)
       }
       this.lastPhysicsAt = r.t
     }
 
-    if (this.phase === 'riding') this.record(r.t, sinceLastMs)
+    if (this.phase === 'riding' && !this.paused) this.record(r.t, sinceLastMs)
     this.emit()
+  }
+
+  /** One power reading while riding: move the bike and the workout clock, and watch for a stop. */
+  private advance(t: number, power: number, pedaling: boolean) {
+    const gap = this.lastPhysicsAt ? t - this.lastPhysicsAt : 0
+    if (gap > MAX_SAMPLE_GAP_MS) {
+      if (this.zeroSince !== null) {
+        // Data dropped while a pause was pending: the pause stands from the first zero.
+        this.pause()
+        if (!pedaling) return
+        this.resume(t)
+      } else {
+        // A dropout counts as paused time, so the clock on screen matches the FIT timer.
+        this.pausedTotalMs += gap - 1000
+      }
+    }
+    const dtS = gap > 0 && gap <= MAX_SAMPLE_GAP_MS ? gap / 1000 : 0
+
+    if (pedaling) {
+      if (this.zeroSince !== null) this.cancelPendingPause()
+    } else if (this.zeroSince === null) {
+      this.zeroSince = t
+      this.zeroMark = {
+        distanceM: this.distanceM,
+        climbedM: this.climbedM,
+        workoutS: this.workoutS,
+        lastRecordedSec: this.lastRecordedSec,
+        lastSample: this.lastSample,
+      }
+    }
+
+    const c = this.course
+    if (c) {
+      const before = this.positionM()
+      const eleBefore = elevationAt(c, before)
+      this.distanceM += this.speed.step(power, dtS, gradeAt(c, before))
+      const rise = elevationAt(c, this.positionM()) - eleBefore
+      if (rise > 0) this.climbedM += rise
+    } else {
+      this.distanceM += this.speed.step(power, dtS)
+    }
+    this.advanceWorkout(dtS, t, power)
+
+    if (this.zeroSince !== null && t - this.zeroSince >= AUTO_PAUSE_AFTER_MS) this.pause()
+  }
+
+  /**
+   * Auto-pause: power and cadence both 0 for AUTO_PAUSE_AFTER_MS. The pause is
+   * backdated to the first zero reading, so the ride (and the FIT file) stops
+   * where the rider stopped pedaling: distance, climbing and the workout clock
+   * go back to that moment and the zero samples held since then are dropped.
+   */
+  private pause() {
+    const mark = this.zeroMark
+    if (this.zeroSince === null || !mark) return
+    this.paused = true
+    this.pausedAt = this.zeroSince
+    this.distanceM = mark.distanceM
+    this.climbedM = mark.climbedM
+    this.workoutS = mark.workoutS
+    this.lastRecordedSec = mark.lastRecordedSec
+    this.lastSample = mark.lastSample
+    this.testWindow = this.testWindow.filter((x) => x.t < this.pausedAt)
+    this.zeroSince = null
+    this.zeroMark = null
+    this.heldSamples = []
+    this.speed.reset()
+    this.syncWorkoutTarget()
+  }
+
+  /** The rider pedaled again before the pause was confirmed: keep the coasting seconds. */
+  private cancelPendingPause() {
+    const held = this.heldSamples
+    this.zeroSince = null
+    this.zeroMark = null
+    this.heldSamples = []
+    if (held.length && this.rideId) {
+      void this.rideId.then((rideId) => {
+        for (const s of held) void recorder.recordSample({ rideId, ...s })
+      })
+    }
+  }
+
+  /** First reading with power or cadence after a pause. */
+  private resume(t: number) {
+    this.pausedTotalMs += Math.max(0, t - this.pausedAt)
+    this.paused = false
+    this.lastPhysicsAt = t
+    this.lastRecordedSec = Math.floor(t / 1000) - 1
+    this.lastSample = null
+  }
+
+  /** Where the ride clock stands: frozen at a pause, and during a dropout until data returns. */
+  private clockEnd(now: number): number {
+    if (this.paused) return this.pausedAt
+    if (this.lastDataAt > 0 && now - this.lastDataAt > MAX_SAMPLE_GAP_MS) return this.lastDataAt + 1000
+    return now
   }
 
   private beginRide(t: number) {
@@ -665,7 +771,17 @@ export class RideController {
     this.lastRecordedSec = -1
     this.lastSample = null
     this.climbedM = 0
+    this.resetPause()
     this.rideId = recorder.startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined, this.workout?.id)
+  }
+
+  private resetPause() {
+    this.paused = false
+    this.pausedAt = 0
+    this.pausedTotalMs = 0
+    this.zeroSince = null
+    this.zeroMark = null
+    this.heldSamples = []
   }
 
   /** The ride as it stands now, stamped with a whole wall-clock second. */
@@ -682,6 +798,7 @@ export class RideController {
       ...(this.workout && this.workoutStarted
         ? { lap: indexAt(this.intervals, Math.min(this.workoutS, totalS(this.intervals) - 0.001)), workoutS: this.workoutS }
         : {}),
+      ...(this.pausedTotalMs > 0 ? { pausedMs: Math.round(this.pausedTotalMs) } : {}),
     }
   }
 
@@ -717,6 +834,11 @@ export class RideController {
     }
     this.lastRecordedSec = sec
     this.lastSample = sample
+    if (this.zeroSince !== null) {
+      // The rider may have stopped. Hold these until we know (see pause()).
+      this.heldSamples.push(...fills, sample)
+      return
+    }
     void this.rideId.then((rideId) => {
       for (const s of [...fills, sample]) void recorder.recordSample({ rideId, ...s })
     })
@@ -864,7 +986,9 @@ export class RideController {
   endRide = async () => {
     if (this.phase === 'ready') return this.disconnect()
     if (this.phase !== 'riding' || !this.rideId) return
-    this.endedAt = Date.now()
+    // Stopped pedaling and never resumed: the ride ends where the pedaling did.
+    if (this.zeroSince !== null) this.pause()
+    this.endedAt = this.clockEnd(Date.now())
     this.phase = 'ended'
     keepAwake(false)
     this.trainer.disconnect()
@@ -898,6 +1022,7 @@ export class RideController {
     this.lastPowerW = 0
     this.notice = null
     this.climbedM = 0
+    this.resetPause()
     this.smoother.clear()
     this.speed.reset()
     if (this.course) void this.selectCourse(this.course.id)
@@ -999,6 +1124,11 @@ export class RideController {
     this.distanceM = rec.last.distanceM
     this.lastRecordedSec = Math.floor(rec.last.t / 1000)
     this.lastSample = null
+    // The time since the last saved second is a pause. The first pedal stroke ends it.
+    this.resetPause()
+    this.paused = true
+    this.pausedAt = rec.last.t + 1000
+    this.pausedTotalMs = rec.last.pausedMs ?? 0
     this.speed.reset()
     this.recovery = null
     this.course = null
@@ -1037,10 +1167,11 @@ export class RideController {
     this.recovery = null
     this.rideId = Promise.resolve(rec.ride.id)
     this.startedAt = rec.ride.startedAt
-    this.endedAt = rec.last.t
+    this.endedAt = rec.last.t + 1000
+    this.pausedTotalMs = rec.last.pausedMs ?? 0
     this.distanceM = rec.last.distanceM
     this.phase = 'ended'
-    await recorder.endRide(rec.ride.id, rec.last.t)
+    await recorder.endRide(rec.ride.id, this.endedAt)
     this.emit()
     await this.download()
   }

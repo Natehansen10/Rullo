@@ -10,7 +10,7 @@ Source: [Weem Watts Design System](https://claude.ai/artifact/MwUnE5KEPgbmD8FAai
 - **Color means something.** Chrome is neutral warm gray. Color appears only for an action, a channel, or a state.
 - **Cobalt is rare.** `accent` has three jobs: the primary action, live power, and route progress (the ridden stretch and position dot on the elevation profile). It never fills anything bigger than a button.
 - **Calm while riding.** Numbers update in place. Nothing jumps, bounces, or flashes.
-- **Never show frozen numbers as live.** Stale data turns `fg-subtle` and the StatusPill says "Reconnecting".
+- **Never show frozen numbers as live.** Stale data turns `fg-subtle` and the StatusPill says "Reconnecting". An auto-paused ride does the same with "Paused" (`idle` tone), and the control row status reads "Paused. Pedal to resume."
 - **Units are lb and miles.** Never show kg or km.
 
 ## Color tokens
@@ -91,7 +91,7 @@ For workout blocks and zone codes (v3.2). Each meets 3:1 on `surface`. Z2 is gra
 | Component | Use |
 | --- | --- |
 | `MetricTile` | One live number with label and unit. `size="hero"` for power only. `dim` grays it out. |
-| `StatusPill` | Connection state. Tones: `on`, `warn`, `error`, `idle`. |
+| `StatusPill` | Connection and ride state. Tones: `on` (Ready, Connected), `warn` (Connecting, Reconnecting), `error` (Disconnected, Not supported), `idle` (Not connected, Paused, Ride ended). |
 | `Button` | `primary` (Cobalt, one per screen), `secondary`, `danger` (confirm End Ride). |
 | `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. Selected option is a `surface` chip with a `line-strong` border; hover only darkens text. One Tab stop, Left / Right arrows move the selection. |
 | `ElevationProfile` | Course stats row plus an SVG profile: `raised` fill, `fg-subtle` line, `accent` for the stretch ridden and the position dot. Mile ticks in mono. |

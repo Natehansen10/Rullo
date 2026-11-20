@@ -49,6 +49,7 @@ function status(s: RideSnapshot): { tone: StatusTone; label: string } {
     return { tone: 'warn', label: 'Reconnecting' }
   }
   if (c.kind === 'connecting') return { tone: 'warn', label: 'Connecting' }
+  if (s.paused) return { tone: 'idle', label: 'Paused' }
   if (c.kind === 'connected') return { tone: 'on', label: s.phase === 'ready' ? 'Ready' : 'Connected' }
   return { tone: 'idle', label: 'Not connected' }
 }
@@ -70,6 +71,7 @@ function controlStatus(s: RideSnapshot): string | null {
   if (s.connection.kind !== 'connected' || s.phase === 'ended') {
     return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
   }
+  if (s.paused) return 'Paused. Pedal to resume.'
   if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
   if (erg && started) return 'Intensity, every target'
   if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
@@ -125,7 +127,9 @@ export default function App() {
 
   const pill = status(s)
   const live = s.phase === 'ready' || s.phase === 'riding'
-  const dimLive = !live || s.stale
+  const dimLive = !live || s.stale || s.paused
+  /** Distance, time, course and workout numbers: live only while the ride is moving. */
+  const dimRide = s.phase === 'riding' ? s.stale || s.paused : true
   const connecting = s.connection.kind === 'connecting'
   const lost = live && (s.connection.kind === 'failed' || s.connection.kind === 'disconnected')
 
@@ -288,20 +292,20 @@ export default function App() {
                 label="Distance"
                 value={s.distanceMi.toFixed(2)}
                 unit="mi"
-                dim={s.phase === 'riding' ? s.stale : s.phase !== 'ended'}
+                dim={dimRide && s.phase !== 'ended'}
                 className="border-r border-line p-6"
               />
               <MetricTile
                 label="Time"
                 value={formatTime(s.elapsedMs)}
-                dim={s.phase === 'riding' ? s.stale : s.phase !== 'ended'}
+                dim={dimRide && s.phase !== 'ended'}
                 className="p-6"
               />
             </div>
             {s.course && (
               <ElevationProfile
                 live={s.course}
-                dim={s.phase === 'riding' ? s.stale : true}
+                dim={dimRide}
                 className="border-t border-line p-6 xl:col-span-2"
               />
             )}
@@ -309,7 +313,7 @@ export default function App() {
               <WorkoutRow
                 live={s.workout}
                 ftpW={s.profile.ftpW}
-                dim={s.phase === 'riding' ? s.stale : true}
+                dim={dimRide}
                 canSkip={s.phase === 'riding'}
                 onSkip={ride.skipInterval}
                 onStart={ride.startWorkout}
@@ -369,7 +373,7 @@ export default function App() {
               {s.connection.kind === 'connected' ? `${s.connection.protocol}` : 'Kickr Core 2 over FTMS'}
               {' · '}power smoothed over {s.smoothing}s
             </span>
-            {s.fake && <span>FAKE TRAINER · press D to drop data for 5s</span>}
+            {s.fake && <span>FAKE TRAINER · D drop data · C low cadence · S stop pedaling · J jitter</span>}
           </footer>
         </main>
       )}

@@ -34,6 +34,8 @@ export interface SampleRow {
   /** Workout rides only: interval index (one FIT lap each) and seconds into the workout. */
   lap?: number
   workoutS?: number
+  /** Total paused time before this sample, ms (auto-pauses and dropouts). Absent until the first pause. */
+  pausedMs?: number
 }
 
 /** A GPX the rider imported. Rebuilt into a Course on load. */
