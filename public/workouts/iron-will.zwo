@@ -1,0 +1,11 @@
+<workout_file>
+  <author>The Workout Generator</author>
+  <name>Iron Will</name>
+  <description>1 effort block peaking at 89% in 30 minutes. Count down in your head — mental tricks get you through the last minutes. This trains your muscles to work efficiently at high glycolytic demand. Embrace the discomfort — it&apos;s the sound of your body adapting.</description>
+  <sportType>bike</sportType>
+  <workout>
+    <Warmup Duration="720" PowerLow="0.45" PowerHigh="0.70"/>
+    <SteadyState Duration="840" Power="0.89"/>
+    <Cooldown Duration="240" PowerLow="0.40" PowerHigh="0.55"/>
+  </workout>
+</workout_file>

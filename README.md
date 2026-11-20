@@ -55,7 +55,7 @@ What sets the load:
 
 The mode is picked for you and you can always switch it on the Ride tab (or press **E**).
 
-Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/`: FRNKLN - January 6, five 15-minute rides (Quick 15: Recovery Flush, Zone 2 Spin, Ironman Race Pace, Tempo Bursts, Sweet Spot Hit), five easy rides (Long Haul III, The Causeway IV, The Levee IV, The Long Road V, Coastal Cruise V), five medium (The Forge IV, Sweat Factory V, Copper Wire IV, Over the Top V, The Rolling Mill V) and five hard (Hour of Power V, The Heat V, The Smelting Pot IV, The Millstone V, Critical Mass IV).
+Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/`: FRNKLN - January 6, five 15-minute rides (Quick 15: Recovery Flush, Zone 2 Spin, Ironman Race Pace, Tempo Bursts, Sweet Spot Hit), five 30-minute rides (Easy Street, No Retreat, Iron Will, Red Line, The Caldron), five easy rides (Long Haul III, The Causeway IV, The Levee IV, The Long Road V, Coastal Cruise V), five medium (The Forge IV, Sweat Factory V, Copper Wire IV, Over the Top V, The Rolling Mill V) and five hard (Hour of Power V, The Heat V, The Smelting Pot IV, The Millstone V, Critical Mass IV).
 
 **Your own files:** Import GPX and Import ZWO are on the **Profile** tab, under "Your files". Imports are saved in this browser and listed there with Remove.
 

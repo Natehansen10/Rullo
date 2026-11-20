@@ -1,0 +1,11 @@
+<workout_file>
+  <author>The Workout Generator</author>
+  <name>Red Line</name>
+  <description>1 effort block peaking at 93% in 30 minutes. Control your breathing and stay mentally locked in. This pushes your lactate threshold higher so you can ride harder for longer. The effort that feels impossible today becomes manageable in four weeks.</description>
+  <sportType>bike</sportType>
+  <workout>
+    <Warmup Duration="600" PowerLow="0.45" PowerHigh="0.70"/>
+    <SteadyState Duration="960" Power="0.93"/>
+    <Cooldown Duration="240" PowerLow="0.40" PowerHigh="0.55"/>
+  </workout>
+</workout_file>
