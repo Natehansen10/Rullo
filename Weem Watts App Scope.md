@@ -86,7 +86,7 @@ Split into three releases, each rideable on its own.
 - Each interval is a lap in the FIT file
 - Decision reversed (Nov 20, 2026): a workout can now run on a course. A course is where you ride (elevation, speed, distance); a workout is what the trainer does (power targets). Pick one of each, or neither. With both, the workout drives ERG and the course drives speed, distance and the profile; the FIT is a virtual ride with altitude and one lap per interval
 - Decisions (Nov 19, 2026): ~~free rides only (targets on a course are v3.3)~~; step buttons change overall intensity (50 to 150%); ramp test instead of a 20-minute test, with a one-tap "Set FTP"; when the workout ends ERG holds the cool-down watts until End Ride
-- **Cut:** drag-and-drop builder (stretch feature); step-list editor (moved to Later, ZWO import covers custom workouts); TSS, IF and automatic zones
+- **Cut:** drag-and-drop builder (stretch feature); step-list editor (moved to Later, then built Nov 20, 2026: see Workout builder below); TSS, IF and automatic zones
 - **Done when:** ride Sweet Spot 3x12 on the Kickr with ERG changing at each interval, finish a ramp test and set FTP from it, and see one lap per interval in the FIT on Strava
 
 #### v3.3: Race plan on a course
@@ -106,9 +106,15 @@ Since Nov 20, 2026 a workout can run on a course, so the race plan becomes a wor
 - Descents use calculated speed, since the Core 2 can't simulate downhill
 - No app-side gearing needed: the Kickr has a regular cassette, so shifting works normally in SIM mode
 
-### Later: Workout step-list editor
+### Workout builder (built Nov 20, 2026; ride test pending)
 
-Moved out of v3.2 on Nov 19, 2026. ZWO import covers custom workouts for now; build the editor if writing ZWO files gets old.
+Moved out of "Later" on Nov 20, 2026 at Nate's request, ahead of the v3.2 ride test. A step-list editor with cadence cues; decisions and cuts are in `docs/workout-builder.md`.
+
+- Build a workout from nothing, or from a copy of any workout: steady, ramp and repeat steps, time, target in % FTP or watts, cadence cue, label, name, difficulty
+- Saved in the browser as the app's own step list; listed in step 2 of the Workout tab and under "Your files" on the Profile tab
+- Cadence is a cue for the rider (workout row and Cadence tile); ZWO import now reads it. The trainer never gets it
+- **Cut:** ZWO export, free-ride steps, timed text cues, TSS / IF, text syntax, drag graph
+- **Done when:** build a workout by keyboard, ride it on the Kickr with ERG changing at each step, and see one lap per interval in the FIT
 
 ### Later: Strava auto-upload
 

@@ -1,6 +1,6 @@
 # Weem Watts
 
-A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, runs structured workouts in ERG (built-ins or imported ZWO files), saves every second to the browser, and exports a FIT file.
+A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, runs structured workouts in ERG (built-ins, imported ZWO files, or ones you build in the app), saves every second to the browser, and exports a FIT file.
 
 **Live:** https://weem-watts.vercel.app
 
@@ -57,7 +57,22 @@ The mode is picked for you and you can always switch it on the Ride tab (or pres
 
 Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/`: FRNKLN - January 6, five 15-minute rides (Quick 15: Recovery Flush, Zone 2 Spin, Ironman Race Pace, Tempo Bursts, Sweet Spot Hit), five 30-minute rides (Easy Street, No Retreat, Iron Will, Red Line, The Caldron), five 45-minute rides (The Road Home, The Grinder, Test of Will, The Crucible Ring, Grit Test), five easy rides (Long Haul III, The Causeway IV, The Levee IV, The Long Road V, Coastal Cruise V), five medium (The Forge IV, Sweat Factory V, Copper Wire IV, Over the Top V, The Rolling Mill V) and five hard (Hour of Power V, The Heat V, The Smelting Pot IV, The Millstone V, Critical Mass IV).
 
-**Your own files:** Import GPX and Import ZWO are on the **Profile** tab, under "Your files". Imports are saved in this browser and listed there with Remove.
+**Your own files:** Import GPX, Import ZWO and **New workout** are on the **Profile** tab, under "Your files". Imports and the workouts you build are saved in this browser and listed there.
+
+### Build a workout
+
+Press **New workout** (step 2 of the Workout tab, or Profile), or open any workout and press **Edit a copy** to start from it.
+
+- One row per step: **Steady** or **Ramp**, a time, a target, an optional cadence and label. **Add repeat** makes a block of steps that runs several times.
+- Time: `12` is minutes; `12:00`, `90s` and `1h30` also work. Target: `90` is % of FTP and follows your FTP; `225w` is watts and stays fixed. Each row shows what the target comes to at your current FTP.
+- Reorder with ↑ ↓, **Copy** and **Delete** on each row. Keys: **Alt + ↑ / ↓** moves the row, **Ctrl + D** duplicates it.
+- The strip and total time update as you type. Pick a difficulty so the filters find it; the Length filter works on its own.
+- **Save** takes you back to step 2 with the workout selected. An unsaved draft survives a reload.
+- **Cadence** is a cue for you. The Ride tab shows it in the workout row and the Cadence tile ("target 90 rpm"); the trainer holds the power either way. Imported ZWO files keep their cadence targets.
+- Limits are the same as for imported files: 6 hours, 2,000 intervals, 500% or 2,500 W.
+- Custom workouts live in this browser only. Clearing site data deletes them; there is no export yet.
+
+Details and decisions: `docs/workout-builder.md`.
 
 To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`. An optional `"tag"` of `easy`, `medium` or `hard` puts it under that Difficulty filter.
 
@@ -138,6 +153,8 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
 | `src/lib/fit.ts` | FIT file writer: records, one lap per workout interval, timer stop / start events around pauses |
 | `src/lib/wakeLock.ts` | Keeps the screen on while riding |
+| `src/lib/customWorkouts.ts` | Workouts built in the app: stored step lists, cleaned and validated on load |
+| `src/lib/workoutDraft.ts` | The workout builder's draft: field parsing, checks, kept in the browser |
 
 Speed comes from power on a flat road, not from the trainer, so it reads the same in any gear. Set your weights and position in **Profile**.
 
