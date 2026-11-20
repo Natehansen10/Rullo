@@ -599,7 +599,10 @@ export class RideController {
 
   private async initWorkouts() {
     try {
-      this.workouts = await loadWorkouts(this.fake)
+      const loaded = await loadWorkouts(this.fake)
+      // Anything imported or saved while the list was loading is newer than what was read: keep it.
+      const mine = new Map(this.workouts.map((w) => [w.id, w]))
+      this.workouts = [...loaded.map((w) => mine.get(w.id) ?? w), ...this.workouts.filter((w) => !loaded.some((l) => l.id === w.id))]
     } catch (err) {
       console.error('Workouts failed to load:', err)
     }
