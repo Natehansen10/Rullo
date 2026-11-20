@@ -62,15 +62,16 @@ const TABS = [
 
 function controlStatus(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
-  if (s.workout && !erg && s.controlState !== 'unsupported') return 'Workout targets are off in Resistance. Press E for ERG.'
+  const started = !!s.workout?.started
+  if (started && !erg && s.controlState !== 'unsupported') return 'Workout targets are off in Resistance. Press E for ERG.'
   if (erg && s.ergUnsupported) return "This trainer doesn't support ERG. Using your resistance level."
   if (!erg && s.controlState === 'unsupported') return "This trainer doesn't accept resistance control"
   if (s.controlState === 'failed') return "Trainer didn't take the change. Tap again."
   if (s.connection.kind !== 'connected' || s.phase === 'ended') {
-    return erg && !s.workout ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
+    return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
   }
   if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
-  if (erg && s.workout) return 'Intensity, every target'
+  if (erg && started) return 'Intensity, every target'
   if (erg) return `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP`
   if (s.controlState === 'sending') return 'Setting'
   return null
@@ -100,7 +101,7 @@ export default function App() {
       if (e.metaKey || e.ctrlKey || e.altKey || !isRoute('ride')) return
       const snap = ride.getSnapshot()
       const erg = snap.mode === 'erg'
-      const workout = erg && snap.workout !== null
+      const workout = erg && !!snap.workout?.started
       const step = workout ? ride.stepIntensity : erg ? ride.stepErg : ride.stepResistance
       const [small, mid, large] = workout ? INTENSITY_STEPS_PCT : erg ? ERG_STEPS_W : RESISTANCE_STEPS_PCT
       const arrow = e.shiftKey ? large : small
@@ -311,11 +312,12 @@ export default function App() {
                 dim={s.phase === 'riding' ? s.stale : true}
                 canSkip={s.phase === 'riding'}
                 onSkip={ride.skipInterval}
+                onStart={ride.startWorkout}
                 onApplyFtp={ride.applyTestFtp}
                 className="border-t border-line p-6 xl:col-span-2"
               />
             )}
-            {s.mode === 'erg' && s.workout && !s.ergUnsupported ? (
+            {s.mode === 'erg' && s.workout?.started && !s.ergUnsupported ? (
               <Stepper
                 label={modeSwitch}
                 value={String(s.workout.intensityPct)}

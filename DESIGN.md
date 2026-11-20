@@ -102,7 +102,7 @@ For workout blocks and zone codes (v3.2). Each meets 3:1 on `surface`. Z2 is gra
 | `CoursePicker` | Free ride or a course (radio rows), Import GPX, and the start-mile input. |
 | `WorkoutPicker` | No workout or a workout (radio rows), Import ZWO, and a strip preview of the selection (`ww-strip-preview`, 64px). |
 | `WorkoutStrip` | Every interval as a block: width is duration, height is % FTP, fill is the zone token (`z1` to `z7`), ramps sloped, `surface` hairlines between blocks. Each block is labeled with its watts after intensity (ramps as start→end) in mono `fg-muted` above it, when the block is wide enough. The part done is washed with `surface` at 60%; a Cobalt line marks the position. |
-| `WorkoutRow` | Ride panel row for a workout: name, interval (label, n of N), target (W and %), interval left, next target (or best minute in a ramp test), workout left, Skip interval / End test, then the strip at `ww-profile` height. |
+| `WorkoutRow` | Ride panel row for a workout: name, interval (label, n of N), target (W and %), interval left, next target (or best minute in a ramp test), workout left, then the strip at `ww-profile` height. Before it starts: `Start workout` (primary, disabled with "Connect to start" until connected). After: Skip interval / End test. |
 | `Stat` | Small live number with its label (`ww-num-sm`), for the course and workout rows. |
 | `Stepper` | Its label slot can hold a control: the control row puts the Resistance / ERG SegmentedControl there. Value flanked by direct step buttons (largest step outside: -10 -5 -1 value +1 +5 +10), 48px tall, for adjusting from the saddle. Status text after, key hint in mono on the right. |
 

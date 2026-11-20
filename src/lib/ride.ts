@@ -148,6 +148,10 @@ export interface WorkoutLive {
   nextTargetW: number | null
   nextLabel: string | null
   done: boolean
+  /** The rider pressed Start workout. Before that the ride is a free ride. */
+  started: boolean
+  /** Start workout is available: connected, not started yet. */
+  canStart: boolean
   intensityPct: number
   rampTest: RampTestLive | null
 }
@@ -245,6 +249,7 @@ export class RideController {
   private intervals: Interval[] = []
   /** Seconds into the workout. Advances with live data only, from timestamps. */
   private workoutS = 0
+  private workoutStarted = false
   private intensityPct = 100
   private lastWorkoutW: number | null = null
   private testEnded = false
@@ -348,14 +353,19 @@ export class RideController {
 
   // --- workout player ---
 
-  /** Workout target in watts right now, after intensity. Null with no workout. */
-  private workoutTargetW(): number | null {
+  /** Planned workout target right now, after intensity, started or not. */
+  private plannedW(): number | null {
     if (!this.workout) return null
     const base = wattsAt(this.intervals, this.workoutS, this.profile.ftpW)
     return Math.min(ERG_MAX_W, Math.max(ERG_MIN_W, Math.round((base * this.intensityPct) / 100)))
   }
 
-  /** The ERG target: the workout's when one is loaded, else the rider's own. */
+  /** Workout target the trainer should follow. Null until the workout is started. */
+  private workoutTargetW(): number | null {
+    return this.workoutStarted ? this.plannedW() : null
+  }
+
+  /** The ERG target: the workout's once started, else the rider's own. */
   private ergW(): number {
     return this.workoutTargetW() ?? this.ergTargetW
   }
@@ -369,7 +379,7 @@ export class RideController {
     const iv = this.intervals[index]
     const next = done ? null : (this.intervals[index + 1] ?? null)
     const ftp = this.profile.ftpW
-    const targetW = this.workoutTargetW() ?? 0
+    const targetW = this.plannedW() ?? 0
     const ftpEstimate = this.testBestW === null ? null : Math.round(this.testBestW * RAMP_TEST_FTP_SHARE)
     return {
       workout: w,
@@ -383,6 +393,8 @@ export class RideController {
       nextTargetW: next ? Math.round((targetWatts(next.from, ftp) * this.intensityPct) / 100) : null,
       nextLabel: next ? next.label : null,
       done,
+      started: this.workoutStarted,
+      canStart: !this.workoutStarted && (this.phase === 'ready' || this.phase === 'riding'),
       intensityPct: this.intensityPct,
       rampTest: w.rampTest
         ? { ended: this.testEnded, bestW: this.testBestW, ftpW: this.testEnded ? ftpEstimate : null, applied: this.testApplied }
@@ -398,7 +410,7 @@ export class RideController {
   }
 
   private advanceWorkout(dtS: number, t: number, powerW: number) {
-    if (!this.workout) return
+    if (!this.workout || !this.workoutStarted) return
     const total = totalS(this.intervals)
     this.workoutS = Math.min(total, this.workoutS + dtS)
     const test = this.workout.rampTest
@@ -437,8 +449,19 @@ export class RideController {
   }
 
   /** Jump to the next interval. In a ramp test's ramp, this ends the test. */
+  /** Start the loaded workout: the clock starts and ERG follows it. */
+  startWorkout = () => {
+    if (!this.workout || this.workoutStarted) return
+    if (this.phase !== 'ready' && this.phase !== 'riding') return
+    this.workoutStarted = true
+    this.lastWorkoutW = null
+    if (this.mode !== 'erg') this.setMode('erg')
+    else this.syncWorkoutTarget()
+    this.emit()
+  }
+
   skipInterval = () => {
-    if (!this.workout || this.phase !== 'riding') return
+    if (!this.workout || !this.workoutStarted || this.phase !== 'riding') return
     if (this.inRamp()) {
       this.endRampTest()
     } else {
@@ -473,6 +496,7 @@ export class RideController {
 
   private resetWorkoutRun() {
     this.workoutS = 0
+    this.workoutStarted = false
     this.intensityPct = 100
     this.lastWorkoutW = null
     this.testEnded = false
@@ -637,7 +661,6 @@ export class RideController {
     this.speed.reset()
     this.lastRecordedSec = -1
     this.climbedM = 0
-    this.resetWorkoutRun()
     this.rideId = recorder.startRide(t, this.course?.id, this.course ? this.startOffsetM : undefined, this.workout?.id)
   }
 
@@ -655,7 +678,7 @@ export class RideController {
       ...(this.course
         ? { courseM: this.positionM(), altitudeM: elevationAt(this.course, this.positionM()) }
         : {}),
-      ...(this.workout
+      ...(this.workout && this.workoutStarted
         ? { lap: indexAt(this.intervals, Math.min(this.workoutS, totalS(this.intervals) - 0.001)), workoutS: this.workoutS }
         : {}),
     }
@@ -960,6 +983,7 @@ export class RideController {
         this.workout = w
         this.intervals = flatten(w)
         this.workoutS = rec.last.workoutS ?? 0
+        this.workoutStarted = rec.last.workoutS !== undefined
         if (w.rampTest && this.workoutS >= this.intervals[this.intervals.length - 1].startS) this.testEnded = true
       } else {
         this.notice = 'That ride\'s workout is no longer available. Continuing without it.'

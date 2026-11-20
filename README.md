@@ -41,7 +41,7 @@ Open the **Workout** tab before connecting and pick a course or a workout (picki
 
 To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`.
 
-- Picking a workout switches to ERG, and the trainer follows each interval. Workouts are for free rides (no course).
+- A picked workout loads on the Ride tab but doesn't start on its own. Connect, warm up as long as you like (a free ride: your own ERG target or resistance), then press **Start workout**. That switches to ERG and the trainer follows each interval. Workouts are for free rides (no course).
 - In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.
 - **Skip interval** jumps ahead. In the ramp test, dropping below 50 rpm (or **End test**) ends the test, starts the cool-down and offers **Set FTP**.
 - When the workout ends, ERG holds the cool-down watts until you press End Ride.

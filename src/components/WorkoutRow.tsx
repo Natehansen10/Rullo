@@ -10,6 +10,7 @@ interface WorkoutRowProps {
   dim?: boolean
   canSkip: boolean
   onSkip: () => void
+  onStart: () => void
   onApplyFtp: () => void
   className?: string
 }
@@ -23,7 +24,7 @@ export function formatClock(s: number): string {
 }
 
 /** Workout progress in the ride panel: interval stats over a strip of every interval. */
-export function WorkoutRow({ live, ftpW, dim = false, canSkip, onSkip, onApplyFtp, className = '' }: WorkoutRowProps) {
+export function WorkoutRow({ live, ftpW, dim = false, canSkip, onSkip, onStart, onApplyFtp, className = '' }: WorkoutRowProps) {
   const iv = live.intervals[live.index]
   const test = live.rampTest
   const inRamp = !!test && !test.ended && live.index > 0
@@ -62,7 +63,15 @@ export function WorkoutRow({ live, ftpW, dim = false, canSkip, onSkip, onApplyFt
               )}
             </>
           )}
-          {!live.done && (
+          {!live.started && (
+            <>
+              {!live.canStart && <span className="text-fg-muted">Connect to start</span>}
+              <Button variant="primary" onClick={onStart} disabled={!live.canStart}>
+                Start workout
+              </Button>
+            </>
+          )}
+          {live.started && !live.done && (
             <Button onClick={onSkip} disabled={!canSkip}>
               {inRamp ? 'End test' : 'Skip interval'}
             </Button>

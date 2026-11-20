@@ -82,6 +82,7 @@ Split into three releases, each rideable on its own.
 - Built-in workouts: Endurance 60, Sweet Spot 3x12, VO2 5x3, Ramp FTP test, plus Nate's ZWO files in `public/workouts/`; ZWO import saved in the browser
 - Workout screen: current interval, time left, next target, strip of all intervals labeled with their watts. ERG follows the workout
 - Course and workout picking (and GPX / ZWO import) live on their own Workout tab; the Ride tab is live data only
+- A picked workout loads on the Ride tab and waits for Start workout; riding before that is a free ride and its own lap
 - Each interval is a lap in the FIT file
 - Decisions (Nov 19, 2026): free rides only (targets on a course are v3.3); step buttons change overall intensity (50 to 150%); ramp test instead of a 20-minute test, with a one-tap "Set FTP"; when the workout ends ERG holds the cool-down watts until End Ride
 - **Cut:** drag-and-drop builder (stretch feature); step-list editor (moved to Later, ZWO import covers custom workouts); TSS, IF and automatic zones
