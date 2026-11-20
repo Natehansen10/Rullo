@@ -47,8 +47,8 @@ export const DEFAULT_SMOOTHING: SmoothingSeconds = 3
 export const RESISTANCE_STEPS_PCT = [1, 5, 10] as const
 export const DEFAULT_RESISTANCE_PCT = 20
 
-/** ERG mode: target watts. Steps: arrows 5, + / - 10, Shift+arrows 25. */
-export const ERG_STEPS_W = [5, 10, 25] as const
+/** ERG mode: target watts. Steps: arrows 1, + / - 5, Shift+arrows 10. */
+export const ERG_STEPS_W = [1, 5, 10] as const
 export const ERG_MIN_W = 25
 export const ERG_MAX_W = 1500
 /** First-time ERG target, as a share of FTP. */

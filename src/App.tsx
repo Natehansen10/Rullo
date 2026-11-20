@@ -95,7 +95,7 @@ export default function App() {
   const route = useRoute()
 
   // From the saddle. Resistance: arrows 1%, + / - 5%, Shift+arrows 10%.
-  // ERG: arrows 5 W, + / - 10 W, Shift+arrows 25 W. Workout in ERG: intensity 1 / 5 / 10%. E switches mode.
+  // ERG: arrows 1 W, + / - 5 W, Shift+arrows 10 W. Workout in ERG: intensity 1 / 5 / 10%. E switches mode.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || !isRoute('ride')) return
@@ -343,7 +343,7 @@ export default function App() {
                 atMin={s.ergTargetW <= ERG_MIN_W}
                 atMax={s.ergTargetW >= ERG_MAX_W}
                 status={controlStatus(s)}
-                hint="↑↓ 5 W  ·  +/− 10 W  ·  shift ↑↓ 25 W  ·  E mode"
+                hint="↑↓ 1 W  ·  +/− 5 W  ·  shift ↑↓ 10 W  ·  E mode"
                 className="border-t border-line p-6 xl:col-span-2"
               />
             ) : (

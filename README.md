@@ -55,7 +55,7 @@ Open the **Profile** tab (`#/profile`) and set rider weight, bike weight, FTP, a
 
 Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG you set a target in watts and the Kickr holds it at any cadence or gear.
 
-- Step buttons: -25 / -10 / -5 and +5 / +10 / +25 W. Keys: **Arrow Up / Down** 5 W, **+ / -** 10 W, **Shift + Arrow** 25 W.
+- Step buttons: -10 / -5 / -1 and +1 / +5 / +10 W. Keys: **Arrow Up / Down** 1 W, **+ / -** 5 W, **Shift + Arrow** 10 W.
 - The target also shows as % of your FTP.
 - **Low-cadence release:** below 50 rpm for 3 seconds, ERG lets go so you can spin back up. It re-engages at 60 rpm. A ride in ERG starts released until you reach 60 rpm.
 - Mode and target are remembered between rides and re-sent after a reconnect.
