@@ -198,13 +198,13 @@ export interface RideSnapshot {
   canEditProfile: boolean
   courses: CourseOption[]
   coursesLoaded: boolean
-  /** Selected course, or null for a free ride. */
+  /** Selected course (where the ride goes), or null for a flat road. */
   course: CourseLive | null
   /** Course or workout selection and start mile can change only before a ride starts. */
   canChooseCourse: boolean
   workouts: WorkoutOption[]
   workoutsLoaded: boolean
-  /** Selected workout (free rides only), or null. */
+  /** Selected workout (what the trainer does), or null. Independent of the course. */
   workout: WorkoutLive | null
 }
 
@@ -567,7 +567,7 @@ export class RideController {
     }))
   }
 
-  /** Pick a workout (free rides only; clears the course), or null for none. Switches to ERG. */
+  /** Pick a workout, or null for none. Independent of the course. Switches to ERG. */
   selectWorkout = (id: string | null) => {
     if (!this.canChoose()) return
     const w = id ? (this.workouts.find((x) => x.id === id) ?? null) : null
@@ -575,13 +575,7 @@ export class RideController {
     this.intervals = w ? flatten(w) : []
     this.resetWorkoutRun()
     storageSet(WORKOUT_KEY, w?.id ?? null)
-    if (w) {
-      this.course = null
-      this.startOffsetM = 0
-      this.lastEndM = null
-      storageSet(COURSE_KEY, null)
-      this.setMode('erg')
-    }
+    if (w) this.setMode('erg')
     this.emit()
   }
 
@@ -1121,7 +1115,7 @@ export class RideController {
     return this.phase === 'idle' && this.rideId === null
   }
 
-  /** Pick a course (or null for a free ride). Start defaults to where the last ride on it ended. */
+  /** Pick a course (or null for a flat road). Independent of the workout. Start defaults to where the last ride on it ended. */
   selectCourse = async (id: string | null) => {
     if (!this.canChoose()) return
     const c = id ? (this.courses.find((x) => x.id === id) ?? null) : null
@@ -1129,12 +1123,6 @@ export class RideController {
     this.startOffsetM = 0
     this.lastEndM = null
     storageSet(COURSE_KEY, c?.id ?? null)
-    if (c && this.workout) {
-      this.workout = null
-      this.intervals = []
-      this.resetWorkoutRun()
-      storageSet(WORKOUT_KEY, null)
-    }
     this.emit()
     if (!c) return
     try {

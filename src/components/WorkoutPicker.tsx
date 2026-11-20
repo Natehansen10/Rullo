@@ -21,13 +21,16 @@ interface WorkoutPickerProps {
   onRemove: (id: string) => void
 }
 
-/** No workout or one workout, plus Import ZWO and a strip preview of the selection. */
+/** What the trainer does: no workout or one workout, plus Import ZWO and a strip preview. The other half of the setup panel. */
 export function WorkoutPicker({ workouts, loaded, selected, ftpW, onSelect, onImport, onRemove }: WorkoutPickerProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   return (
-    <section aria-label="Choose a workout" className="rounded-lg border border-line bg-surface">
+    <section aria-label="What: choose a workout" className="min-w-0">
       <div className="flex items-center justify-between gap-4 px-6 py-4">
-        <span className="ww-label">Workout</span>
+        <div className="flex flex-col gap-1">
+          <h2 className="font-semibold text-fg">What</h2>
+          <span className="text-fg-muted">The workout sets power targets in ERG.</span>
+        </div>
         <Button onClick={() => fileRef.current?.click()}>Import ZWO</Button>
         <input
           ref={fileRef}
@@ -42,7 +45,7 @@ export function WorkoutPicker({ workouts, loaded, selected, ftpW, onSelect, onIm
         />
       </div>
       <div role="radiogroup" aria-label="Workout">
-        <PickerRow checked={!selected} onClick={() => onSelect(null)} title="No workout" meta="ERG or resistance by hand" />
+        <PickerRow checked={!selected} onClick={() => onSelect(null)} title="No workout" meta="your own resistance or ERG target" />
         {!loaded && <div className="border-t border-line px-6 py-3 text-fg-subtle">Loading workouts</div>}
         {workouts.map((w) => (
           <PickerRow

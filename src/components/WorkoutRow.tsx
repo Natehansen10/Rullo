@@ -12,6 +12,8 @@ interface WorkoutRowProps {
   onSkip: () => void
   onStart: () => void
   onApplyFtp: () => void
+  /** Shown together with a course: stats on one line and a shorter strip. */
+  compact?: boolean
   className?: string
 }
 
@@ -24,36 +26,62 @@ export function formatClock(s: number): string {
 }
 
 /** Workout progress in the ride panel: interval stats over a strip of every interval. */
-export function WorkoutRow({ live, ftpW, dim = false, canSkip, onSkip, onStart, onApplyFtp, className = '' }: WorkoutRowProps) {
+export function WorkoutRow({
+  live,
+  ftpW,
+  dim = false,
+  canSkip,
+  onSkip,
+  onStart,
+  onApplyFtp,
+  compact = false,
+  className = '',
+}: WorkoutRowProps) {
   const iv = live.intervals[live.index]
   const test = live.rampTest
   const inRamp = !!test && !test.ended && live.index > 0
+  /** Compact row after a ramp test: the FTP estimate takes the place of two stats so the row stays on one line. */
+  const estimateShown = compact && !!test?.ended && test.ftpW !== null
   return (
-    <div className={`flex flex-col gap-3 ${className}`}>
-      <div className="flex flex-wrap items-end gap-8">
-        <div className="flex flex-col gap-2">
+    <div className={`flex flex-col ${compact ? 'gap-2' : 'gap-3'} ${className}`}>
+      {/* Compact: one line at desktop width. The name gives way (truncates) before anything wraps. */}
+      <div className={`flex flex-wrap gap-y-2 ${compact ? 'items-center gap-x-6 xl:flex-nowrap' : 'items-end gap-x-8'}`}>
+        <div className={`flex min-w-0 ${compact ? 'items-baseline gap-2' : 'flex-col gap-2'}`}>
           <span className="ww-label">Workout</span>
-          <span className="text-title font-semibold whitespace-nowrap text-fg">{live.workout.name}</span>
+          <span className="truncate text-title font-semibold text-fg">{live.workout.name}</span>
         </div>
         <Stat
           label={iv.label || 'Interval'}
           value={`${live.index + 1}`}
           unit={`of ${live.intervals.length}`}
           dim={dim}
+          inline={compact}
         />
-        <Stat label="Target" value={String(live.targetW)} unit={`W · ${Math.round(live.targetPct)}%`} dim={dim} />
-        <Stat label={inRamp ? 'Step left' : 'Interval left'} value={formatClock(live.intervalLeftS)} dim={dim} />
-        {test ? (
-          <Stat label="Best minute" value={test.bestW === null ? '--' : String(test.bestW)} unit="W" dim={dim} />
+        <Stat label="Target" value={String(live.targetW)} unit={`W · ${Math.round(live.targetPct)}%`} dim={dim} inline={compact} />
+        <Stat
+          label={compact ? 'Left' : inRamp ? 'Step left' : 'Interval left'}
+          value={formatClock(live.intervalLeftS)}
+          dim={dim}
+          inline={compact}
+        />
+        {estimateShown ? null : test ? (
+          <Stat label={compact ? 'Best min' : 'Best minute'} value={test.bestW === null ? '--' : String(test.bestW)} unit="W" dim={dim} inline={compact} />
         ) : (
-          <Stat label="Next" value={live.nextTargetW === null ? '--' : String(live.nextTargetW)} unit="W" dim={dim} />
+          <Stat label="Next" value={live.nextTargetW === null ? '--' : String(live.nextTargetW)} unit="W" dim={dim} inline={compact} />
         )}
-        <Stat label="Workout left" value={formatClock(live.totalS - live.elapsedS)} dim={dim} />
-        <div className="ml-auto flex items-center gap-3">
+        {!estimateShown && (
+          <Stat
+            label={compact ? 'Total left' : 'Workout left'}
+            value={formatClock(live.totalS - live.elapsedS)}
+            dim={dim}
+            inline={compact}
+          />
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-3">
           {live.done && <span className="ww-label text-state-on">Workout complete</span>}
           {test?.ended && test.ftpW !== null && (
             <>
-              <span className="text-fg">
+              <span className="whitespace-nowrap text-fg">
                 FTP estimate <span className="font-semibold">{test.ftpW} W</span>
               </span>
               {test.applied || test.ftpW === ftpW ? (
@@ -65,7 +93,7 @@ export function WorkoutRow({ live, ftpW, dim = false, canSkip, onSkip, onStart, 
           )}
           {!live.started && (
             <>
-              {!live.canStart && <span className="text-fg-muted">Connect to start</span>}
+              {!live.canStart && <span className="whitespace-nowrap text-fg-muted">Connect to start</span>}
               <Button variant="primary" onClick={onStart} disabled={!live.canStart}>
                 Start workout
               </Button>
@@ -84,7 +112,7 @@ export function WorkoutRow({ live, ftpW, dim = false, canSkip, onSkip, onStart, 
         totalS={live.totalS}
         elapsedS={live.elapsedS}
         intensityPct={live.intensityPct}
-        heightClass="ww-profile"
+        heightClass={compact ? 'ww-strip-compact' : 'ww-profile'}
       />
       <span className="sr-only">
         Interval {live.index + 1} of {live.intervals.length}, target {live.targetW} watts,{' '}

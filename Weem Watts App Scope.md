@@ -84,11 +84,14 @@ Split into three releases, each rideable on its own.
 - Course and workout picking (and GPX / ZWO import) live on their own Workout tab; the Ride tab is live data only
 - A picked workout loads on the Ride tab and waits for Start workout; riding before that is a free ride and its own lap
 - Each interval is a lap in the FIT file
-- Decisions (Nov 19, 2026): free rides only (targets on a course are v3.3); step buttons change overall intensity (50 to 150%); ramp test instead of a 20-minute test, with a one-tap "Set FTP"; when the workout ends ERG holds the cool-down watts until End Ride
+- Decision reversed (Nov 20, 2026): a workout can now run on a course. A course is where you ride (elevation, speed, distance); a workout is what the trainer does (power targets). Pick one of each, or neither. With both, the workout drives ERG and the course drives speed, distance and the profile; the FIT is a virtual ride with altitude and one lap per interval
+- Decisions (Nov 19, 2026): ~~free rides only (targets on a course are v3.3)~~; step buttons change overall intensity (50 to 150%); ramp test instead of a 20-minute test, with a one-tap "Set FTP"; when the workout ends ERG holds the cool-down watts until End Ride
 - **Cut:** drag-and-drop builder (stretch feature); step-list editor (moved to Later, ZWO import covers custom workouts); TSS, IF and automatic zones
 - **Done when:** ride Sweet Spot 3x12 on the Kickr with ERG changing at each interval, finish a ramp test and set FTP from it, and see one lap per interval in the FIT on Strava
 
 #### v3.3: Race plan on a course
+
+Since Nov 20, 2026 a workout can run on a course, so the race plan becomes a workout generated from the course (one interval per section) instead of a separate player.
 
 - Course auto-split into climbs, flats and descents, each with an editable target (% FTP or watts)
 - ERG on the course follows the plan for the current section

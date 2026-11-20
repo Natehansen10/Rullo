@@ -115,6 +115,13 @@
   .ww-strip-preview {
     height: var(--ww-strip-preview-height);
   }
+  /* Course and workout rows together: both shrink so the control row stays on screen. */
+  .ww-profile-compact {
+    height: var(--ww-profile-compact-height);
+  }
+  .ww-strip-compact {
+    height: var(--ww-strip-compact-height);
+  }
   .ww-num-control {
     font-size: var(--ww-num-control);
     min-width: 4.5ch;

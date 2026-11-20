@@ -168,3 +168,20 @@ Courses: climbs still slow the rider and descents still speed them up while peda
 4. **FTP may be set high.** The app default is 220 W, so 180 W is 82% of FTP, tempo. If true FTP is nearer 200 W, 180 W is 90%, which is hard to hold for long. The ramp test will settle it.
 
 **Test on the next ride:** after the spindown, ride 5 minutes at 150 W in ERG and see whether it feels like the same effort as before.
+
+## Part 7: Course and workout together
+
+**Chose:**
+
+- Picking a course no longer clears the workout, or the other way round. Both are remembered between rides.
+- With both: the workout drives ERG, the course drives speed, distance and the profile. Crash recovery restores both (tested: reload mid-interval, Resume, the workout clock and course position carry on). The FIT is a virtual ride with altitude and one lap per interval (tested: 4 laps, lap totals equal session totals).
+- **Workout tab is one panel.** The top line is the setup ("Test Hills · Test Intervals", with distance and duration in mono). Below it are two halves, "Where" and "What", each with one line saying what it controls. The course list's first row is now "Flat road" (it was "Free ride"); "Free ride" now means neither a course nor a workout.
+- **Ride tab with both rows:** each row goes compact. Labels sit beside the numbers on one line, the profile is 48 px tall and the strip 56 px. Workout labels shorten ("Left", "Total left"). The numbers stay 28 px.
+- The workout name truncates before anything wraps. After a ramp test the FTP estimate replaces "Best min" and "Total left" in the compact row so it stays on one line.
+- **Fit at 1280x720.** Before this work a course ride was already 86 px too tall at 1280x720 and a workout ride 58 px (the control row was off screen). Now every ride type fits: with a course or workout row, tiles and the control row use 16 px vertical padding, and the ride page's outer padding went from 24 to 16 px.
+- Idle status text shortened ("66% FTP · on connect", "Applies on connect") because the longer text wrapped the key hint onto a second line.
+- If the course ends before the workout, the rider carries on along a flat road and the workout keeps going. If the workout ends first, ERG holds the cool-down watts. Both as before.
+
+**Measured at 1280x720 (page height must be 720 or less):** free ride 720, course 720, workout 720, course + workout 720, course + ramp test after End test 720, course + a 58-interval workout 720, not connected with both picked 720.
+
+**Not handled:** a notice above the panel (crash recovery, trainer lost) still pushes the control row down while it shows.

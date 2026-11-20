@@ -8,6 +8,8 @@ interface ElevationProfileProps {
   live: CourseLive
   /** Gray the stats out when data is stale or the ride is not live. */
   dim?: boolean
+  /** Shown together with a workout: stats on one line and a shorter profile. */
+  compact?: boolean
   className?: string
 }
 
@@ -21,7 +23,7 @@ function niceTickMi(lengthMi: number): number {
 }
 
 /** Course elevation profile. Cobalt marks the part ridden this ride and the current position. */
-export function ElevationProfile({ live, dim = false, className = '' }: ElevationProfileProps) {
+export function ElevationProfile({ live, dim = false, compact = false, className = '' }: ElevationProfileProps) {
   const { course } = live
   const boxRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(800)
@@ -33,7 +35,7 @@ export function ElevationProfile({ live, dim = false, className = '' }: Elevatio
     if (!el) return
     const ro = new ResizeObserver(([entry]) => {
       setWidth(Math.max(100, entry.contentRect.width))
-      setHeight(Math.max(60, entry.contentRect.height))
+      setHeight(Math.max(32, entry.contentRect.height))
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -71,19 +73,19 @@ export function ElevationProfile({ live, dim = false, className = '' }: Elevatio
   for (let t = 0; t <= lengthMi + 1e-6; t += tick) ticks.push(t)
 
   return (
-    <div className={`flex flex-col gap-3 ${className}`}>
-      <div className="flex flex-wrap items-end gap-8">
-        <div className="flex flex-col gap-2">
+    <div className={`flex flex-col ${compact ? 'gap-2' : 'gap-3'} ${className}`}>
+      <div className={`flex flex-wrap gap-y-2 ${compact ? 'items-baseline gap-x-6' : 'items-end gap-x-8'}`}>
+        <div className={`flex min-w-0 ${compact ? 'items-baseline gap-2' : 'flex-col gap-2'}`}>
           <span className="ww-label">Course</span>
-          <span className="text-title font-semibold text-fg">{course.name}</span>
+          <span className="truncate text-title font-semibold text-fg">{course.name}</span>
         </div>
-        <Stat label="Grade" value={live.gradePct.toFixed(1)} unit="%" dim={dim} />
-        <Stat label="Elevation" value={Math.round(live.elevationFt).toLocaleString()} unit="ft" dim={dim} />
-        <Stat label="Climbed" value={Math.round(live.climbedFt).toLocaleString()} unit="ft" dim={dim} />
-        <Stat label="To go" value={live.toGoMi.toFixed(1)} unit="mi" dim={dim} />
+        <Stat label="Grade" value={live.gradePct.toFixed(1)} unit="%" dim={dim} inline={compact} />
+        <Stat label="Elevation" value={Math.round(live.elevationFt).toLocaleString()} unit="ft" dim={dim} inline={compact} />
+        <Stat label="Climbed" value={Math.round(live.climbedFt).toLocaleString()} unit="ft" dim={dim} inline={compact} />
+        <Stat label="To go" value={live.toGoMi.toFixed(1)} unit="mi" dim={dim} inline={compact} />
         {live.finished && <span className="ww-label text-state-on">Course complete</span>}
       </div>
-      <div ref={boxRef} className="ww-profile relative">
+      <div ref={boxRef} className={`relative ${compact ? 'ww-profile-compact' : 'ww-profile'}`}>
         <svg width={width} height={height} className="absolute inset-0 block" aria-hidden>
           <defs>
             <clipPath id={clipId}>

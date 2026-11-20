@@ -52,6 +52,8 @@
   --ww-num-sm: 28px;
   --ww-profile-height: 104px;
   --ww-strip-preview-height: 64px;
+  --ww-profile-compact-height: 48px;
+  --ww-strip-compact-height: 56px;
   --ww-unit-scale: 0.4;
   --ww-label-size: 12px;
   --ww-label-weight: 500;

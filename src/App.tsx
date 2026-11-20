@@ -64,12 +64,12 @@ const TABS = [
 function controlStatus(s: RideSnapshot): string | null {
   const erg = s.mode === 'erg'
   const started = !!s.workout?.started
-  if (started && !erg && s.controlState !== 'unsupported') return 'Workout targets are off in Resistance. Press E for ERG.'
+  if (started && !erg && s.controlState !== 'unsupported') return 'Targets are off in Resistance. Press E.'
   if (erg && s.ergUnsupported) return "This trainer doesn't support ERG. Using your resistance level."
   if (!erg && s.controlState === 'unsupported') return "This trainer doesn't accept resistance control"
   if (s.controlState === 'failed' && s.phase === 'riding' && !s.paused && !(erg && s.ergReleased)) return "Trainer didn't take the change. Retrying."
   if (s.connection.kind !== 'connected' || s.phase === 'ended') {
-    return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · applies when connected` : 'Applies when connected'
+    return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · on connect` : 'Applies on connect'
   }
   if (s.paused) return 'Paused. Pedal to resume.'
   if (erg && s.ergReleased) return 'Released. Spin above 60 rpm to engage.'
@@ -126,6 +126,10 @@ export default function App() {
     return () => clearTimeout(t)
   }, [confirmEnd])
 
+  /** A course or workout row is showing: the tiles and control row tighten so everything fits 1280x720. */
+  const dense = !!(s.course || s.workout)
+  const both = !!(s.course && s.workout)
+  const pad = dense ? 'px-6 py-4' : 'p-6'
   const pill = status(s)
   const live = s.phase === 'ready' || s.phase === 'riding'
   const dimLive = !live || s.stale || s.paused
@@ -223,7 +227,7 @@ export default function App() {
           />
         </main>
       ) : (
-        <main className="flex flex-1 flex-col gap-6 px-8 py-6">
+        <main className="flex flex-1 flex-col gap-4 px-8 py-4">
           {!s.supported && (
             <Notice title="This browser can't connect to your trainer">
               Web Bluetooth is not available here. Open Weem Watts in Chrome or Edge on a desktop computer.
@@ -251,11 +255,7 @@ export default function App() {
           {s.notice && <Notice title={s.notice} />}
           <section
             aria-label="Live ride data"
-            className={`grid flex-1 grid-cols-1 rounded-lg border border-line bg-surface xl:grid-cols-2 ${
-              s.course || s.workout
-                ? 'grid-rows-[1fr_auto_auto_auto] xl:grid-rows-[1fr_auto_auto]'
-                : 'grid-rows-[1fr_auto_auto] xl:grid-rows-[1fr_auto]'
-            }`}
+            className="grid flex-1 auto-rows-auto grid-cols-1 grid-rows-[1fr] rounded-lg border border-line bg-surface xl:grid-cols-2"
           >
             <MetricTile
               size="hero"
@@ -263,7 +263,8 @@ export default function App() {
               value={power}
               unit="W"
               dim={dimLive || s.powerW === null}
-              className="border-b border-line p-6 xl:border-r xl:border-b-0"
+              dense={dense}
+              className={`border-b border-line xl:border-r xl:border-b-0 ${pad}`}
               action={
                 <SegmentedControl
                   label="Power smoothing"
@@ -280,34 +281,39 @@ export default function App() {
                 value={cadence}
                 unit="rpm"
                 dim={dimLive || s.cadenceRpm === null}
-                className="border-r border-b border-line p-6"
+                dense={dense}
+                className={`border-r border-b border-line ${pad}`}
               />
               <MetricTile
                 label="Speed"
                 value={speed}
                 unit="mph"
                 dim={dimLive || s.speedMph === null}
-                className="border-b border-line p-6"
+                dense={dense}
+                className={`border-b border-line ${pad}`}
               />
               <MetricTile
                 label="Distance"
                 value={s.distanceMi.toFixed(2)}
                 unit="mi"
                 dim={dimRide && s.phase !== 'ended'}
-                className="border-r border-line p-6"
+                dense={dense}
+                className={`border-r border-line ${pad}`}
               />
               <MetricTile
                 label="Time"
                 value={formatTime(s.elapsedMs)}
                 dim={dimRide && s.phase !== 'ended'}
-                className="p-6"
+                dense={dense}
+                className={pad}
               />
             </div>
             {s.course && (
               <ElevationProfile
                 live={s.course}
                 dim={dimRide}
-                className="border-t border-line p-6 xl:col-span-2"
+                compact={both}
+                className={`border-t border-line xl:col-span-2 ${both ? 'px-6 py-3' : pad}`}
               />
             )}
             {s.workout && (
@@ -319,7 +325,8 @@ export default function App() {
                 onSkip={ride.skipInterval}
                 onStart={ride.startWorkout}
                 onApplyFtp={ride.applyTestFtp}
-                className="border-t border-line p-6 xl:col-span-2"
+                compact={both}
+                className={`border-t border-line xl:col-span-2 ${both ? 'px-6 py-3' : pad}`}
               />
             )}
             {s.mode === 'erg' && s.workout?.started && !s.ergUnsupported ? (
@@ -334,7 +341,7 @@ export default function App() {
                 atMax={s.workout.intensityPct >= INTENSITY_MAX_PCT}
                 status={controlStatus(s)}
                 hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
-                className="border-t border-line p-6 xl:col-span-2"
+                className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             ) : s.mode === 'erg' ? (
               <Stepper
@@ -349,7 +356,7 @@ export default function App() {
                 atMax={s.ergTargetW >= ERG_MAX_W}
                 status={controlStatus(s)}
                 hint="↑↓ 1 W  ·  +/− 5 W  ·  shift ↑↓ 10 W  ·  E mode"
-                className="border-t border-line p-6 xl:col-span-2"
+                className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             ) : (
               <Stepper
@@ -364,7 +371,7 @@ export default function App() {
                 atMax={s.resistancePct >= 100}
                 status={controlStatus(s)}
                 hint="↑↓ 1%  ·  +/− 5%  ·  shift ↑↓ 10%  ·  E mode"
-                className="border-t border-line p-6 xl:col-span-2"
+                className={`border-t border-line xl:col-span-2 ${pad}`}
               />
             )}
           </section>

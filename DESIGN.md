@@ -81,9 +81,9 @@ For workout blocks and zone codes (v3.2). Each meets 3:1 on `surface`. Z2 is gra
 
 - **Top bar:** "Weem Watts" wordmark and the page tabs (Ride, Workout, Profile) left. StatusPill and the Connect / End Ride button right, on every page. Connect from another page jumps to Ride.
 - **Ride page (`#/`):** live data only: the ride panel, plus notices (recovery, errors). No pickers.
-- **Workout page (`#/workout`):** Course and Workout picker panels side by side (stacked under 1280px), each with its import button. Picking one clears the other. Locked from the first pedal stroke until New ride. Rows split by hairlines; the selected row is `raised`.
-- **One ride panel:** hero power tile on the left, 2x2 grid of cadence, speed, distance, time on the right, split by `line` hairlines. On a course, a full-width elevation profile row comes next; with a workout, the workout row takes that slot instead (never both). A full-width resistance row sits along the bottom. All rows are in the same panel, split by hairlines.
-- **Fit a laptop:** at 1280x720 the resistance row must stay on screen during a course or workout ride. Keep control status text short so the key hint stays on one line.
+- **Workout page (`#/workout`):** one setup panel. Its first row is the setup line: label (Next ride / Riding / Last ride), the setup name in title weight ("Test Hills · Sweet Spot 3x12", or "Free ride"), and a mono detail. Below it, two halves split by a hairline (stacked under 1280px): **Where** (course) and **What** (workout), each with a heading, one line of help and its import button. Any combination can be picked. Locked from the first pedal stroke until New ride (only the setup line shows). Rows split by hairlines; the selected row is `raised`.
+- **One ride panel:** hero power tile on the left, 2x2 grid of cadence, speed, distance, time on the right, split by `line` hairlines. On a course, a full-width elevation profile row comes next; with a workout, a workout row. With both, both rows show in compact form: labels sit beside their numbers on one line (`Stat inline`), the profile is 48px and the strip 56px, and the workout name truncates before anything wraps. A full-width control row sits along the bottom. All rows are in the same panel, split by hairlines.
+- **Fit a laptop:** at 1280x720 the control row and its key hint must stay on screen in every ride type. With a course or workout row the tiles and control row use 16px vertical padding (24px on a free ride). Keep control status text short so the key hint stays on one line.
 - Left-aligned. No centered hero layouts.
 
 ## Components (`src/components`)
@@ -94,16 +94,16 @@ For workout blocks and zone codes (v3.2). Each meets 3:1 on `surface`. Z2 is gra
 | `StatusPill` | Connection and ride state. Tones: `on` (Ready, Connected), `warn` (Connecting, Reconnecting), `error` (Disconnected, Not supported), `idle` (Not connected, Paused, Ride ended). |
 | `Button` | `primary` (Cobalt, one per screen), `secondary`, `danger` (confirm End Ride). |
 | `SegmentedControl` | Small option sets, like the 1s / 3s / 10s smoothing toggle. Selected option is a `surface` chip with a `line-strong` border; hover only darkens text. One Tab stop, Left / Right arrows move the selection. |
-| `ElevationProfile` | Course stats row plus an SVG profile: `raised` fill, `fg-subtle` line, `accent` for the stretch ridden and the position dot. Mile ticks in mono. |
+| `ElevationProfile` | Course stats row plus an SVG profile (`compact`: stats on one line, profile at `ww-profile-compact`): `raised` fill, `fg-subtle` line, `accent` for the stretch ridden and the position dot. Mile ticks in mono. |
 | `TabNav` | Page tabs in the top bar: links on a `raised` track; the current page is a `surface` chip with a `line-strong` border (same look as SegmentedControl, body size). |
-| `WorkoutPage` | Its own screen at `#/workout`: CoursePicker and WorkoutPicker panels, or a one-line "Riding: ..." panel while locked. |
+| `WorkoutPage` | Its own screen at `#/workout`: one panel with the setup line, then the CoursePicker and WorkoutPicker halves. While locked, the setup line only. |
 | `ProfilePage` | Its own screen at `#/profile` (Profile tab). One panel of rows split by hairlines: label and help text left, input right. Locked mid-ride. |
 | `PickerRow` | One radio row in a picker panel: dot, title, mono meta, optional action (Remove). |
-| `CoursePicker` | Free ride or a course (radio rows), Import GPX, and the start-mile input. |
-| `WorkoutPicker` | No workout or a workout (radio rows), Import ZWO, and a strip preview of the selection (`ww-strip-preview`, 64px). |
+| `CoursePicker` | "Where": flat road or a course (radio rows), Import GPX, and the start-mile input. A half of the setup panel, not a panel itself. |
+| `WorkoutPicker` | "What": no workout or a workout (radio rows), Import ZWO, and a strip preview of the selection (`ww-strip-preview`, 64px). A half of the setup panel. |
 | `WorkoutStrip` | Every interval as a block: width is duration, height is % FTP, fill is the zone token (`z1` to `z7`), ramps sloped, `surface` hairlines between blocks. Each block is labeled with its watts after intensity (ramps as start→end) in mono `fg-muted` above it, when the block is wide enough. The part done is washed with `surface` at 60%; a Cobalt line marks the position. |
-| `WorkoutRow` | Ride panel row for a workout: name, interval (label, n of N), target (W and %), interval left, next target (or best minute in a ramp test), workout left, then the strip at `ww-profile` height. Before it starts: `Start workout` (primary, disabled with "Connect to start" until connected). After: Skip interval / End test. |
-| `Stat` | Small live number with its label (`ww-num-sm`), for the course and workout rows. |
+| `WorkoutRow` | Ride panel row for a workout: name, interval (label, n of N), target (W and %), interval left, next target (or best minute in a ramp test), workout left, then the strip at `ww-profile` height (`compact`: one line, shorter labels, strip at `ww-strip-compact`). Before it starts: `Start workout` (primary, disabled with "Connect to start" until connected). After: Skip interval / End test. |
+| `Stat` | Small live number with its label (`ww-num-sm`), for the course and workout rows. `inline` puts the label beside the number. |
 | `Stepper` | Its label slot can hold a control: the control row puts the Resistance / ERG SegmentedControl there. Value flanked by direct step buttons (largest step outside: -10 -5 -1 value +1 +5 +10), 48px tall, for adjusting from the saddle. Resistance (%), ERG target (W) and workout intensity (%) all use the same 1 / 5 / 10 steps and keys (arrows 1, + / - 5, Shift + arrows 10). Status text after, key hint in mono on the right. |
 
 Inputs use `raised` with a `line-strong` border and `radius-md`. Build new UI from these. Add a component here before using a new pattern.

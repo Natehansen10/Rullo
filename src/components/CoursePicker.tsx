@@ -14,7 +14,7 @@ interface CoursePickerProps {
   onRemove: (id: string) => void
 }
 
-/** Free ride or a course, plus the start mile. Shown only before a ride starts. */
+/** Where the ride goes: a flat road or a course, plus the start mile. One half of the setup panel on the Workout tab. */
 export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, onImport, onRemove }: CoursePickerProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [startText, setStartText] = useState('')
@@ -33,9 +33,12 @@ export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, o
   const lengthMi = selected ? selected.course.lengthM / METERS_PER_MILE : 0
 
   return (
-    <section aria-label="Choose a course" className="rounded-lg border border-line bg-surface">
+    <section aria-label="Where: choose a course" className="min-w-0">
       <div className="flex items-center justify-between gap-4 px-6 py-4">
-        <span className="ww-label">Course</span>
+        <div className="flex flex-col gap-1">
+          <h2 className="font-semibold text-fg">Where</h2>
+          <span className="text-fg-muted">The course sets elevation, speed and distance.</span>
+        </div>
         <Button onClick={() => fileRef.current?.click()}>Import GPX</Button>
         <input
           ref={fileRef}
@@ -50,7 +53,7 @@ export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi, o
         />
       </div>
       <div role="radiogroup" aria-label="Course">
-        <Row checked={!selected} onClick={() => onSelect(null)} title="Free ride" meta="flat road, no course" />
+        <Row checked={!selected} onClick={() => onSelect(null)} title="Flat road" meta="no course" />
         {!loaded && <div className="border-t border-line px-6 py-3 text-fg-subtle">Loading courses</div>}
         {courses.map((c) => (
           <Row
