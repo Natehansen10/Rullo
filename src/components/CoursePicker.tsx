@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { METERS_PER_MILE } from '../lib/physics'
-import type { CourseLive, CourseOption } from '../lib/ride'
+import type { CourseOption, StagedCourse } from '../lib/ride'
 import { Button } from './Button'
 import { CourseOverview } from './CourseOverview'
 
@@ -31,7 +31,8 @@ function CardProfile({ points, onRaised }: { points: [number, number][]; onRaise
 interface CoursePickerProps {
   courses: CourseOption[]
   loaded: boolean
-  selected: CourseLive | null
+  /** The course picked on this tab. It is not on the Ride tab until the rider confirms in step 2. */
+  selected: StagedCourse | null
   onSelect: (id: string | null) => void
   onStartMi: (mi: number) => void
 }

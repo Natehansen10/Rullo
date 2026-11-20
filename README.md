@@ -39,10 +39,12 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 ## Workouts
 
-Open the **Workout** tab before connecting. It is two steps:
+Open the **Workout** tab before connecting. It is two steps. What you pick here stays on the Workout tab until you confirm it. The Ride tab changes only when you press **Ride this workout** or **Done: go to Ride**.
 
 1. **Choose your course.** Cards: a flat road, then each course with a small elevation profile, its miles and climbing. Click a course and its overview opens under the cards (distance, climbing, low and high points, the full profile) with the start mile. Press **Next**.
-2. **Choose your workout.** A library of cards, each with a small graph of the workout. **Custom Workout** is the first card and opens the builder; **Free ride** is next. The side menu switches between **All workouts** and **Custom** (the ones you built or imported). Filter by **Length** and **Difficulty**. Click a card to open the workout's overview (graph, description, **Edit a copy**). Looking at a workout does not load it: press **Ride this workout** to load it on the Ride tab. The **Free ride** card clears it.
+2. **Choose your workout.** A library of cards, each with a small graph of the workout. **Custom Workout** is the first card and opens the builder; **Free ride** is next. The side menu switches between **All workouts** and **Custom** (the ones you built or imported). Filter by **Length** and **Difficulty**. Click a card to open the workout's overview (graph, description, **Edit a copy**). Looking at a workout does not pick it: press **Ride this workout** to put your course and that workout on the Ride tab. For a ride with no workout, click the **Free ride** card, then **Done: go to Ride**.
+
+The line at the bottom of each step shows what you picked and says whether the Ride tab has it yet. **Done: go to Ride** puts exactly that line on the Ride tab. Your picks are still on the Workout tab after a reload. The Ride tab always starts as a free ride on a flat road, and **New ride** puts it back to that.
 
 What sets the load:
 
@@ -69,7 +71,7 @@ Press **Custom Workout** (the first card in step 2 of the Workout tab, or the bu
 4. **Intervals** have a − / + repeat count and Duration One / Power One, Duration Two / Power Two. **Add step** gives a repeat a third step or more.
 5. **Cadence.** Select a block and click the Cadence tile (or drag it onto a block). The × removes it.
 6. **Move and delete.** Drag a block sideways to move it, or onto **Delete block** to remove it. **Undo** (Ctrl + Z) takes back any change.
-7. **Save.** You land on the workout's overview. Press **Ride this workout** to load it.
+7. **Save.** You land on the workout's overview. Press **Ride this workout** to put it on the Ride tab.
 
 - **Display** switches the power fields between % FTP and watts. A bare number takes the unit on display; `225w` or `90%` always wins. A % target follows your FTP, a watts target stays fixed.
 - Keys on a block: ← → select, ↑ ↓ power, Shift + ← → time, Alt + ← → move, Delete, Ctrl + D duplicate.
@@ -82,7 +84,7 @@ Details and decisions: `docs/workout-builder.md`.
 
 To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`. An optional `"tag"` of `easy`, `medium` or `hard` puts it under that Difficulty filter.
 
-- A picked workout loads on the Ride tab but doesn't start on its own. Connect, warm up as long as you like (a free ride: your own ERG target or resistance), then press **Start workout**. That switches to ERG and the trainer follows each interval.
+- A confirmed workout shows on the Ride tab but doesn't start on its own. Connect, warm up as long as you like (a free ride: your own ERG target or resistance), then press **Start workout**. That switches to ERG and the trainer follows each interval.
 - In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.
 - **Skip interval** jumps ahead. In the ramp test, dropping below 50 rpm (or **End test**) ends the test, starts the cool-down and offers **Set FTP**.
 - When the workout ends, ERG holds the cool-down watts until you press End Ride.
@@ -116,10 +118,11 @@ On a course with no workout, the control row switches to **Grade** and the train
 
 1. Before connecting, pick **Flat road** or a course in step 1 of the Workout tab. **Test Hills** is a made-up 12 mi loop for testing.
 2. **Start at mile** (in the course's overview) defaults to where your last ride on that course ended. Change it, or press **From the start**.
-3. Connect and ride. Speed comes from power and grade: climbs slow you down, descents speed you up. With no workout the trainer follows the hills (Grade mode); with a workout it follows the workout.
-4. The FIT file is marked as a virtual ride with elevation, so Strava shows it as a Virtual Ride.
+3. Press **Next**, then **Ride this workout** on a workout, or **Done: go to Ride** for a free ride. The course is on the Ride tab only after that.
+4. Connect and ride. Speed comes from power and grade: climbs slow you down, descents speed you up. With no workout the trainer follows the hills (Grade mode); with a workout it follows the workout.
+5. The FIT file is marked as a virtual ride with elevation, so Strava shows it as a Virtual Ride.
 
-Import your own GPX on the **Profile** tab.
+Import your own GPX on the **Profile** tab. An imported course is picked in step 1 of the Workout tab; it is not on the Ride tab until you confirm it there.
 
 ### Add a built-in course
 

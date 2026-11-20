@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { WorkoutLive, WorkoutOption } from '../lib/ride'
+import type { WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
 import { SegmentedControl } from './SegmentedControl'
@@ -37,19 +37,23 @@ export function lengthBucketLabel(durationS: number): string {
 interface WorkoutPickerProps {
   workouts: WorkoutOption[]
   loaded: boolean
-  selected: WorkoutLive | null
+  /** The workout picked on this tab (its card is highlighted), or null for a free ride. */
+  pickedId: string | null
+  /** The workout on the Ride tab right now, if any. */
+  onRideId: string | null
   /** A course is picked: with no workout the trainer follows its hills. */
   onCourse: boolean
   ftpW: number
-  onSelect: (id: string | null) => void
+  /** The Free ride card: pick "no workout". It reaches the Ride tab with Done. */
+  onFreeRide: () => void
   /**
    * The workout whose overview is open (in place of the grid), or null. Looking
-   * at a workout does not load it: only "Ride this workout" does.
+   * at a workout does not pick it: only "Ride this workout" does.
    */
   detail: string | null
   onDetail: (id: string | null) => void
-  /** On to the Ride tab. */
-  onRide: () => void
+  /** Ride this workout: pick it, put the setup on the Ride tab and go there. */
+  onRide: (id: string) => void
   /** Open the builder: a new workout, the selected custom workout, or a copy of any workout. */
   onNew: () => void
   onEdit: (id: string) => void
@@ -78,10 +82,11 @@ const CARD = 'ww-press flex min-h-[9rem] cursor-pointer flex-col justify-between
 export function WorkoutPicker({
   workouts,
   loaded,
-  selected,
+  pickedId,
+  onRideId,
   onCourse,
   ftpW,
-  onSelect,
+  onFreeRide,
   detail,
   onDetail,
   onRide,
@@ -105,7 +110,7 @@ export function WorkoutPicker({
   const shown = inView.filter(
     (w) =>
       // The picked workout stays in view whatever the filters say.
-      w.id === selected?.workout.id ||
+      w.id === pickedId ||
       ((difficulty === 'all' || w.tag === difficulty) && (length === 'any' || lengthOf(w) === length)),
   )
   const picked = detail ? (workouts.find((w) => w.id === detail) ?? null) : null
@@ -137,7 +142,7 @@ export function WorkoutPicker({
   )
 
   if (picked) {
-    const loadedNow = selected?.workout.id === picked.id
+    const onRideNow = onRideId === picked.id
     return (
       <div className="flex items-start gap-6">
         {menu}
@@ -151,7 +156,7 @@ export function WorkoutPicker({
               <Stat label="Duration" value={picked.rampTest ? '--' : formatDuration(picked.durationS)} dim={false} inline />
               <Stat label="Intervals" value={String(picked.intervals.length)} dim={false} inline />
               <span className="font-mono text-mono text-fg-subtle">
-                {[picked.tag, picked.source === 'builtin' ? null : picked.source, picked.rampTest ? 'runs until you stop' : null, loadedNow ? 'loaded for your next ride' : null].filter(Boolean).join(' · ')}
+                {[picked.tag, picked.source === 'builtin' ? null : picked.source, picked.rampTest ? 'runs until you stop' : null, onRideNow ? 'on the Ride tab now' : null].filter(Boolean).join(' · ')}
               </span>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
@@ -172,11 +177,8 @@ export function WorkoutPicker({
               )}
               <Button
                 variant="primary"
-                onClick={() => {
-                  // The one place a workout is loaded for the ride.
-                  onSelect(picked.id)
-                  onRide()
-                }}
+                // The one place a workout is put on the ride.
+                onClick={() => onRide(picked.id)}
               >
                 Ride this workout
               </Button>
@@ -231,10 +233,10 @@ export function WorkoutPicker({
               <button
                 type="button"
                 role="radio"
-                aria-checked={!selected}
+                aria-checked={!pickedId}
                 aria-label={`Free ride, no targets, ${onCourse ? "the trainer follows the course's hills" : 'your own resistance or ERG target'}`}
-                onClick={() => onSelect(null)}
-                className={`${CARD} ${!selected ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
+                onClick={onFreeRide}
+                className={`${CARD} ${!pickedId ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
               >
                 <span className="ww-profile-compact flex items-center font-mono text-mono text-fg-subtle">no targets</span>
                 <span className="flex flex-col gap-1">
@@ -246,7 +248,7 @@ export function WorkoutPicker({
               </button>
             )}
             {shown.map((w) => {
-              const checked = selected?.workout.id === w.id
+              const checked = pickedId === w.id
               return (
                 <button
                   key={w.id}

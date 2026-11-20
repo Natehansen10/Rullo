@@ -77,8 +77,11 @@ const RESISTANCE_KEY = 'ww.resistancePct'
 const MODE_KEY = 'ww.mode'
 const GRADE_FEEL_KEY = 'ww.gradeFeelPct'
 const ERG_KEY = 'ww.ergW'
-const COURSE_KEY = 'ww.courseId'
-const WORKOUT_KEY = 'ww.workoutId'
+/** The picks on the Workout tab (staged). They reach the ride only through confirmSetup. */
+const STAGED_COURSE_KEY = 'ww.stagedCourseId'
+const STAGED_WORKOUT_KEY = 'ww.stagedWorkoutId'
+/** Before Nov 20, 2026 the ride's own course and workout were saved here and restored on load. No longer read. */
+const OLD_SETUP_KEYS = ['ww.courseId', 'ww.workoutId']
 /** Ride id when the browser could not create the ride row (IndexedDB unavailable). Nothing is recorded. */
 const NO_RIDE = -1
 /** A saved position this close to the finish starts the next ride from mile 0. */
@@ -148,6 +151,24 @@ export interface CourseLive {
   elevationFt: number
   climbedFt: number
   finished: boolean
+}
+
+/** The course picked on the Workout tab, with its start mile. Not on the ride until confirmed. */
+export interface StagedCourse {
+  course: Course
+  startMi: number
+  /** Where the last ride on this course ended, if any. */
+  lastEndMi: number | null
+}
+
+/** What the Workout tab holds. The Ride tab shows it only after confirmSetup. */
+export interface StagedSetup {
+  /** Null is a flat road. */
+  course: StagedCourse | null
+  /** Null is a free ride. */
+  workout: WorkoutOption | null
+  /** The Ride tab already has exactly this course, start mile and workout. */
+  onRide: boolean
 }
 
 export interface WorkoutOption {
@@ -246,13 +267,15 @@ export interface RideSnapshot {
   canEditProfile: boolean
   courses: CourseOption[]
   coursesLoaded: boolean
-  /** Selected course (where the ride goes), or null for a flat road. */
+  /** The confirmed course (where the ride goes), or null for a flat road. Set only by confirmSetup or a resumed ride. */
   course: CourseLive | null
-  /** Course or workout selection and start mile can change only before a ride starts. */
+  /** The setup can be picked and confirmed only before a ride starts. */
   canChooseCourse: boolean
+  /** The picks on the Workout tab. */
+  staged: StagedSetup
   workouts: WorkoutOption[]
   workoutsLoaded: boolean
-  /** Selected workout (what the trainer does), or null. Independent of the course. */
+  /** The confirmed workout (what the trainer does), or null. Set only by confirmSetup or a resumed ride. */
   workout: WorkoutLive | null
 }
 
@@ -327,6 +350,11 @@ export class RideController {
   private startOffsetM = 0
   private lastEndM: number | null = null
   private climbedM = 0
+  /** Staged on the Workout tab: course, start and workout. See confirmSetup. */
+  private stagedCourse: Course | null = null
+  private stagedStartM = 0
+  private stagedLastEndM: number | null = null
+  private stagedWorkoutId: string | null = storageGet(STAGED_WORKOUT_KEY)
 
   private workouts: Workout[] = []
   private workoutOptions: WorkoutOption[] = []
@@ -349,6 +377,7 @@ export class RideController {
       onStatus: (s: ConnectionStatus) => this.onStatus(s),
     }
     this.trainer = this.fake ? createFakeTrainer(handlers) : createBleTrainer(handlers)
+    for (const key of OLD_SETUP_KEYS) storageSet(key, null)
     this.snapshot = this.build()
     setInterval(() => this.emit(), TICK_MS)
     void this.checkRecovery()
@@ -439,6 +468,17 @@ export class RideController {
       coursesLoaded: this.coursesLoaded,
       course: this.courseLive(),
       canChooseCourse: this.phase === 'idle' && this.rideId === null,
+      staged: {
+        course: this.stagedCourse
+          ? {
+              course: this.stagedCourse,
+              startMi: this.stagedStartM / METERS_PER_MILE,
+              lastEndMi: this.stagedLastEndM === null ? null : this.stagedLastEndM / METERS_PER_MILE,
+            }
+          : null,
+        workout: this.workoutOptions.find((w) => w.id === this.stagedWorkoutId) ?? null,
+        onRide: this.stagedOnRide(),
+      },
       workouts: this.workoutOptions,
       workoutsLoaded: this.workoutsLoaded,
       workout: this.workoutLive(),
@@ -624,8 +664,7 @@ export class RideController {
     }
     this.refreshWorkoutOptions()
     this.workoutsLoaded = true
-    const saved = storageGet(WORKOUT_KEY)
-    if (saved && this.canChoose()) this.selectWorkout(saved)
+    this.syncSetupToLists()
     this.emit()
   }
 
@@ -645,16 +684,84 @@ export class RideController {
     })
   }
 
-  /** Pick a workout, or null for none. Independent of the course. Switches to ERG. */
-  selectWorkout = (id: string | null) => {
+  /**
+   * Stage a workout on the Workout tab, or null for a free ride. Nothing on
+   * the ride changes: no workout row, no mode switch. See confirmSetup.
+   */
+  stageWorkout = (id: string | null) => {
     if (!this.canChoose()) return
-    const w = id ? (this.workouts.find((x) => x.id === id) ?? null) : null
+    this.stagedWorkoutId = id && this.workouts.some((x) => x.id === id) ? id : null
+    storageSet(STAGED_WORKOUT_KEY, this.stagedWorkoutId)
+    this.emit()
+  }
+
+  /** The ride's workout, set directly. Only confirmSetup and the list sync call this. */
+  private setRideWorkout(w: Workout | null) {
     this.workout = w
     this.intervals = w ? flatten(w) : []
     this.resetWorkoutRun()
-    storageSet(WORKOUT_KEY, w?.id ?? null)
+  }
+
+  /**
+   * After the workout list changed (loaded, saved, removed, another tab): a
+   * staged workout that is gone is dropped, and before a ride the confirmed
+   * workout picks up an edit or is dropped too. A ride in progress keeps the
+   * workout it started with.
+   */
+  private syncSetupToLists() {
+    if (!this.workoutsLoaded) return
+    if (this.stagedWorkoutId && !this.workouts.some((x) => x.id === this.stagedWorkoutId)) {
+      this.stagedWorkoutId = null
+      storageSet(STAGED_WORKOUT_KEY, null)
+    }
+    if (this.workout && this.canChoose()) {
+      const now = this.workouts.find((x) => x.id === this.workout?.id) ?? null
+      if (now !== this.workout) {
+        this.setRideWorkout(now)
+        // An edit keeps the mode the rider has. Losing the workout drops back like any free ride.
+        if (!now) this.autoMode()
+      }
+    }
+  }
+
+  /** The Ride tab already has exactly what is staged. */
+  private stagedOnRide(): boolean {
+    return (
+      (this.stagedCourse?.id ?? null) === (this.course?.id ?? null) &&
+      (!this.course || this.stagedStartM === this.startOffsetM) &&
+      (this.stagedWorkoutId ?? null) === (this.workout?.id ?? null)
+    )
+  }
+
+  /**
+   * The one way a setup reaches the Ride tab: copy the staged course, start
+   * mile and workout onto the ride, and switch to the mode it calls for.
+   * Pass a workout id (or null for a free ride) to stage that first:
+   * "Ride this workout" does. Only before a ride starts.
+   */
+  confirmSetup = (workoutId?: string | null) => {
+    if (!this.canChoose()) return
+    if (workoutId !== undefined) {
+      this.stagedWorkoutId = workoutId && this.workouts.some((x) => x.id === workoutId) ? workoutId : null
+      storageSet(STAGED_WORKOUT_KEY, this.stagedWorkoutId)
+    }
+    this.course = this.stagedCourse
+    this.startOffsetM = this.stagedCourse ? this.stagedStartM : 0
+    this.lastEndM = this.stagedCourse ? this.stagedLastEndM : null
+    this.smoothGrade = 0
+    this.setRideWorkout(this.workouts.find((x) => x.id === this.stagedWorkoutId) ?? null)
     this.autoMode()
     this.emit()
+  }
+
+  /** Back to a plain free ride on a flat road. The staged picks stay on the Workout tab. */
+  private clearRideSetup() {
+    this.course = null
+    this.startOffsetM = 0
+    this.lastEndM = null
+    this.smoothGrade = 0
+    this.setRideWorkout(null)
+    this.autoMode()
   }
 
   importWorkout = async (file: File) => {
@@ -682,7 +789,8 @@ export class RideController {
     }
     this.workouts = this.workouts.filter((x) => x.id !== id)
     this.refreshWorkoutOptions()
-    if (this.workout?.id === id) this.selectWorkout(null)
+    // Gone from the Workout tab and, if it was confirmed, from the Ride tab.
+    this.syncSetupToLists()
     if (w.source === 'custom') this.announceWorkouts()
     this.emit()
   }
@@ -697,7 +805,7 @@ export class RideController {
   }
 
   /**
-   * Save a workout from the builder, list it and select it. Locked mid-ride,
+   * Save a workout from the builder and list it. Locked mid-ride,
    * like every other change to the setup.
    */
   saveCustomWorkout = async (input: CustomWorkoutInput, overwrite = false): Promise<SaveWorkoutResult> => {
@@ -708,8 +816,9 @@ export class RideController {
       this.workouts = at >= 0 ? this.workouts.map((x) => (x.id === w.id ? w : x)) : [...this.workouts, w]
       this.refreshWorkoutOptions()
       this.notice = null
-      // Saving does not load the workout for the ride. If it is the one already loaded, the edit is picked up.
-      if (this.workout?.id === w.id) this.selectWorkout(w.id)
+      // Saving does not put the workout on the ride. If it is the one already confirmed, the edit is picked up.
+      this.syncSetupToLists()
+      this.emit()
       this.announceWorkouts()
       return { ok: true, id: w.id }
     } catch (err) {
@@ -746,8 +855,8 @@ export class RideController {
 
   /**
    * Another tab saved or removed a custom workout. The list follows. A ride in
-   * progress keeps the workout it started with; before a ride, the selection
-   * is refreshed (or cleared if the workout is gone).
+   * progress keeps the workout it started with; before a ride, the staged and
+   * confirmed workouts are refreshed (or cleared if the workout is gone).
    */
   private async reloadCustomWorkouts() {
     let custom: Workout[]
@@ -758,7 +867,7 @@ export class RideController {
     }
     this.workouts = [...this.workouts.filter((x) => x.source !== 'custom'), ...custom]
     this.refreshWorkoutOptions()
-    if (this.workout?.source === 'custom' && this.canChoose()) this.selectWorkout(this.workout.id)
+    this.syncSetupToLists()
     this.emit()
   }
 
@@ -1267,12 +1376,16 @@ export class RideController {
     this.emit()
   }
 
-  /** Before the first pedal stroke there is no ride yet: just disconnect. */
+  /**
+   * Before the first pedal stroke there is no ride yet: just disconnect.
+   * The confirmed setup stays on the Ride tab; only New ride clears it.
+   */
   disconnect = () => {
     if (this.phase !== 'ready') return
     keepAwake(false)
     this.trainer.disconnect()
-    this.newRide()
+    this.resetRide()
+    this.emit()
   }
 
   endRide = async () => {
@@ -1314,7 +1427,22 @@ export class RideController {
     }
   }
 
+  /**
+   * After a ride: back to a plain free ride on a flat road, nothing loaded.
+   * The next setup has to be confirmed on the Workout tab again; the picks
+   * there are kept.
+   */
   newRide = () => {
+    const ridden = this.course
+    this.resetRide()
+    this.clearRideSetup()
+    // The start mile there defaults to where this ride ended.
+    if (ridden && this.stagedCourse === ridden) void this.stageCourse(ridden.id)
+    this.emit()
+  }
+
+  /** Ride counters back to zero. The setup is left alone. */
+  private resetRide() {
     this.phase = 'idle'
     this.rideId = null
     this.recordingFailed = false
@@ -1330,9 +1458,7 @@ export class RideController {
     this.resetPause()
     this.smoother.clear()
     this.speed.reset()
-    if (this.course) void this.selectCourse(this.course.id)
-    if (this.workout) this.selectWorkout(this.workout.id)
-    this.emit()
+    this.resetWorkoutRun()
   }
 
   // --- courses ---
@@ -1344,8 +1470,9 @@ export class RideController {
       console.error('Courses failed to load:', err)
     }
     this.coursesLoaded = true
-    const saved = storageGet(COURSE_KEY)
-    if (saved && this.canChoose()) await this.selectCourse(saved)
+    // The last pick comes back on the Workout tab only. The ride starts as a flat road.
+    const saved = storageGet(STAGED_COURSE_KEY)
+    if (saved && this.canChoose()) await this.stageCourse(saved)
     this.emit()
   }
 
@@ -1353,34 +1480,42 @@ export class RideController {
     return this.phase === 'idle' && this.rideId === null
   }
 
-  /** Pick a course (or null for a flat road). Independent of the workout. Start defaults to where the last ride on it ended. */
-  selectCourse = async (id: string | null) => {
+  /**
+   * Stage a course on the Workout tab (or null for a flat road). Start
+   * defaults to where the last ride on it ended. Nothing on the ride changes:
+   * no course row, no mode switch. See confirmSetup.
+   */
+  stageCourse = async (id: string | null) => {
     if (!this.canChoose()) return
     const c = id ? (this.courses.find((x) => x.id === id) ?? null) : null
-    this.course = c
-    this.startOffsetM = 0
-    this.lastEndM = null
-    storageSet(COURSE_KEY, c?.id ?? null)
-    this.smoothGrade = 0
-    this.autoMode()
+    this.stagedCourse = c
+    this.stagedStartM = 0
+    this.stagedLastEndM = null
+    storageSet(STAGED_COURSE_KEY, c?.id ?? null)
     this.emit()
     if (!c) return
     try {
       const last = await recorder.lastPositionOn(c.id)
-      if (this.course !== c) return
-      this.lastEndM = last
-      if (last !== null && last < c.lengthM - NEAR_FINISH_M) this.startOffsetM = last
+      if (this.stagedCourse !== c) return
+      // Confirmed before the last position came back: the ride gets the same default start.
+      const confirmed = this.canChoose() && this.stagedOnRide()
+      this.stagedLastEndM = last
+      if (last !== null && last < c.lengthM - NEAR_FINISH_M) this.stagedStartM = last
+      if (confirmed) {
+        this.startOffsetM = this.stagedStartM
+        this.lastEndM = this.stagedLastEndM
+      }
     } catch (err) {
       console.error('Could not read last position:', err)
     }
     this.emit()
   }
 
-  /** Set the start mile for the next ride on the selected course. */
+  /** Set the start mile of the staged course. */
   setStartMi = (mi: number) => {
-    if (!this.course || !this.canChoose() || !Number.isFinite(mi)) return
+    if (!this.stagedCourse || !this.canChoose() || !Number.isFinite(mi)) return
     const m = mi * METERS_PER_MILE
-    this.startOffsetM = Math.min(Math.max(0, m), Math.max(0, this.course.lengthM - NEAR_FINISH_M))
+    this.stagedStartM = Math.min(Math.max(0, m), Math.max(0, this.stagedCourse.lengthM - NEAR_FINISH_M))
     this.emit()
   }
 
@@ -1389,7 +1524,9 @@ export class RideController {
       const c = await importGpxFile(file)
       this.courses = [...this.courses, c]
       this.notice = null
-      await this.selectCourse(c.id)
+      // Importing lists the course and picks it on the Workout tab. It is not on the ride until confirmed there.
+      if (this.canChoose()) await this.stageCourse(c.id)
+      this.emit()
     } catch (err) {
       this.notice = err instanceof Error ? `Import failed: ${err.message}` : 'Import failed.'
       this.emit()
@@ -1405,7 +1542,15 @@ export class RideController {
       console.error('Could not remove the course:', err)
     }
     this.courses = this.courses.filter((x) => x.id !== id)
-    if (this.course?.id === id) await this.selectCourse(null)
+    // Gone from the Workout tab and, if it was confirmed, from the Ride tab.
+    if (this.stagedCourse?.id === id) await this.stageCourse(null)
+    if (this.course?.id === id) {
+      this.course = null
+      this.startOffsetM = 0
+      this.lastEndM = null
+      this.smoothGrade = 0
+      this.autoMode()
+    }
     this.emit()
   }
 

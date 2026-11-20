@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { RideSnapshot } from '../lib/ride'
+import { METERS_PER_MILE } from '../lib/physics'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
 import { CoursePicker } from './CoursePicker'
@@ -7,9 +8,16 @@ import { WorkoutPicker } from './WorkoutPicker'
 
 interface WorkoutPageProps {
   s: RideSnapshot
-  onSelectCourse: (id: string | null) => void
+  /** Pick a course on this tab (null is a flat road). Nothing reaches the Ride tab. */
+  onStageCourse: (id: string | null) => void
   onStartMi: (mi: number) => void
-  onSelectWorkout: (id: string | null) => void
+  /** Pick a workout on this tab (null is a free ride). Nothing reaches the Ride tab. */
+  onStageWorkout: (id: string | null) => void
+  /**
+   * Put the setup on the Ride tab and go there. With a workout id, that
+   * workout is picked first ("Ride this workout"); with none, the picks as they stand (Done).
+   */
+  onConfirm: (workoutId?: string) => void
   /** Which step shows. Kept by the app, so a trip to the builder comes back to step 2. */
   step: 0 | 1
   onStep: (step: 0 | 1) => void
@@ -20,25 +28,47 @@ interface WorkoutPageProps {
   /** The selected workout's overview is open. Kept by the app, so saving in the builder lands on it. */
   detail: string | null
   onDetail: (id: string | null) => void
-  /** Setup done: go to the Ride tab. */
-  onDone: () => void
   notice?: ReactNode
 }
 
+/** A setup, staged or on the ride, reduced to what the setup line says. */
+interface Setup {
+  course: { name: string; lengthMi: number; startMi: number } | null
+  workout: { name: string; durationS: number; rampTest: boolean } | null
+}
+
+/** What the rider picked on this tab. */
+function stagedSetup(s: RideSnapshot): Setup {
+  const c = s.staged.course
+  const w = s.staged.workout
+  return {
+    course: c ? { name: c.course.name, lengthMi: c.course.lengthM / METERS_PER_MILE, startMi: c.startMi } : null,
+    workout: w ? { name: w.name, durationS: w.durationS, rampTest: w.rampTest } : null,
+  }
+}
+
+/** What the Ride tab has: the confirmed setup. */
+function rideSetup(s: RideSnapshot): Setup {
+  const c = s.course
+  const w = s.workout
+  return {
+    course: c ? { name: c.course.name, lengthMi: c.course.lengthM / METERS_PER_MILE, startMi: c.startMi } : null,
+    workout: w ? { name: w.workout.name, durationS: w.totalS, rampTest: !!w.workout.rampTest } : null,
+  }
+}
+
 /** The setup in one line: "Test Hills · Sweet Spot 3x12", "Test Hills · Free ride", "Flat road · Free ride". */
-export function setupName(s: RideSnapshot): string {
-  return `${s.course?.course.name ?? 'Flat road'} · ${s.workout?.workout.name ?? 'Free ride'}`
+function setupName(x: Setup): string {
+  return `${x.course?.name ?? 'Flat road'} · ${x.workout?.name ?? 'Free ride'}`
 }
 
 /** What the trainer will do with this setup, in a few words. */
-function setupDetail(s: RideSnapshot): string {
-  const c = s.course
-  const w = s.workout
-  const where = c
-    ? `${(c.toGoMi + c.positionMi - c.startMi).toFixed(1)} mi${c.startMi > 0 ? ` from mile ${c.startMi.toFixed(1)}` : ''}`
-    : null
+function setupDetail(x: Setup): string {
+  const c = x.course
+  const w = x.workout
+  const where = c ? `${(c.lengthMi - c.startMi).toFixed(1)} mi${c.startMi > 0 ? ` from mile ${c.startMi.toFixed(1)}` : ''}` : null
   const what = w
-    ? `${w.workout.rampTest ? 'ramp test' : formatDuration(w.totalS)}, the workout sets the load`
+    ? `${w.rampTest ? 'ramp test' : formatDuration(w.durationS)}, the workout sets the load`
     : c
       ? 'the hills set the load'
       : 'you set the load'
@@ -51,17 +81,20 @@ const STEPS = [
 ] as const
 
 /**
- * Plan the next ride in two steps: the course, then the workout. With a
- * workout the trainer follows its targets (ERG); on a course with no workout
- * it follows the hills (Grade); the rider can always switch on the Ride tab.
+ * Plan the next ride in two steps: the course, then the workout. The picks
+ * are staged here and reach the Ride tab only when the rider confirms them
+ * (Ride this workout, or Done). With a workout the trainer follows its
+ * targets (ERG); on a course with no workout it follows the hills (Grade);
+ * the rider can always switch on the Ride tab.
  * Locked from the first pedal stroke until New ride.
  */
 export function WorkoutPage({
   s,
   notice,
-  onSelectCourse,
+  onStageCourse,
   onStartMi,
-  onSelectWorkout,
+  onStageWorkout,
+  onConfirm,
   step,
   onStep: setStep,
   onNewWorkout,
@@ -70,14 +103,24 @@ export function WorkoutPage({
   onRemoveWorkout,
   detail,
   onDetail,
-  onDone,
 }: WorkoutPageProps) {
   const locked = !s.canChooseCourse
+  // Locked: the ride's own setup. Otherwise: the picks on this tab, and what the Ride tab has if that differs.
+  const shown = locked ? rideSetup(s) : stagedSetup(s)
   const summary = (
-    <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1" aria-live="polite">
-      <span className="ww-label">{locked ? (s.phase === 'ended' ? 'Last ride' : 'Riding') : 'Next ride'}</span>
-      <span className="font-semibold text-fg">{setupName(s)}</span>
-      <span className="font-mono text-mono text-fg-subtle">{setupDetail(s)}</span>
+    <div className="flex min-w-0 flex-col gap-1" aria-live="polite">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span className="ww-label">{locked ? (s.phase === 'ended' ? 'Last ride' : 'Riding') : 'Picked'}</span>
+        <span className="font-semibold text-fg">{setupName(shown)}</span>
+        <span className="font-mono text-mono text-fg-subtle">{setupDetail(shown)}</span>
+      </div>
+      {!locked && (
+        <span className="text-fg-muted">
+          {s.staged.onRide
+            ? 'This is on the Ride tab now.'
+            : `Not on the Ride tab yet. The Ride tab has ${setupName(rideSetup(s))}.`}
+        </span>
+      )}
     </div>
   )
 
@@ -106,7 +149,7 @@ export function WorkoutPage({
       {notice}
       {step === 0 ? (
         <>
-          <CoursePicker courses={s.courses} loaded={s.coursesLoaded} selected={s.course} onSelect={onSelectCourse} onStartMi={onStartMi} />
+          <CoursePicker courses={s.courses} loaded={s.coursesLoaded} selected={s.staged.course} onSelect={onStageCourse} onStartMi={onStartMi} />
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4">
             {summary}
             <Button variant="primary" onClick={() => setStep(1)}>
@@ -119,13 +162,14 @@ export function WorkoutPage({
           <WorkoutPicker
             workouts={s.workouts}
             loaded={s.workoutsLoaded}
-            selected={s.workout}
-            onCourse={!!s.course}
+            pickedId={s.staged.workout?.id ?? null}
+            onRideId={s.workout?.workout.id ?? null}
+            onCourse={!!s.staged.course}
             ftpW={s.profile.ftpW}
-            onSelect={onSelectWorkout}
+            onFreeRide={() => onStageWorkout(null)}
             detail={detail}
             onDetail={onDetail}
-            onRide={onDone}
+            onRide={onConfirm}
             onNew={onNewWorkout}
             onEdit={onEditWorkout}
             onCopy={onCopyWorkout}
@@ -137,7 +181,8 @@ export function WorkoutPage({
               <Button onClick={() => setStep(0)}>Back</Button>
               {/* In a workout's overview, "Ride this workout" is the one primary button. */}
               {!detail && (
-                <Button variant="primary" onClick={onDone}>
+                // Confirms exactly the line beside it: the picked course with the picked workout or free ride.
+                <Button variant="primary" onClick={() => onConfirm()}>
                   Done: go to Ride
                 </Button>
               )}

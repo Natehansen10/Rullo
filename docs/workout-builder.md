@@ -32,7 +32,7 @@ Nate opened the Ramp FTP test's overview, backed out, and found it loaded on the
 - Clicking a workout card only opens its overview. **Ride this workout** is the one place a workout is loaded. The Free ride card clears it.
 - Saving in the builder and importing a ZWO list the workout but do not load it. Editing the workout that is already loaded still picks up the edit.
 - The grid marks the loaded workout; its overview says "loaded for your next ride".
-- Not changed: picking a course card in step 1 still loads the course, and importing a GPX on Profile still selects it.
+- Not changed then: picking a course card in step 1 still loaded the course, and importing a GPX on Profile still selected it. Both were changed later the same day: see "After the first workout ride" in `docs/ride-fixes.md`. The overview now says "on the Ride tab now".
 
 ## Second pass, Nov 20, 2026: rebuilt after Zwift's editor
 
