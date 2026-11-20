@@ -53,7 +53,7 @@ export function WorkoutPicker({ workouts, loaded, selected, ftpW, onSelect, onIm
             checked={selected?.workout.id === w.id}
             onClick={() => onSelect(w.id)}
             title={w.name}
-            meta={`${w.rampTest ? 'until you stop' : formatDuration(w.durationS)}${w.description ? ` · ${summary(w.description)}` : ''}${
+            meta={`${w.tag ? `${w.tag} · ` : ''}${w.rampTest ? 'until you stop' : formatDuration(w.durationS)}${w.description ? ` · ${summary(w.description)}` : ''}${
               w.source === 'imported' ? ' · imported' : ''
             }`}
             action={

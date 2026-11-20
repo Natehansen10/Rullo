@@ -128,6 +128,7 @@ export interface WorkoutOption {
   name: string
   description: string
   source: Workout['source']
+  tag?: string
   durationS: number
   rampTest: boolean
 }
@@ -574,6 +575,7 @@ export class RideController {
       name: w.name,
       description: w.description,
       source: w.source,
+      tag: w.tag,
       durationS: totalS(flatten(w)),
       rampTest: !!w.rampTest,
     }))

@@ -1,0 +1,11 @@
+<workout_file>
+  <author>The Workout Generator</author>
+  <name>The Levee IV</name>
+  <description>1 effort block peaking at 69% in 120 minutes. Every easy kilometre you ride today pays interest on race day. This enhances your body&apos;s ability to recycle lactate as fuel at low intensity. Boredom is a bigger challenge than fatigue at this intensity.</description>
+  <sportType>bike</sportType>
+  <workout>
+    <Warmup Duration="540" PowerLow="0.45" PowerHigh="0.65"/>
+    <SteadyState Duration="6360" Power="0.69"/>
+    <Cooldown Duration="300" PowerLow="0.40" PowerHigh="0.55"/>
+  </workout>
+</workout_file>

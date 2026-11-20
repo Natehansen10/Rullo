@@ -10,6 +10,7 @@ import { MAX_ZWO_BYTES, workoutFromZwo } from './zwo'
 interface BuiltinZwoEntry {
   id: string
   file: string
+  tag?: string
 }
 
 const WORKOUTS_BASE = `${import.meta.env.BASE_URL}workouts/`
@@ -24,7 +25,7 @@ async function loadBuiltinZwo(): Promise<Workout[]> {
       const text = await (await fetch(WORKOUTS_BASE + e.file)).text()
       const w = workoutFromZwo(text, e.id, e.file.replace(/\.zwo$/i, ''), 'builtin')
       validateWorkout(w)
-      out.push(w)
+      out.push(typeof e.tag === 'string' && e.tag ? { ...w, tag: e.tag.slice(0, 20) } : w)
     } catch (err) {
       console.error(`Workout ${e.id} failed to load:`, err)
     }

@@ -39,6 +39,8 @@ export interface Workout {
   name: string
   description: string
   source: 'builtin' | 'imported'
+  /** Short category shown in the picker, e.g. "easy". Set in public/workouts/index.json. */
+  tag?: string
   steps: Step[]
   /**
    * Ramp FTP test. The first interval is the warm-up, the last is the

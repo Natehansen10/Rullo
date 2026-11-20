@@ -64,7 +64,8 @@ export function parseZwo(text: string): ParsedZwo {
       }
       // Cool-downs go down; some files list the pair low-to-high anyway.
       if (tag === 'cooldown' && lo < hi) [lo, hi] = [hi, lo]
-      const label = tag === 'warmup' ? 'Warm-up' : tag === 'cooldown' ? 'Cool-down' : undefined
+      // Some generators use a second Warmup element for a long build; only the first step is the warm-up.
+      const label = tag === 'warmup' ? (steps.length === 0 ? 'Warm-up' : 'Build') : tag === 'cooldown' ? 'Cool-down' : undefined
       steps.push({ type: 'ramp', durS: dur, from: { pct: pct(lo) }, to: { pct: pct(hi) }, label })
       intervals++
     } else if (tag === 'intervalst') {

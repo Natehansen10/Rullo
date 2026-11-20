@@ -41,9 +41,9 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 
 Open the **Workout** tab before connecting. It is one setup with two halves: **Where** (a course, or a flat road) and **What** (a workout, or none). Pick one of each, or neither: free ride, course only, workout only, or a course plus a workout. The line at the top shows the setup, for example "Test Hills · Sweet Spot 3x12". Import GPX and Import ZWO live there too.
 
-With a course plus a workout, the workout drives ERG and the course drives speed, distance and the elevation profile. The trainer does not change resistance from grade (that's v4). The FIT is a virtual ride with altitude and one lap per interval. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/` (FRNKLN - January 6). **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
+With a course plus a workout, the workout drives ERG and the course drives speed, distance and the elevation profile. The trainer does not change resistance from grade (that's v4). The FIT is a virtual ride with altitude and one lap per interval. Built-ins: Endurance 60, Sweet Spot 3x12, VO2 5x3, a Ramp FTP test, and the ZWO files in `public/workouts/`: FRNKLN - January 6, plus five easy endurance rides tagged "easy" (Long Haul III, The Causeway IV, The Levee IV, The Long Road V, Coastal Cruise V). **Import ZWO** adds any Zwift-format workout file; imports are saved in this browser.
 
-To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`.
+To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "...", "file": "....zwo" }` to `public/workouts/index.json`. An optional `"tag": "easy"` shows before the duration in the list.
 
 - A picked workout loads on the Ride tab but doesn't start on its own. Connect, warm up as long as you like (a free ride: your own ERG target or resistance), then press **Start workout**. That switches to ERG and the trainer follows each interval.
 - In ERG the step buttons and keys change workout intensity (every target, 50 to 150%). In Resistance the workout keeps running but targets aren't applied.
