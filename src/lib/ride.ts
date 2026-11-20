@@ -363,6 +363,8 @@ export class RideController {
   private stagedStartM = 0
   private stagedLastEndM: number | null = null
   private stagedWorkoutId: string | null = storageGet(STAGED_WORKOUT_KEY)
+  /** Counts confirmSetup calls, so stageCourse can tell a confirm that happened while it was reading. */
+  private confirmCount = 0
 
   private workouts: Workout[] = []
   private workoutOptions: WorkoutOption[] = []
@@ -755,6 +757,7 @@ export class RideController {
    */
   confirmSetup = (workoutId?: string | null) => {
     if (!this.canChoose()) return
+    this.confirmCount++
     if (workoutId !== undefined) {
       this.stagedWorkoutId = workoutId && this.workouts.some((x) => x.id === workoutId) ? workoutId : null
       storageSet(STAGED_WORKOUT_KEY, this.stagedWorkoutId)
@@ -1562,11 +1565,13 @@ export class RideController {
     storageSet(STAGED_COURSE_KEY, c?.id ?? null)
     this.emit()
     if (!c) return
+    const confirmsBefore = this.confirmCount
     try {
       const last = await recorder.lastPositionOn(c.id)
       if (this.stagedCourse !== c) return
       // Confirmed before the last position came back: the ride gets the same default start.
-      const confirmed = this.canChoose() && this.stagedOnRide()
+      // Only then: picking a course that is already on the ride must not move the ride's start.
+      const confirmed = this.confirmCount !== confirmsBefore && this.canChoose() && this.stagedOnRide()
       this.stagedLastEndM = last
       if (last !== null && last < c.lengthM - NEAR_FINISH_M) this.stagedStartM = last
       if (confirmed) {

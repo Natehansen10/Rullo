@@ -248,7 +248,7 @@ Asked for by Nate after the parts above shipped.
 
 ## After the first workout ride (Nov 20, 2026)
 
-Five fixes from Nate's first real workout ride. Parts 1 and 2 are here.
+Five fixes from Nate's first real workout ride. Part 5 is written up before part 4 because part 4 builds on it.
 
 ### Part 1: nothing reaches the Ride tab until it is confirmed
 
@@ -265,7 +265,8 @@ Five fixes from Nate's first real workout ride. Parts 1 and 2 are here.
 - **Removing and editing.** A removed course or workout is dropped from the picks and from the Ride tab. Editing the confirmed custom workout updates the Ride tab's copy and keeps the trainer mode. A ride in progress keeps what it started with, as before.
 - **Import GPX** picks the new course in step 1. It is not on the Ride tab.
 - **Resume** of an unfinished ride still restores that ride's course and workout. The picks on the Workout tab are left alone.
-- **Lock unchanged.** The Workout tab is locked from Connect until New ride. While locked it shows the ride's own setup.
+- **Lock.** While locked the Workout tab shows the ride's own setup. It was locked from Connect until New ride; part 5 moved the lock to Start.
+- **Picking a course that is already on the Ride tab changes nothing there.** Clicking its card again puts the staged start mile back to the default. The ride keeps the start mile it was confirmed with until Done or Ride this workout. (Found in the final check: the ride's start moved from mile 0 to mile 3 on a card click. Fixed in `stageCourse`.)
 
 **Checks (fake trainer, headless Chromium, 1280x720):** 63 assertions, 0 failed. The Ride tab had no course row and no workout row after a fresh load, a GPX import, each of 3 course cards, a start mile change, 5 workout overviews opened and closed, the Free ride card, a reload, and a reload with the old `ww.courseId` and `ww.workoutId` seeded. The trainer mode never moved to Grade while browsing. After Ride this workout the Ride tab had Test Hills and the workout, in ERG. After Done with Free ride it had Test Hills alone, in Grade. Browsing after a confirm left the Ride tab as it was. Reload mid-ride, then Resume: both rows came back and the workout was still running.
 
@@ -276,7 +277,7 @@ Five fixes from Nate's first real workout ride. Parts 1 and 2 are here.
 **Chose:**
 
 - **New ride** puts the Ride tab back to a free ride on a flat road: no course row, no workout row. Grade mode drops to Resistance; ERG stays ERG at the rider's own target. The picks on the Workout tab stay, so the same ride is two clicks away (Workout, then Done or Ride this workout). If the ride was on the picked course, its start mile moves to where the ride ended.
-- **Disconnect before the first pedal stroke keeps the setup.** There was no ride, so there is nothing to clear, and the rider just confirmed it. Disconnect now resets the counters only. It also unlocks the Workout tab again.
+- **Disconnect before the ride starts keeps the setup.** There was no ride, so there is nothing to clear, and the rider just confirmed it. Disconnect now resets the counters only. (Since part 5 that means before Start, and the Workout tab is not locked until then.)
 - Inside the controller `newRide()` is `resetRide()` (counters) plus `clearRideSetup()`. `disconnect()` calls `resetRide()` only.
 
 **Checks:** rode Test Hills with a workout for about 20 s, End Ride, New ride: no rows, mode ERG, and the Workout tab still showed the picks with "Not on the Ride tab yet. The Ride tab has Flat road · Free ride." Connect without pedaling, then Disconnect: both rows stayed. Removing a confirmed imported course on Profile cleared it from the Ride tab and from the picks, and Grade dropped back. With the fake trainer connected, power, speed and time changed on 5 of 5 one-second reads, cadence on 3 to 4, distance (two decimals of a mile) on 2.
@@ -319,6 +320,7 @@ Five fixes from Nate's first real workout ride. Parts 1 and 2 are here.
 - **Crash recovery.** A reload before Start has nothing to recover. A reload after Start resumes as before: Connect goes straight back to riding, with no Start. Resume now also puts the trainer mode back to what the setup calls for (ERG with a workout, Grade on a course alone).
 - **Old unfinished rides.** A ride recorded before this change may have a workout that was never started. After Resume the workout row shows a secondary "Start workout" button, so it can still be started mid-ride.
 - **End Ride guard.** End Ride lands where Start was. A click on it in the first second after Start is ignored, so a double click on Start cannot arm "Confirm end".
+- **New ride guard.** New ride lands where Confirm end was. A click on it in the first second after Confirm end is ignored, so a double click on Confirm end cannot clear the ride that just ended (its totals and the Download FIT button). Added in the final check, same 1 s.
 - **Start pressed and never pedaled, then End Ride:** the notice reads "Nothing was recorded." and there is no Download button. An empty ride row is left in the browser, marked ended. It has no samples and nothing reads it.
 - **No keyboard shortcut for Start.** One key that starts recording is easy to hit by accident, and the hint line has no room at 1280.
 - **No database change.** Dexie is still at version 4.

@@ -28,7 +28,11 @@ import { builder, type ReturnTo } from './lib/workoutDraft'
 
 const EMPTY = '--'
 const CONFIRM_MS = 3000
-/** Clicks on End Ride are ignored this long after Start. */
+/**
+ * The top bar's right slot changes under the pointer. A click on End Ride is
+ * ignored this long after Start, and one on New ride this long after Confirm
+ * end, so a double click cannot run into the next button.
+ */
 const START_GUARD_MS = 1000
 
 function formatTime(ms: number): string {
@@ -188,6 +192,8 @@ export default function App() {
   const [confirmEnd, setConfirmEnd] = useState(false)
   /** When Start was last pressed. See onEnd. */
   const startedAtRef = useRef(0)
+  /** When Confirm end was last pressed. See onNewRide. */
+  const endedAtRef = useRef(0)
   const route = useRoute()
   /** Step of the Workout tab. Kept here so the builder can send the rider back to step 2. */
   const [workoutStep, setWorkoutStep] = useState<0 | 1>(0)
@@ -263,7 +269,14 @@ export default function App() {
       return
     }
     setConfirmEnd(false)
+    endedAtRef.current = Date.now()
     void ride.endRide()
+  }
+
+  const onNewRide = () => {
+    // New ride lands where Confirm end was: a double click there must not clear the ride just ended.
+    if (Date.now() - endedAtRef.current < START_GUARD_MS) return
+    ride.newRide()
   }
 
   const modeSwitch = (
@@ -331,7 +344,7 @@ export default function App() {
                   Download FIT
                 </Button>
               )}
-              <Button onClick={ride.newRide}>New ride</Button>
+              <Button onClick={onNewRide}>New ride</Button>
             </>
           )}
         </div>
