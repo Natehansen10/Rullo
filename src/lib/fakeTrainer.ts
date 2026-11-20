@@ -15,13 +15,20 @@
  *   J  jittery delivery, also ?fake=1&jitter=1: readings come 0.3 to 2.6 s
  *      apart, like a hidden tab or a trainer whose clock drifts (recording
  *      must still save one sample every second)
+ *   X  lose the trainer for good: 3 reconnect attempts, 1 second apart, then
+ *      the same "failed" status the real trainer gives when its 30 attempts
+ *      run out (Trainer lost notice; Connect or Reconnect brings it back)
  */
 import { ERG_RELEASE_W } from '../config'
+import { TRAINER_LOST_MESSAGE } from './ble'
 import type { ControlResult, Trainer, TrainerHandlers } from './types'
 
 const DROP_MS = 5000
 const IDLE_MS = 3000
 const LOW_CADENCE_MS = 6000
+/** The X key: this many reconnect attempts, this far apart, then the trainer is lost. */
+const LOSE_TRIES = 3
+const LOSE_INTERVAL_MS = 1000
 const TICK_MS = 1000
 const JITTER_MIN_MS = 300
 const JITTER_MAX_MS = 2600
@@ -45,6 +52,22 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
   let lowCadenceUntil = 0
   let stopped = false
   let cadence = 0
+  /** Bumped by connect and disconnect, so a running loss (X) stops. */
+  let generation = 0
+
+  /** The connection drops and never comes back, like a trainer that lost power. */
+  const lose = async () => {
+    if (!timer) return
+    clearTimeout(timer)
+    timer = null
+    const gen = ++generation
+    for (let attempt = 1; attempt <= LOSE_TRIES; attempt++) {
+      h.onStatus({ kind: 'reconnecting', attempt, max: LOSE_TRIES })
+      await new Promise((r) => setTimeout(r, LOSE_INTERVAL_MS))
+      if (gen !== generation) return
+    }
+    h.onStatus({ kind: 'failed', message: TRAINER_LOST_MESSAGE, lost: true })
+  }
 
   const onKey = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement | null
@@ -54,6 +77,7 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
     if (k === 'c') lowCadenceUntil = Date.now() + LOW_CADENCE_MS
     if (k === 's') stopped = !stopped
     if (k === 'j') jitter = !jitter
+    if (k === 'x') void lose()
   }
 
   const tick = () => {
@@ -107,8 +131,10 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
 
   return {
     async connect() {
+      const gen = ++generation
       h.onStatus({ kind: 'connecting' })
       await new Promise((r) => setTimeout(r, 400))
+      if (gen !== generation) return
       t0 = Date.now()
       lastTick = 0
       dropUntil = 0
@@ -135,6 +161,7 @@ export function createFakeTrainer(h: TrainerHandlers): Trainer {
       return setResistance(0)
     },
     disconnect() {
+      generation++
       if (timer) clearTimeout(timer)
       timer = null
       window.removeEventListener('keydown', onKey)

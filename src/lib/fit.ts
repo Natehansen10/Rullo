@@ -169,7 +169,8 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
     lastT: last.t,
     elapsedMs: endT - first.t,
     timerMs: Math.max(1000, timerMs),
-    distanceM: Math.max(0, last.distanceM - startDistanceM),
+    // In whole centimeters, as the file stores it, so lap distances add up exactly to the session's.
+    distanceM: Math.max(0, Math.round(last.distanceM * 100) - Math.round(startDistanceM * 100)) / 100,
     maxSpeed,
     avgCadence: cadenceCount ? cadenceSum / cadenceCount : 0,
     maxCadence,

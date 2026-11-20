@@ -34,6 +34,8 @@ import {
 import type { ControlResult, Trainer, TrainerHandlers } from './types'
 
 const GATT_CONNECT_TIMEOUT_MS = 10000
+/** Shown when a connected trainer dropped and the reconnect attempts ran out. */
+export const TRAINER_LOST_MESSAGE = 'Lost the trainer. Check that it has power, then connect again.'
 
 let device: BluetoothDevice | null = null
 
@@ -148,10 +150,7 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
       }
     }
     if (gen === generation && !userClosed) {
-      h.onStatus({
-        kind: 'failed',
-        message: 'Lost the trainer. Check that it has power, then press Connect.',
-      })
+      h.onStatus({ kind: 'failed', message: TRAINER_LOST_MESSAGE, lost: true })
     }
   }
 
