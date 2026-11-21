@@ -200,6 +200,10 @@ export async function getSamples(rideId: number): Promise<SampleRow[]> {
   return db.samples.where('[rideId+t]').between([rideId, Dexie.minKey], [rideId, Dexie.maxKey]).toArray()
 }
 
+export async function getRide(id: number): Promise<RideRow | undefined> {
+  return db.rides.get(id)
+}
+
 /** Every ride that was ended, in no particular order. An unfinished ride (crash, reload) is not one of them. */
 export async function listEndedRides(): Promise<RideRow[]> {
   return db.rides.where('status').equals('ended').toArray()
@@ -217,6 +221,82 @@ export async function deleteEndedRide(id: number): Promise<boolean> {
     await db.samples.where('[rideId+t]').between([id, Dexie.minKey], [id, Dexie.maxKey]).delete()
     await db.rides.delete(id)
     return true
+  })
+}
+
+/** Everything the rider has saved, for a backup: finished rides and their own files. */
+export async function exportRows(): Promise<{
+  rides: RideRow[]
+  courses: ImportedCourseRow[]
+  workouts: ImportedWorkoutRow[]
+  customWorkouts: CustomWorkoutRow[]
+}> {
+  const [rides, courses, workouts, customWorkouts] = await Promise.all([
+    listEndedRides(),
+    listImportedCourses(),
+    listImportedWorkouts(),
+    listCustomWorkouts(),
+  ])
+  return { rides: rides.sort((a, b) => a.startedAt - b.startedAt), courses, workouts, customWorkouts }
+}
+
+export interface ImportRows {
+  rides: { ride: Omit<RideRow, 'id'>; samples: Omit<SampleRow, 'rideId'>[] }[]
+  courses: ImportedCourseRow[]
+  workouts: ImportedWorkoutRow[]
+  customWorkouts: CustomWorkoutRow[]
+}
+
+export interface ImportCounts {
+  rides: number
+  courses: number
+  workouts: number
+  /** Already here, left as they were. */
+  ridesKept: number
+  filesKept: number
+}
+
+/**
+ * Add what a backup holds and this browser does not. Nothing already saved is
+ * changed or removed: a ride with the same start time, or a course or workout
+ * with the same id, is left as it is. One transaction: all of it or none.
+ */
+export async function importRows(input: ImportRows): Promise<ImportCounts> {
+  return db.transaction('rw', [db.rides, db.samples, db.courses, db.workouts, db.customWorkouts], async () => {
+    const counts: ImportCounts = { rides: 0, courses: 0, workouts: 0, ridesKept: 0, filesKept: 0 }
+    const have = new Set((await db.rides.toArray()).map((r) => r.startedAt))
+    for (const { ride, samples } of input.rides) {
+      if (have.has(ride.startedAt)) {
+        counts.ridesKept++
+        continue
+      }
+      have.add(ride.startedAt)
+      const id = await db.rides.add({ ...ride, status: 'ended' } as RideRow)
+      await db.samples.bulkPut(samples.map((s) => ({ ...s, rideId: id })))
+      counts.rides++
+    }
+    for (const c of input.courses) {
+      if (await db.courses.get(c.id)) counts.filesKept++
+      else {
+        await db.courses.put(c)
+        counts.courses++
+      }
+    }
+    for (const w of input.workouts) {
+      if (await db.workouts.get(w.id)) counts.filesKept++
+      else {
+        await db.workouts.put(w)
+        counts.workouts++
+      }
+    }
+    for (const w of input.customWorkouts) {
+      if (await db.customWorkouts.get(w.id)) counts.filesKept++
+      else {
+        await db.customWorkouts.put(w)
+        counts.workouts++
+      }
+    }
+    return counts
   })
 }
 

@@ -8,8 +8,12 @@ import { downloadFit, rideTotals, stoppedBetween } from './fit'
 import * as recorder from './recorder'
 import type { SampleRow } from './recorder'
 
-/** The window for the best-power number, in seconds. */
-export const BEST_POWER_WINDOW_S = 20 * 60
+/** The windows power bests are kept for, in seconds: 5 s, 1 min, 5 min, 20 min. */
+export const BEST_WINDOWS_S = [5, 60, 300, 1200] as const
+export type BestWindow = (typeof BEST_WINDOWS_S)[number]
+export const BEST_LABEL: Record<BestWindow, string> = { 5: '5 s', 60: '1 min', 300: '5 min', 1200: '20 min' }
+/** Best average power for each window, or null when the ride has no stretch that long without a stop. */
+export type Bests = Record<BestWindow, number | null>
 export const LAST_DAYS = 7
 
 export interface RideSummary {
@@ -21,8 +25,8 @@ export interface RideSummary {
   distanceM: number
   avgPowerW: number
   ascentM: number
-  /** Best average power over 20 minutes without a stop, or null for a shorter ride. */
-  best20W: number | null
+  /** Best average power over 5 s, 1 min, 5 min and 20 min without a stop. */
+  bests: Bests
   courseId?: string
   workoutId?: string
   /** The name saved with the ride (custom workouts keep a copy), for when the workout has since been renamed or deleted. */
@@ -34,7 +38,6 @@ export interface Totals {
   movingMs: number
   distanceM: number
   ascentM: number
-  best20W: number | null
 }
 
 /**
@@ -43,7 +46,7 @@ export interface Totals {
  * in a row. A pause or dropout starts a new run: resting never counts toward
  * an effort.
  */
-export function bestPowerW(samples: SampleRow[], windowS = BEST_POWER_WINDOW_S): number | null {
+export function bestPowerW(samples: SampleRow[], windowS: number): number | null {
   let best: number | null = null
   let runStart = 0
   let sum = 0
@@ -62,6 +65,10 @@ export function bestPowerW(samples: SampleRow[], windowS = BEST_POWER_WINDOW_S):
   return best
 }
 
+export function bestsOf(samples: SampleRow[]): Bests {
+  return { 5: bestPowerW(samples, 5), 60: bestPowerW(samples, 60), 300: bestPowerW(samples, 300), 1200: bestPowerW(samples, 1200) }
+}
+
 function summarize(ride: recorder.RideRow, samples: SampleRow[]): RideSummary | null {
   // Start pressed, never pedaled: an ended ride with nothing in it.
   if (samples.length === 0) return null
@@ -74,7 +81,7 @@ function summarize(ride: recorder.RideRow, samples: SampleRow[]): RideSummary | 
     distanceM: t.distanceM,
     avgPowerW: t.avgPowerW,
     ascentM: t.ascentM,
-    best20W: bestPowerW(samples),
+    bests: bestsOf(samples),
     ...(ride.courseId ? { courseId: ride.courseId } : {}),
     ...(ride.workoutId ? { workoutId: ride.workoutId } : {}),
     ...(snap && typeof snap.name === 'string' && snap.name.trim() ? { workoutName: snap.name.trim().slice(0, 80) } : {}),
@@ -89,7 +96,9 @@ function summarize(ride: recorder.RideRow, samples: SampleRow[]): RideSummary | 
  * Bump the version when rideTotals or bestPowerW changes what they return, so
  * old numbers are worked out again.
  */
-const STORE_KEY = 'ww.rideSummaries.v1'
+const STORE_KEY = 'ww.rideSummaries.v2'
+/** Older versions of the saved summaries, removed on load. */
+const OLD_STORE_KEYS = ['ww.rideSummaries.v1']
 
 interface Saved {
   /** The ride row's own start and end, to tell this ride from a later one that got the same id. */
@@ -110,7 +119,9 @@ function cleanSaved(id: number, v: unknown): Saved | null {
   if (typeof e.summary !== 'object' || e.summary === undefined) return null
   const r = e.summary as Record<string, unknown>
   if (!isNum(r.startedAt) || !isNum(r.movingMs) || !isNum(r.distanceM) || !isNum(r.avgPowerW) || !isNum(r.ascentM)) return null
-  if (r.best20W !== null && !isNum(r.best20W)) return null
+  if (typeof r.bests !== 'object' || r.bests === null) return null
+  const b = r.bests as Record<string, unknown>
+  const best = (w: BestWindow) => (isNum(b[w]) ? (b[w] as number) : null)
   return {
     rideStartedAt: e.rideStartedAt,
     endedAt: e.endedAt,
@@ -121,7 +132,7 @@ function cleanSaved(id: number, v: unknown): Saved | null {
       distanceM: r.distanceM,
       avgPowerW: r.avgPowerW,
       ascentM: r.ascentM,
-      best20W: r.best20W,
+      bests: { 5: best(5), 60: best(60), 300: best(300), 1200: best(1200) },
       ...(typeof r.courseId === 'string' ? { courseId: r.courseId } : {}),
       ...(typeof r.workoutId === 'string' ? { workoutId: r.workoutId } : {}),
       ...(typeof r.workoutName === 'string' ? { workoutName: r.workoutName.slice(0, 80) } : {}),
@@ -132,6 +143,7 @@ function cleanSaved(id: number, v: unknown): Saved | null {
 /** Null when nothing has ever been saved (or storage is off). */
 function readStore(): Map<number, Saved> | null {
   try {
+    for (const k of OLD_STORE_KEYS) localStorage.removeItem(k)
     const raw = localStorage.getItem(STORE_KEY)
     if (raw === null) return null
     const parsed = JSON.parse(raw) as unknown
@@ -229,14 +241,54 @@ export async function loadHistory(onPartial?: (rides: RideSummary[]) => void): P
 }
 
 export function totalsOf(rides: RideSummary[]): Totals {
-  const t: Totals = { rides: rides.length, movingMs: 0, distanceM: 0, ascentM: 0, best20W: null }
+  const t: Totals = { rides: rides.length, movingMs: 0, distanceM: 0, ascentM: 0 }
   for (const r of rides) {
     t.movingMs += r.movingMs
     t.distanceM += r.distanceM
     t.ascentM += r.ascentM
-    if (r.best20W !== null && (t.best20W === null || r.best20W > t.best20W)) t.best20W = r.best20W
   }
   return t
+}
+
+/** The best ride for one window: its watts and the ride that set it. */
+export interface BestHolder {
+  w: number
+  rideId: number
+  startedAt: number
+}
+
+/** The standing best for each window across these rides. The earlier ride keeps a tie. */
+export function bestHolders(rides: RideSummary[]): Record<BestWindow, BestHolder | null> {
+  const out: Record<BestWindow, BestHolder | null> = { 5: null, 60: null, 300: null, 1200: null }
+  for (const r of [...rides].sort((a, b) => a.startedAt - b.startedAt)) {
+    for (const win of BEST_WINDOWS_S) {
+      const w = r.bests[win]
+      if (w !== null && (out[win] === null || Math.round(w) > Math.round(out[win].w))) out[win] = { w, rideId: r.id, startedAt: r.startedAt }
+    }
+  }
+  return out
+}
+
+/**
+ * The PRs each ride set when it was ridden: the windows where it beat every
+ * earlier ride, by at least one whole watt. The first ride with a number for a
+ * window sets the mark and is not a PR: there was nothing to beat.
+ */
+export function prsByRide(rides: RideSummary[]): Map<number, BestWindow[]> {
+  const out = new Map<number, BestWindow[]>()
+  const mark: Record<BestWindow, number | null> = { 5: null, 60: null, 300: null, 1200: null }
+  for (const r of [...rides].sort((a, b) => a.startedAt - b.startedAt)) {
+    const set: BestWindow[] = []
+    for (const win of BEST_WINDOWS_S) {
+      const w = r.bests[win]
+      if (w === null) continue
+      const prev = mark[win]
+      if (prev !== null && Math.round(w) > prev) set.push(win)
+      if (prev === null || Math.round(w) > prev) mark[win] = Math.round(w)
+    }
+    if (set.length) out.set(r.id, set)
+  }
+  return out
 }
 
 /** Rides that started in the last 7 days (7 x 24 hours back from now, not a calendar week). */

@@ -333,6 +333,30 @@
   .ww-history-delete {
     min-width: 8.5em;
   }
+  /* A history row opens the ride's summary: the day underlines on hover, nothing else moves. */
+  .ww-history-link:hover .ww-history-day {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  /* Ride summary charts: one small line each, stacked on a shared time axis. */
+  .ww-ride-chart {
+    height: var(--ww-ride-chart-height);
+  }
+  /* A chart row: what the line is and its numbers on the left, the chart on the rest. */
+  .ww-ride-chart-row {
+    display: grid;
+    grid-template-columns: var(--ww-ride-chart-label) minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--ww-space-4);
+  }
+  /* Time in zone: code, name, bar, time, share. */
+  .ww-zone-bars {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    column-gap: var(--ww-space-4);
+    row-gap: var(--ww-space-2);
+  }
   /* The ride's date and setup take the width left over and truncate, never wrap. */
   .ww-history-ride {
     width: 100%;

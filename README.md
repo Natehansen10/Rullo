@@ -10,10 +10,10 @@ Chrome or Edge on desktop only (needs Web Bluetooth).
 
 ## Tabs
 
-- **Home** (`#/`, where the app opens): your FTP and weight, your power zones, totals from your saved rides (all rides and the last 7 days), and your ride history with **Download FIT** and **Delete** on every ride. One button takes you to the next step: **Set up a ride**, or **Go to Ride** once a setup is on the Ride tab.
+- **Home** (`#/`, where the app opens): your FTP and weight, your power zones, totals from your saved rides (all rides and the last 7 days), your power bests (5 s, 1 min, 5 min, 20 min), and your ride history with **Download FIT** and **Delete** on every ride. Click a ride to open its **summary**: its numbers, a line each for power, cadence, heart rate and elevation, time in each power zone, and its bests. A ride that beat every earlier ride over a stretch gets a **PR** tag. One button takes you to the next step: **Set up a ride**, or **Go to Ride** once a setup is on the Ride tab.
 - **Ride** (`#/ride`): live numbers only.
 - **Workout** (`#/workout`): pick a course and a workout.
-- **Profile** (`#/profile`): weights, position, FTP, your power zones and your own files.
+- **Profile** (`#/profile`): weights, position, FTP, your power zones, your own files, and back up and restore.
 
 Ride history is read from the rides saved in this browser. Nothing is uploaded. **Delete**, then **Confirm delete**, removes a ride and its recording from this browser for good; download the FIT first if you want to keep it. A ride that was never ended (a reload or a crash) is not in the list until you end it from the Ride tab.
 
@@ -131,6 +131,15 @@ The Ride tab has a **Heart rate** tile. It reads any standard Bluetooth heart ra
 
 Start the session on the watch (in the relay app). Weem Watts cannot start it for you; it only listens. A strap works the same way with no app at all.
 
+### Back up and restore
+
+Everything is saved in this browser only. Clearing site data wipes it, and another browser or computer starts empty.
+
+- **Back up** downloads one file (`weem-watts-backup-<date>.json`) with your finished rides, courses, workouts, profile and settings. About 220 KB per hour ridden.
+- **Restore** reads a backup file and adds the rides, courses and workouts this browser does not have. It never changes or removes anything already here, so restoring twice is safe. Your profile and settings are restored only where this browser has none saved.
+- A damaged file, or one that is not a backup, is refused and nothing is changed.
+- A ride that was never ended is not in a backup. End it first.
+
 ## ERG mode
 
 Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG you set a target in watts and the Kickr holds it at any cadence or gear.
@@ -200,6 +209,8 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/ride.ts` | Ride state, smoothing, stale detection, auto-pause, time and distance from timestamps |
 | `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
 | `src/lib/history.ts` | Ride history for the Home tab: each finished ride's time, distance, power and climbing from its saved samples, with the FIT writer's own totals; worked out once per ride, then kept in localStorage so Home opens at once |
+| `src/lib/rideDetail.ts` | One finished ride in full for its summary: totals, bests, time in zone and the per-second lines |
+| `src/lib/backup.ts` | Back up and restore: one JSON file, checked field by field on the way in; restore only adds |
 | `src/lib/fit.ts` | FIT file writer: records (with heart rate when there is a sensor), one lap per workout interval, timer stop / start events around pauses, work and calories on every lap and the ride |
 | `src/lib/wakeLock.ts` | Keeps the screen on while riding |
 | `src/lib/customWorkouts.ts` | Workouts built in the app: stored step lists, cleaned and validated on load |

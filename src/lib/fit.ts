@@ -219,6 +219,16 @@ export interface RideTotals {
   distanceM: number
   avgPowerW: number
   ascentM: number
+  /** Start to end, pauses included. */
+  elapsedMs: number
+  maxPowerW: number
+  /** Over the seconds with the pedals turning, as the FIT has it. */
+  avgCadenceRpm: number
+  /** Work in joules. */
+  workJ: number
+  /** Null when the ride has no heart rate. */
+  avgHeartRateBpm: number | null
+  maxHeartRateBpm: number | null
 }
 
 /**
@@ -228,7 +238,19 @@ export interface RideTotals {
 export function rideTotals(samples: SampleRow[]): RideTotals {
   if (samples.length === 0) throw new Error('No samples')
   const t = totals(samples, undefined, 0, undefined)
-  return { startT: t.startT, timerMs: t.timerMs, distanceM: t.distanceM, avgPowerW: t.avgPower, ascentM: t.ascentM }
+  return {
+    startT: t.startT,
+    timerMs: t.timerMs,
+    distanceM: t.distanceM,
+    avgPowerW: t.avgPower,
+    ascentM: t.ascentM,
+    elapsedMs: t.elapsedMs,
+    maxPowerW: t.maxPower,
+    avgCadenceRpm: t.avgCadence,
+    workJ: t.workJ,
+    avgHeartRateBpm: t.avgHeartRate,
+    maxHeartRateBpm: t.maxHeartRate,
+  }
 }
 
 /** Contiguous runs of samples with the same lap (interval) number. No lap numbers: one run. */

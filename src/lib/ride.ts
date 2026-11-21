@@ -1679,6 +1679,21 @@ export class RideController {
     this.emit()
   }
 
+  /**
+   * After a restore: list any course or workout that was added to the saved
+   * files. Nothing already listed is replaced, so the ride and the picks on
+   * the Workout tab keep the objects they hold.
+   */
+  reloadLists = async () => {
+    try {
+      const all = await loadCourses()
+      this.courses = [...this.courses, ...all.filter((c) => !this.courses.some((x) => x.id === c.id))]
+    } catch (err) {
+      console.error('Courses failed to load:', err)
+    }
+    await this.initWorkouts()
+  }
+
   importCourse = async (file: File) => {
     try {
       const c = await importGpxFile(file)
