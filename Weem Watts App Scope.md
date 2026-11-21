@@ -126,7 +126,9 @@ Asked for by Nate on Nov 20, 2026, ahead of the v3.2 ride test. No trainer code 
 - One primary button: Set up a ride, or Go to Ride once a setup is on the Ride tab
 - The zones chart is also on the Profile tab under the FTP field. Zone boundaries live in one list that the chart, the workout strip and the builder all use
 - Read from the rides already saved in the browser. No new table, no server; a small summary per ride is kept in localStorage so Home opens at once
-- **Cut:** W/lb (it needs kg to mean anything), TSS / IF, charts of past rides, streaks and goals, placeholders for anything not built
+- Added Nov 21, 2026, from `docs/zwift-accounts-profile-flow-research.md` (items 1, 3 in part and 6 of its build list): a ride summary opened from a history row (numbers, power / cadence / heart rate / elevation lines, time in zone), power bests at 5 s, 1, 5 and 20 min with PR tags, and back up and restore of everything in one file
+- **Cut:** W/lb (it needs kg to mean anything), TSS / IF and normalized power, weekly goal and streak, the summary taking over the Ride tab after End Ride, rename, undo for delete, a rider picker, placeholders for anything not built
+- **Groundwork for other riders, not built:** a rider id on every saved record, then optional sign-in that only syncs (this is where a backend such as Supabase would come in). The backup file is the shape a sync would send
 
 ### Heart rate (built Nov 20, 2026; ride test pending)
 

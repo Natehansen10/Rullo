@@ -1,6 +1,21 @@
-import { useEffect, useState } from 'react'
-import { deleteRide, downloadRide, lastDays, loadHistory, peekHistory, totalsOf, type RideSummary, type Totals } from '../lib/history'
-import { FEET_PER_METER, METERS_PER_MILE } from '../lib/physics'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  BEST_LABEL,
+  BEST_WINDOWS_S,
+  bestHolders,
+  deleteRide,
+  downloadRide,
+  lastDays,
+  loadHistory,
+  peekHistory,
+  prsByRide,
+  totalsOf,
+  type BestWindow,
+  type RideSummary,
+  type Totals,
+} from '../lib/history'
+import { dateOf, feet, hms, miles, setupOf } from '../lib/rideFormat'
+import { summaryHref } from '../hooks/useRoute'
 import type { RideSnapshot } from '../lib/ride'
 import { Button } from './Button'
 import { Stat } from './Stat'
@@ -20,28 +35,6 @@ const EMPTY = '--'
 /** How long Confirm delete stays up before it goes back to Delete. */
 const CONFIRM_MS = 3000
 
-function hms(ms: number): string {
-  const total = Math.floor(ms / 1000)
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const ss = String(total % 60).padStart(2, '0')
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`
-}
-
-const miles = (m: number, digits: number) =>
-  (m / METERS_PER_MILE).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })
-const feet = (m: number) => Math.round(m * FEET_PER_METER).toLocaleString()
-
-/** The day of a ride ("Fri, Nov 20"; with the year when it is not this one) and its start time. */
-function dateOf(t: number, now: number): { day: string; time: string } {
-  const d = new Date(t)
-  const sameYear = d.getFullYear() === new Date(now).getFullYear()
-  return {
-    day: d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) }),
-    time: d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-  }
-}
-
 /** What the rider should do next, and where its button goes. One primary button on the screen. */
 function nextStep(s: RideSnapshot): { text: string; ride: boolean } {
   if (s.phase === 'riding') return { text: 'Your ride is on.', ride: true }
@@ -56,9 +49,24 @@ function nextStep(s: RideSnapshot): { text: string; ride: boolean } {
   return { text: 'Pick a course and a workout. Or press Connect to ride free on a flat road.', ride: false }
 }
 
+/**
+ * A PR tag: this ride beat every earlier ride over these stretches. Neutral
+ * chip with the words written out; color carries nothing here.
+ */
+export function PrChip({ windows, shrink = false }: { windows: BestWindow[]; /** May truncate in a tight row; the full text is its title. */ shrink?: boolean }) {
+  const text = `PR ${windows.map((w) => BEST_LABEL[w]).join(' · ')}`
+  return (
+    <span
+      title={shrink ? text : undefined}
+      className={`rounded-sm border border-line-strong bg-raised px-2 font-mono text-mono whitespace-nowrap text-fg ${shrink ? 'min-w-0 truncate' : 'shrink-0'}`}
+    >
+      {text}
+    </span>
+  )
+}
+
 /** One line of totals. `t` is null while rides are still being read: the numbers wait as "--", nothing moves when they land. */
 function TotalsRow({ title, t }: { title: string; t: Totals | null }) {
-  const best = t?.best20W ?? null
   return (
     <div className="flex flex-col gap-3 border-t border-line px-6 py-4 first:border-t-0">
       <h3 className="font-semibold text-fg">{title}</h3>
@@ -67,7 +75,6 @@ function TotalsRow({ title, t }: { title: string; t: Totals | null }) {
         <Stat label="Time" value={t ? hms(t.movingMs) : EMPTY} dim={!t} />
         <Stat label="Distance" value={t ? miles(t.distanceM, 1) : EMPTY} unit={t ? 'mi' : undefined} dim={!t} />
         <Stat label="Climbed" value={t ? feet(t.ascentM) : EMPTY} unit={t ? 'ft' : undefined} dim={!t} />
-        <Stat label="Best 20 min" value={best === null ? EMPTY : String(Math.round(best))} unit={best === null ? undefined : 'W'} dim={best === null} />
       </div>
     </div>
   )
@@ -117,12 +124,11 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
     return () => clearTimeout(t)
   }, [confirming])
 
+  /** Bests and PR tags wait for the full list: half a list would hand out the wrong PRs. */
+  const holders = useMemo(() => (rides && complete ? bestHolders(rides) : null), [rides, complete])
+  const prs = useMemo(() => (rides && complete ? prsByRide(rides) : new Map<number, BestWindow[]>()), [rides, complete])
+
   const next = nextStep(s)
-  const courseName = (id: string) => s.courses.find((c) => c.id === id)?.name ?? (s.coursesLoaded ? 'Removed course' : '')
-  const workoutName = (r: RideSummary) =>
-    s.workouts.find((w) => w.id === r.workoutId)?.name ?? r.workoutName ?? (s.workoutsLoaded ? 'Removed workout' : '')
-  const setupOf = (r: RideSummary) =>
-    `${r.courseId ? courseName(r.courseId) : 'Flat road'} · ${r.workoutId ? workoutName(r) : 'Free ride'}`
 
   const onDownload = (r: RideSummary) => {
     setMessage(null)
@@ -184,6 +190,26 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
             </section>
           )}
 
+          {rides && rides.length > 0 && (
+            <section aria-label="Power bests" className="flex flex-col gap-3 rounded-lg border border-line bg-surface px-6 py-4">
+              <div className="flex flex-col gap-1">
+                <h2 className="font-semibold text-fg">Power bests</h2>
+                <p className="text-fg-muted">Your best average power over each stretch, with no stop in it, and the day you set it.</p>
+              </div>
+              <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+                {BEST_WINDOWS_S.map((win) => {
+                  const h = holders?.[win] ?? null
+                  return (
+                    <div key={win} className="flex flex-col gap-2">
+                      <Stat label={BEST_LABEL[win]} value={h ? String(Math.round(h.w)) : EMPTY} unit={h ? 'W' : undefined} dim={!h} />
+                      <span className="font-mono text-mono text-fg-subtle">{h ? dateOf(h.startedAt, now).day : complete ? 'no ride this long' : '\u00a0'}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
           <section aria-label="Ride history" className="rounded-lg border border-line bg-surface">
             <div className="flex flex-col gap-1 px-6 py-4">
               <h2 className="font-semibold text-fg">Ride history</h2>
@@ -194,7 +220,7 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
               ) : rides.length === 0 ? (
                 <p className="text-fg-muted">No rides yet. Each ride you finish will be listed here.</p>
               ) : (
-                <p className="text-fg-muted">Saved in this browser. Time is moving time. Download FIT rebuilds the file from the saved ride. Delete removes the ride for good.</p>
+                <p className="text-fg-muted">Saved in this browser. Click a ride for its summary. Time is moving time. Delete removes the ride for good.</p>
               )}
             </div>
             {rides && rides.length > 0 && (
@@ -225,12 +251,15 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
                       return (
                         <tr key={r.id} data-ride={r.id}>
                           <td className="ww-history-ride">
-                            <div className="flex min-w-0 flex-col gap-1">
-                              <span className="truncate font-semibold text-fg">{day}</span>
-                              <span className="truncate font-mono text-mono text-fg-subtle" title={setupOf(r)}>
-                                {time} · {setupOf(r)}
+                            <a href={summaryHref(r.id)} aria-label={`Open the ride on ${day} at ${time}`} className="ww-history-link flex min-w-0 flex-col gap-1 no-underline">
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className="ww-history-day shrink-0 font-semibold whitespace-nowrap text-fg">{day}</span>
+                                {prs.has(r.id) && <PrChip windows={prs.get(r.id) as BestWindow[]} shrink />}
                               </span>
-                            </div>
+                              <span className="truncate font-mono text-mono text-fg-subtle" title={setupOf(s, r)}>
+                                {time} · {setupOf(s, r)}
+                              </span>
+                            </a>
                           </td>
                           <td className="text-right font-semibold whitespace-nowrap text-fg tabular-nums">{hms(r.movingMs)}</td>
                           <td className="text-right font-semibold whitespace-nowrap text-fg tabular-nums">

@@ -59,7 +59,7 @@ A new first tab: Home, Ride, Workout, Profile. Laid out after Zwift's home scree
 - **Totals** are "All rides" and "Last 7 days". Last 7 days is the 7 x 24 hours before the page opened, not a calendar week. The Totals panel shows only when there is at least one ride.
 - **Time is moving time** everywhere on Home (the FIT timer: pauses and dropouts left out).
 - **One set of numbers.** A ride's time, distance, average power and climbing come from `rideTotals` in `fit.ts`, the same code that writes the FIT session message. Average power counts every recorded second, zeros included, as the FIT does.
-- **Best 20-minute power** is built: one pass over the samples. It is the best average over 1,200 recorded seconds in a row with no stop in them. A pause or a dropout starts a new run, so rest never counts toward an effort. A ride shorter than 20 minutes has none ("--").
+- **Best 20-minute power** is built (and since Part 5, 5 s, 1 min and 5 min too): one pass over the samples. It is the best average over 1,200 recorded seconds in a row with no stop in them. A pause or a dropout starts a new run, so rest never counts toward an effort. A ride shorter than 20 minutes has none ("--").
 - **History rows:** newest first. The day, then a small line with the start time, course and workout. "Flat road" and "Free ride" stand in when there is none, the same words the Workout tab uses. A course or workout that has since been removed reads "Removed course" or "Removed workout"; a custom workout keeps the name saved with the ride.
 - **10 rows, then Show more** adds 10 each press. Ten rows fit about one screen under the totals.
 - **Skipped:** rides with no samples (Start pressed, never pedaled), and any ride that was never ended. An unfinished ride shows in the Next panel ("An unfinished ride is waiting on the Ride tab.") and the recovery notice stays on the Ride tab.
@@ -130,6 +130,70 @@ Measured, same 50 one-hour rides, headless Chromium, production build:
 | Every load after | totals 1.1 to 1.4 s | rows and totals 0.12 to 0.16 s |
 
 Checked: totals are identical with and without saved summaries. A summary with the wrong end time, a garbage entry, a wrong field type, an entry for a ride that does not exist, and unreadable JSON each leave the totals correct and the store repaired. Deleting a ride removes its entry and it stays gone after a reload. The three-ride FIT comparison, the 1280x720 fit and the live numbers still pass.
+
+## Part 5: power bests and PR tags, Nov 21, 2026
+
+From the research doc (`docs/zwift-accounts-profile-flow-research.md`, "Progress card"). Nate said go on three items: this, the ride summary and back up and restore.
+
+- **Four stretches:** 5 s, 1 min, 5 min, 20 min, the four Zwift shows. Same rule as the 20-minute best: recorded seconds in a row with no stop.
+- **Home has a Power bests panel:** the standing best for each stretch and the day it was set. "Best 20 min" left the two totals rows, so each number is in one place.
+- **PR means "beat every earlier ride when it was ridden"**, by at least one whole watt. A ride keeps its tag when a later ride goes faster. The first ride with a number for a stretch sets the mark and gets no tag: there was nothing to beat.
+- **Tags are worked out, not stored.** Delete a ride and the tags after it follow.
+- **The PR chip is neutral** (mono on `raised`). The state colors mean connection and target states, and Cobalt is taken.
+- **Bests and tags wait for the full list.** On a first load they show "--" until every ride is read, like the totals.
+- **Saved summaries moved to `ww.rideSummaries.v2`** because each one now holds four bests. Every ride is read once more on the first visit; the old key is removed.
+
+## Part 6: ride summary, Nov 21, 2026
+
+The research calls the missing summary "the biggest gap". Click a ride in history to open it at `#/rides/<id>`.
+
+| Research (Ride Summary) | Here |
+| --- | --- |
+| Name, time, miles, climbing, avg W, kJ, avg cadence | Built, with max power and heart rate. The title is the day and time |
+| Normalized W | Cut, with TSS and IF, as the scope doc already had it |
+| Power and cadence chart, HR later, intervals shaded | Built: a line each for power, cadence, heart rate and elevation; interval starts are hairlines |
+| Time-in-zone bar | Built: one bar per zone with time and share |
+| Best 5 s / 1 / 5 / 20 min with a PR tag | Built |
+| Download FIT (primary), Ride again, New ride | Download FIT (primary) and Delete. Ride again is not built |
+| The Ride tab turns into the summary after End Ride | Not built. The summary opens from Home |
+
+Calls:
+
+- **A side trip from Home**, like the builder is from the Workout tab. The Home tab stays lit.
+- **Small stacked charts, one per signal,** on one time axis, in place of one chart with two or three scales. Each line has its numbers written beside it, so the chart needs no axis of its own.
+- **The x axis is moving time.** Pauses take no room; the help line says how much was left out.
+- **Colors:** power is `fg`, not Cobalt (Cobalt is live power). Cadence uses the `cadence` token, which exists for this. Heart rate is `fg-muted`; no new color was added.
+- **Time in zone uses your FTP today**, and says so. A ride does not store the FTP it was ridden at.
+- **Every number in the top row is the FIT file's own** (`rideTotals`). Checked against the decoded session: time, miles, feet, average and max power, work, cadence, average and max heart rate.
+- **Nothing is stored for it.** The page reads the ride's samples when it opens, about 20 ms per hour ridden.
+- **Delete** is here too, with the same two presses, and goes back to Home.
+- **No hover on the charts** in this pass.
+- **A ride that is not saved here** (deleted, never ended, a bad link) shows one sentence and a way back.
+
+## Part 7: back up and restore, Nov 21, 2026
+
+The research's item 6: "browser storage can be wiped. This is your stand-in for a cloud account." It is also the first piece of groundwork for other riders: the file is the shape a sync would send.
+
+- **Where:** the last block of the Profile tab.
+- **What is in the file:** finished rides with every sample, imported courses, imported and built workouts, the profile, and six settings (resistance level, mode, hill feel, ERG target, and the builder's two display choices). One JSON file, `weem-watts-backup-<date>.json`, about 220 KB per hour ridden.
+- **What is not:** a ride that was never ended, an ended ride with no samples, the saved summaries (they are rebuilt), the builder's unsaved draft, and the picks on the Workout tab.
+- **Restore only adds.** A ride with the same start time, or a course or workout with the same id, is left exactly as it is. Nothing is ever changed or removed, so restoring twice, or restoring an old backup, is safe. The note says how many were added and how many were already here.
+- **Profile and settings are restored only where this browser has none saved.** A fresh browser gets them back. A browser you have been using keeps its own.
+- **All or nothing.** The whole file is checked first, field by field (types, lengths, every sample a real number, times in order). Then everything is written in one transaction. A damaged file, a file that is not a backup, or one from a newer version is refused with "Nothing was changed."
+- **A built workout that can no longer be ridden is left out**, the same as the app's own list leaves it out.
+- **No reload.** Restored courses and workouts are listed at once; the ride and the picks on the Workout tab are not disturbed.
+- **Restore is locked mid-ride.** Back up is not.
+- **Cut:** "Download all FITs" as a zip. It needs a zip writer, and the rule is no new dependencies. Each ride's FIT is one click on Home.
+- **No schema change.**
+
+Checked: back up in one browser profile, restore in a clean one. Home (rows, totals, bests) is identical, and each ride's FIT is byte for byte the same as before the backup. Restoring again adds nothing. A saved profile is not overwritten. Six bad files (not JSON, another format, a newer version, a column one value short, text where numbers go, an object where a name goes) are each refused and write nothing. The unfinished ride and the empty ride are not in the file.
+
+## Not built from the research, and why
+
+- **Weekly goal and streak:** held until these three have been used.
+- **Rename a ride, undo for delete:** asked about, not chosen.
+- **Rider picker and a rider id on every record:** the real groundwork for other riders. It touches every saved record, so it gets its own pass.
+- **First-visit setup, sign-in:** only matter once other people arrive.
 
 ## Supabase, Nov 21, 2026
 

@@ -24,8 +24,14 @@ interface ProfilePageProps {
   onEditWorkout: (id: string) => void
   onCopyWorkout: (id: string) => void
   notice?: ReactNode
-  /** The Strava block (connect, who is connected, disconnect), under "Your files". */
+  /** The Strava block (connect, who is connected, disconnect), the last block on the page. */
   strava?: ReactNode
+  /** Download one file with everything saved in this browser. */
+  onBackup: () => void
+  /** Add what a backup file holds and this browser does not. */
+  onRestore: (f: File) => void
+  /** The outcome of the last back up or restore, in plain words. */
+  backupNote: string | null
 }
 
 const CONFIRM_MS = 3000
@@ -216,7 +222,11 @@ export function ProfilePage({
   onCopyWorkout,
   notice,
   strava,
+  onBackup,
+  onRestore,
+  backupNote,
 }: ProfilePageProps) {
+  const restoreRef = useRef<HTMLInputElement>(null)
   const previewMph = steadySpeedMps(riderParams(profile), PREVIEW_W) * MPS_TO_MPH
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -308,6 +318,43 @@ export function ProfilePage({
           onImport={onImportWorkout}
           onRemove={onRemoveWorkout}
         />
+      </section>
+
+      <div className="flex flex-col gap-1">
+        <h2 className="text-title font-semibold text-fg">Back up and restore</h2>
+        <p className="text-fg-muted">
+          Everything here lives in this browser only, and clearing site data wipes it. Keep a backup file somewhere safe.
+        </p>
+      </div>
+      <section aria-label="Back up and restore" className="rounded-lg border border-line bg-surface">
+        <Row label="Back up everything" help="One file: your rides, courses, workouts, profile and settings.">
+          <Button onClick={onBackup}>Back up</Button>
+        </Row>
+        <Row
+          label="Restore from a backup"
+          help="Adds the rides, courses and workouts this browser does not have. Nothing already here is changed or removed."
+        >
+          <Button onClick={() => restoreRef.current?.click()} disabled={!editable}>
+            Restore
+          </Button>
+          <input
+            ref={restoreRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            aria-label="Backup file to restore"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) onRestore(f)
+              e.target.value = ''
+            }}
+          />
+        </Row>
+        {backupNote && (
+          <p className="border-t border-line px-6 py-3 text-fg" aria-live="polite">
+            {backupNote}
+          </p>
+        )}
       </section>
 
       {strava}

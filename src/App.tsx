@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from './components/Button'
 import { ElevationProfile } from './components/ElevationProfile'
 import { HomePage } from './components/HomePage'
+import { RideSummaryPage } from './components/RideSummaryPage'
 import { ProfilePage } from './components/ProfilePage'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
@@ -25,7 +26,8 @@ import {
   SMOOTHING_OPTIONS,
 } from './config'
 import { ride, useRide } from './hooks/useRide'
-import { go, href, isRoute, useRoute } from './hooks/useRoute'
+import { go, href, isRoute, useRoute, useSummaryId } from './hooks/useRoute'
+import { downloadBackup, restoreBackup } from './lib/backup'
 import { useStrava } from './hooks/useStrava'
 import type { RideSnapshot } from './lib/ride'
 import { strava } from './lib/strava'
@@ -234,6 +236,40 @@ export default function App() {
   /** When Confirm end was last pressed. See onNewRide. */
   const endedAtRef = useRef(0)
   const route = useRoute()
+  const summaryId = useSummaryId()
+  /** The outcome of the last back up or restore, shown on the Profile tab. */
+  const [backupNote, setBackupNote] = useState<string | null>(null)
+
+  const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
+
+  const onBackup = () => {
+    setBackupNote('Reading your rides')
+    downloadBackup()
+      .then((c) => setBackupNote(`Backed up ${count(c.rides, 'ride')}, ${count(c.courses, 'course')} and ${count(c.workouts, 'workout')}.`))
+      .catch((err) => {
+        console.error('Backup failed:', err)
+        setBackupNote('Could not build the backup. Nothing was changed.')
+      })
+  }
+
+  const onRestore = (file: File) => {
+    setBackupNote('Restoring')
+    restoreBackup(file)
+      .then(async (r) => {
+        if (r.profile) ride.setProfile(r.profile)
+        await ride.reloadLists()
+        const kept = r.ridesKept + r.filesKept
+        setBackupNote(
+          `Restored ${count(r.rides, 'ride')}, ${count(r.courses, 'course')} and ${count(r.workouts, 'workout')}.` +
+            (kept > 0 ? ` ${count(kept, 'item')} already here ${kept === 1 ? 'was' : 'were'} left as ${kept === 1 ? 'it was' : 'they were'}.` : '') +
+            (r.profile ? ' Your profile was restored too.' : ''),
+        )
+      })
+      .catch((err) => {
+        console.error('Restore failed:', err)
+        setBackupNote(`${err instanceof Error ? err.message : 'Could not read that file.'} Nothing was changed.`)
+      })
+  }
   /** Step of the Workout tab. Kept here so the builder can send the rider back to step 2. */
   const [workoutStep, setWorkoutStep] = useState<0 | 1>(0)
   /** The selected workout's overview is open on step 2. */
@@ -342,7 +378,9 @@ export default function App() {
   const connecting = s.connection.kind === 'connecting'
   const lost = live && (s.connection.kind === 'failed' || s.connection.kind === 'disconnected')
   /** One primary per screen: where the page has its own (Home, Workout, the builder), the top bar's buttons are secondary. */
-  const pagePrimary = route === 'home' || route === 'workout' || route === 'builder'
+  const pagePrimary = route === 'home' || route === 'summary' || route === 'workout' || route === 'builder'
+  /** Home and its ride summary have their own primary, whatever the ride is doing. */
+  const homeSide = route === 'home' || route === 'summary'
 
   const onStart = () => {
     startedAtRef.current = Date.now()
@@ -390,7 +428,7 @@ export default function App() {
           <a href={href('home')} className="ww-wordmark no-underline">
             Weem Watts
           </a>
-          <TabNav tabs={TABS} current={route === 'builder' ? 'workout' : route} />
+          <TabNav tabs={TABS} current={route === 'builder' ? 'workout' : route === 'summary' ? 'home' : route} />
         </div>
         <div className="flex items-center gap-3">
           <StatusPill tone={pill.tone} label={pill.label} />
@@ -408,7 +446,7 @@ export default function App() {
           )}
           {s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
           {live && lost && (
-            <Button variant={route === 'home' ? 'secondary' : 'primary'} onClick={ride.connect}>
+            <Button variant={homeSide ? 'secondary' : 'primary'} onClick={ride.connect}>
               Reconnect
             </Button>
           )}
@@ -444,7 +482,7 @@ export default function App() {
               {s.canDownload && (
                 <Button
                   // One primary: Upload to Strava when it is on offer, else Download FIT.
-                  variant={route === 'home' || (showUpload && !!st.athlete && !isOnStrava(s.ended)) ? 'secondary' : 'primary'}
+                  variant={homeSide || (showUpload && !!st.athlete && !isOnStrava(s.ended)) ? 'secondary' : 'primary'}
                   onClick={() => void ride.download()}
                 >
                   Download FIT
@@ -459,6 +497,10 @@ export default function App() {
       {route === 'home' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
           <HomePage s={s} onSetup={() => go('workout')} onRide={() => go('ride')} />
+        </main>
+      ) : route === 'summary' && summaryId !== null ? (
+        <main className="flex flex-1 flex-col px-8 py-6">
+          <RideSummaryPage key={summaryId} rideId={summaryId} s={s} onBack={() => go('home')} />
         </main>
       ) : route === 'profile' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
@@ -477,6 +519,9 @@ export default function App() {
             onCopyWorkout={(id) => openBuilder('copy', id, 'profile')}
             notice={s.notice && <Notice title={s.notice} />}
             strava={<StravaBlock canLeave={s.phase === 'idle' || s.phase === 'ended'} endedRideId={s.ended?.id ?? null} />}
+            onBackup={onBackup}
+            onRestore={onRestore}
+            backupNote={backupNote}
           />
         </main>
       ) : route === 'builder' ? (
