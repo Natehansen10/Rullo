@@ -179,7 +179,13 @@ export function WorkoutStrip({
             <line x1={posX} x2={posX} y1={0} y2={h} stroke="var(--ww-accent)" strokeWidth={2.5} />
           </>
         )}
-        {hovered && <path d={hovered.d} fill="none" stroke="var(--ww-fg)" strokeWidth={1} />}
+        {/* Two-tone outline: an fg line with a surface hairline on each side, so it reads on every zone fill (fg alone is 2.7:1 on z7). */}
+        {hovered && (
+          <>
+            <path d={hovered.d} fill="none" stroke="var(--ww-surface)" strokeWidth={3} />
+            <path d={hovered.d} fill="none" stroke="var(--ww-fg)" strokeWidth={1} />
+          </>
+        )}
       </svg>
       {hovered && (
         <div
