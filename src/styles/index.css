@@ -329,6 +329,10 @@
   .ww-history thead tr {
     border-top: 1px solid var(--ww-line);
   }
+  /* Wide enough for "Confirm delete", so the row does not move on the first press. */
+  .ww-history-delete {
+    min-width: 8.5em;
+  }
   /* The ride's date and setup take the width left over and truncate, never wrap. */
   .ww-history-ride {
     width: 100%;
@@ -341,8 +345,25 @@
     align-items: start;
     gap: var(--ww-space-6);
   }
-  @media (max-width: 899px) {
+  .ww-home-rail {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--ww-space-6);
+  }
+  /* Under 1200px the rail goes on top, its two panels side by side, so the history rows keep the full width. */
+  @media (max-width: 1199px) {
     .ww-home {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .ww-home-rail {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--ww-home-rail);
+      align-items: start;
+    }
+  }
+  @media (max-width: 899px) {
+    .ww-home-rail {
       grid-template-columns: minmax(0, 1fr);
     }
   }

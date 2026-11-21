@@ -205,6 +205,21 @@ export async function listEndedRides(): Promise<RideRow[]> {
   return db.rides.where('status').equals('ended').toArray()
 }
 
+/**
+ * Delete a finished ride and every sample of it, in one transaction. Only an
+ * ended ride: a ride in progress or waiting to be recovered is never touched.
+ * Returns false when there was nothing to delete.
+ */
+export async function deleteEndedRide(id: number): Promise<boolean> {
+  return db.transaction('rw', db.rides, db.samples, async () => {
+    const ride = await db.rides.get(id)
+    if (!ride || ride.status !== 'ended') return false
+    await db.samples.where('[rideId+t]').between([id, Dexie.minKey], [id, Dexie.maxKey]).delete()
+    await db.rides.delete(id)
+    return true
+  })
+}
+
 export interface UnfinishedRide {
   ride: RideRow
   last: SampleRow | null

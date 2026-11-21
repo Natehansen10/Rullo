@@ -10,12 +10,12 @@ Chrome or Edge on desktop only (needs Web Bluetooth).
 
 ## Tabs
 
-- **Home** (`#/`, where the app opens): your FTP and weight, your power zones, totals from your saved rides (all rides and the last 7 days), and your ride history with a **Download FIT** button on every ride. One button takes you to the next step: **Set up a ride**, or **Go to Ride** once a setup is on the Ride tab.
+- **Home** (`#/`, where the app opens): your FTP and weight, your power zones, totals from your saved rides (all rides and the last 7 days), and your ride history with **Download FIT** and **Delete** on every ride. One button takes you to the next step: **Set up a ride**, or **Go to Ride** once a setup is on the Ride tab.
 - **Ride** (`#/ride`): live numbers only.
 - **Workout** (`#/workout`): pick a course and a workout.
 - **Profile** (`#/profile`): weights, position, FTP, your power zones and your own files.
 
-Ride history is read from the rides saved in this browser. Nothing is uploaded. A ride that was never ended (a reload or a crash) is not in the list until you end it from the Ride tab.
+Ride history is read from the rides saved in this browser. Nothing is uploaded. **Delete**, then **Confirm delete**, removes a ride and its recording from this browser for good; download the FIT first if you want to keep it. A ride that was never ended (a reload or a crash) is not in the list until you end it from the Ride tab.
 
 ## Run locally
 
