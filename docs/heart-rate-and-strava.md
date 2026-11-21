@@ -86,7 +86,7 @@ Every lap and the session in the FIT file now carry `total_work` (joules) and `t
 
 ### Judgment calls
 
-- **1 kJ of work is 1 kcal.** This is the usual cycling convention, and the one Garmin, Wahoo and Zwift use for power-based calories. It works because a rider turns about 24% of the energy burned into work at the pedals, and 1 kcal is 4.184 kJ, so the two nearly cancel. It is an estimate of energy burned, not a measurement.
+- **1 kJ of work is 1 kcal.** This is the usual cycling convention for calories from a power meter. It works because a rider turns about 24% of the energy burned into work at the pedals, and 1 kcal is 4.184 kJ, so the two nearly cancel. It is an estimate of energy burned, not a measurement.
 - **Each record is one second at its power.** Work is the sum of the recorded watts, one second each. There are no records while paused or during a dropout, so those add nothing. A record is never stretched across a hole: after a 2-second hiccup the record before it still counts for one second, not three.
 - **Work is not average power times timer time.** The two differ by a few joules when a ride has small holes. The sum of the records was chosen because it only counts seconds that have data.
 - **Laps add up exactly.** Lap work is in whole joules, so the laps sum to the session. Calories are rounded on the running total (lap calories are the rounded total at the lap's end minus the rounded total at its start), so the laps always add up to the session's whole number. Rounding each lap on its own would drift: forty 3-second laps of 480 J would each round to 0.
