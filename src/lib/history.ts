@@ -1,8 +1,8 @@
 /**
  * Ride history for the Home tab, read from the rides and samples already
- * saved in IndexedDB. Nothing new is stored: each ride's numbers are worked
- * out from its samples with the FIT writer's own totals, and kept in memory
- * for the session (an ended ride never changes).
+ * saved in IndexedDB. Each ride's numbers are worked out once from its samples
+ * with the FIT writer's own totals, then kept in memory and in localStorage
+ * (an ended ride never changes). No table is added.
  */
 import { downloadFit, rideTotals, stoppedBetween } from './fit'
 import * as recorder from './recorder'
@@ -81,10 +81,96 @@ function summarize(ride: recorder.RideRow, samples: SampleRow[]): RideSummary | 
   }
 }
 
+/**
+ * Summaries are also saved in localStorage, so a first load does not have to
+ * read every sample again (about 20 ms per hour ridden). The saved rides in
+ * IndexedDB stay the truth: an entry is used only for a ride that is still
+ * there with the same start and end, and is dropped when its ride is gone.
+ * Bump the version when rideTotals or bestPowerW changes what they return, so
+ * old numbers are worked out again.
+ */
+const STORE_KEY = 'ww.rideSummaries.v1'
+
+interface Saved {
+  /** The ride row's own start and end, to tell this ride from a later one that got the same id. */
+  rideStartedAt: number
+  endedAt: number
+  /** Null: the ride has no samples. */
+  summary: RideSummary | null
+}
+
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+
+/** A saved entry, rebuilt field by field: localStorage is as untrusted as a file. */
+function cleanSaved(id: number, v: unknown): Saved | null {
+  if (typeof v !== 'object' || v === null) return null
+  const e = v as Record<string, unknown>
+  if (!isNum(e.rideStartedAt) || !isNum(e.endedAt)) return null
+  if (e.summary === null) return { rideStartedAt: e.rideStartedAt, endedAt: e.endedAt, summary: null }
+  if (typeof e.summary !== 'object' || e.summary === undefined) return null
+  const r = e.summary as Record<string, unknown>
+  if (!isNum(r.startedAt) || !isNum(r.movingMs) || !isNum(r.distanceM) || !isNum(r.avgPowerW) || !isNum(r.ascentM)) return null
+  if (r.best20W !== null && !isNum(r.best20W)) return null
+  return {
+    rideStartedAt: e.rideStartedAt,
+    endedAt: e.endedAt,
+    summary: {
+      id,
+      startedAt: r.startedAt,
+      movingMs: r.movingMs,
+      distanceM: r.distanceM,
+      avgPowerW: r.avgPowerW,
+      ascentM: r.ascentM,
+      best20W: r.best20W,
+      ...(typeof r.courseId === 'string' ? { courseId: r.courseId } : {}),
+      ...(typeof r.workoutId === 'string' ? { workoutId: r.workoutId } : {}),
+      ...(typeof r.workoutName === 'string' ? { workoutName: r.workoutName.slice(0, 80) } : {}),
+    },
+  }
+}
+
+/** Null when nothing has ever been saved (or storage is off). */
+function readStore(): Map<number, Saved> | null {
+  try {
+    const raw = localStorage.getItem(STORE_KEY)
+    if (raw === null) return null
+    const parsed = JSON.parse(raw) as unknown
+    const out = new Map<number, Saved>()
+    if (typeof parsed === 'object' && parsed !== null) {
+      for (const [k, v] of Object.entries(parsed)) {
+        const id = Number(k)
+        const e = Number.isInteger(id) ? cleanSaved(id, v) : null
+        if (e) out.set(id, e)
+      }
+    }
+    return out
+  } catch {
+    // storage unavailable or corrupt: read from samples, as before
+    return null
+  }
+}
+
+const hadStore = readStore()
+const saved: Map<number, Saved> = hadStore ?? new Map()
+
+function writeStore(): void {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(saved)))
+  } catch {
+    // storage full or unavailable: the summaries still hold for this session
+  }
+}
+
 /** Summaries of ended rides, by ride id, for this session. `null`: the ride has no samples. */
 const cache = new Map<number, RideSummary | null>()
-/** The last full list read, so a return to Home in the same session shows it at once. */
-let lastFull: RideSummary[] | null = null
+/**
+ * The last full list read. Before the first read of a session it is the saved
+ * list, so Home can draw its rows and totals at once; the read that follows
+ * puts right anything that changed.
+ */
+let lastFull: RideSummary[] | null = hadStore
+  ? [...hadStore.values()].flatMap((e) => (e.summary ? [e.summary] : [])).sort((a, b) => b.startedAt - a.startedAt)
+  : null
 
 /** Rides read per step. The newest step comes first, so the top of the list shows before the rest is read. */
 const BATCH = 10
@@ -98,28 +184,46 @@ function listed(rides: recorder.RideRow[]): RideSummary[] {
   return out.sort((a, b) => b.startedAt - a.startedAt)
 }
 
-/** The list from the last full read this session, or null before the first one. */
+/** The list to draw before reading: the last full read this session, else the saved one, else null. */
 export function peekHistory(): RideSummary[] | null {
   return lastFull
 }
 
 /**
- * Every finished ride that has samples, newest first. Reading a ride's
- * samples is the slow part (about 20 ms per hour ridden), so rides are read
- * newest first in steps and `onPartial` gets the list so far after each step
- * but the last. A ride already read this session is not read again.
+ * Every finished ride that has samples, newest first. A ride whose summary is
+ * saved is not read at all. The rest are read from their samples newest first
+ * in steps, and `onPartial` gets the list so far after each step but the last.
  */
 export async function loadHistory(onPartial?: (rides: RideSummary[]) => void): Promise<RideSummary[]> {
   const rides = (await recorder.listEndedRides()).sort((a, b) => b.startedAt - a.startedAt)
+  let dirty = false
+  for (const r of rides) {
+    if (cache.has(r.id)) continue
+    const e = saved.get(r.id)
+    if (e && e.rideStartedAt === r.startedAt && e.endedAt === (r.endedAt ?? -1)) cache.set(r.id, e.summary)
+  }
+  // Saved entries whose ride is gone (deleted in another tab, site data cleared in part).
+  const ids = new Set(rides.map((r) => r.id))
+  for (const id of [...saved.keys()]) {
+    if (!ids.has(id)) {
+      saved.delete(id)
+      cache.delete(id)
+      dirty = true
+    }
+  }
   const todo = rides.filter((r) => !cache.has(r.id))
   for (let i = 0; i < todo.length; i += BATCH) {
     await Promise.all(
       todo.slice(i, i + BATCH).map(async (r) => {
-        cache.set(r.id, summarize(r, await recorder.getSamples(r.id)))
+        const summary = summarize(r, await recorder.getSamples(r.id))
+        cache.set(r.id, summary)
+        saved.set(r.id, { rideStartedAt: r.startedAt, endedAt: r.endedAt ?? -1, summary })
       }),
     )
+    dirty = true
     if (onPartial && i + BATCH < todo.length) onPartial(listed(rides))
   }
+  if (dirty || !hadStore) writeStore()
   lastFull = listed(rides)
   return lastFull
 }
@@ -145,6 +249,7 @@ export function lastDays(rides: RideSummary[], now: number, days = LAST_DAYS): R
 export async function deleteRide(id: number): Promise<void> {
   await recorder.deleteEndedRide(id)
   cache.delete(id)
+  if (saved.delete(id)) writeStore()
   if (lastFull) lastFull = lastFull.filter((r) => r.id !== id)
 }
 

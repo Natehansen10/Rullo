@@ -84,7 +84,7 @@ Reading the samples is the whole cost: a plain IndexedDB read of all 180,000 too
 
 - Rides are read newest first, 10 at a time. The first rows show after the first step. The totals wait as "--" and fill in when every ride is read, and nothing moves when they do.
 - Each ride's summary is kept in memory for the session, as asked (no new table). An ended ride never changes, so it is read once.
-- The totals do not make one second with 50 hours of rides on a first load. They would be instant with a saved summary per ride. That needs somewhere to keep it (a new table, or localStorage), which was ruled out for now. It is the first thing to do if the wait gets noticed.
+- The totals did not make one second with 50 hours of rides on a first load. Fixed in Part 4 below with summaries saved in localStorage.
 
 ### Checked
 
@@ -111,15 +111,34 @@ Nate asked for it after the first pass.
 
 Checked at 1024 and 1280 px: the first press deletes nothing and the row does not move; the confirm times out; the second press deletes that ride's row and its 1,800 samples and nothing else; totals update; it stays gone after a tab switch and a reload; the other rides still download; deleting every ride gives the empty state; an unfinished ride is untouched and its recovery notice still shows.
 
+## Part 4: saved summaries, Nov 21, 2026
+
+Nate said yes to fixing the totals wait and left the choice of where to keep the summaries (localStorage or one new table) open.
+
+- **Call: localStorage**, one key, `ww.rideSummaries.v1`. A new table would have meant a new database version. That is safe going forward, but once a browser has opened the newer version, an older build of the app (a rollback) can no longer open the database, rides included. localStorage has no such risk, and it is read before the page draws, so Home shows rows and totals on its first frame.
+- **Size:** about 190 characters a ride. A thousand rides is under 200 KB of a 5 MB allowance.
+- **The saved rides stay the truth.** A summary is used only for a ride that is still in the database with the same start and end. A ride with no summary is read from its samples and saved. A summary whose ride is gone is dropped. Unreadable or half-broken storage is ignored and rebuilt.
+- **Deleting a ride** drops its summary in the same step.
+- **When the numbers' code changes** (`rideTotals` or `bestPowerW`), bump the `v1` in the key: every ride is worked out again once.
+- **The first visit after this ships** still reads every ride once (the old 1.1 to 1.4 s with 50 hours of rides). So does a browser with storage blocked, every time.
+
+Measured, same 50 one-hour rides, headless Chromium, production build:
+
+| | Before | Now |
+| --- | --- | --- |
+| First load ever (nothing saved) | totals 1.1 to 1.4 s | the same, once |
+| Every load after | totals 1.1 to 1.4 s | rows and totals 0.12 to 0.16 s |
+
+Checked: totals are identical with and without saved summaries. A summary with the wrong end time, a garbage entry, a wrong field type, an entry for a ride that does not exist, and unreadable JSON each leave the totals correct and the store repaired. Deleting a ride removes its entry and it stays gone after a reload. The three-ride FIT comparison, the 1280x720 fit and the live numbers still pass.
+
 ## Supabase, Nov 21, 2026
 
 Nate offered to set up a Supabase backend. Not needed for anything built here, and not recommended yet:
 
-- The one slow spot (totals with many long rides) is a local read. A saved summary per ride in this browser fixes it with no server.
+- The one slow spot (totals with many long rides) was a local read. A saved summary per ride in this browser fixed it with no server (Part 4).
 - A backend means accounts and sync. The scope guardrails hold those until going public is a real decision.
 - Where it would earn its place later: ride history across devices, and Strava auto-upload (the client secret has to live on a server).
 
 ### Left for later
 
-- A saved summary per ride, if the totals wait is noticed (see Speed).
 - Two rides that start in the same minute get the same FIT file name. This was already true of End Ride.
