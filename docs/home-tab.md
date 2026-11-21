@@ -67,7 +67,7 @@ A new first tab: Home, Ride, Workout, Profile. Laid out after Zwift's home scree
 - **During a ride** Home is readable and changes nothing. Ride keys (arrows, +, -, E) only work on the Ride tab, as before. History is read again when a ride starts or ends.
 - **Empty state:** the rider summary, the zones chart, the Next panel and one line: "No rides yet. Each ride you finish will be listed here."
 - **No Dexie schema change.** One read-only query was added to `recorder.ts` (`listEndedRides`).
-- **Not built:** deleting a ride, charts of past rides, TSS / IF, goals, streaks, any placeholder.
+- **Not built:** charts of past rides, TSS / IF, goals, streaks, any placeholder.
 
 ### Speed, measured
 
@@ -93,12 +93,33 @@ Reading the samples is the whole cost: a plain IndexedDB read of all 180,000 too
 - 50 rides: timings above. An ended ride with no samples and an unfinished ride are not listed.
 - Reload mid-ride: the recovery notice shows on the Ride tab, Home lists nothing for that ride, and Next says a ride is waiting.
 - Ride tab at 1280x720 with four tabs in the bar: free, course, workout, and both still fit with no scroll.
-- Home at 1024, 1280, 1536 and 1920 px: no sideways scroll, no clipped cell. At 1024 the totals wrap to two lines and the row's small line truncates.
+- Home at 1024, 1280, 1536 and 1920 px: no sideways scroll, no clipped cell.
 - Reduced motion: durations are 0. Lowest text contrast on Home is 5.45:1 (`fg-subtle` on `surface`). No shadow, gradient or filter on the page.
 - `?fake=1`: power, cadence, speed, distance and time still update each second on the Ride tab.
+
+## Part 3: delete a ride, Nov 21, 2026
+
+Nate asked for it after the first pass.
+
+- **Delete on every history row**, beside Download FIT. It asks twice, like Remove on the Profile tab: the first press turns the button into red "Confirm delete" for 3 seconds, the second deletes.
+- **It is for good.** The ride's row and every sample of it are deleted in one transaction. There is no undo; the help line says so. Download the FIT first to keep a copy.
+- **Only finished rides.** A ride in progress or one waiting to be recovered is not in the list and the delete refuses it.
+- **Side effects, both intended:** the totals drop the ride at once. A course's default start mile comes from the last saved ride on it, so deleting that ride moves the default back to the ride before it, or to mile 0.
+- **A ride that just ended** is in the list while the Ride tab still shows it. Deleting it there leaves the Ride tab's own Download FIT with nothing to build; it says "Nothing was recorded."
+- **Layout change:** two buttons did not fit the row at 1024 px. Under 1200 px the rail now sits on top (Rider and Power zones side by side) and the history rows get the full width. The row buttons are the small size.
+- **No schema change.** `deleteEndedRide` in `recorder.ts` uses the tables as they are.
+
+Checked at 1024 and 1280 px: the first press deletes nothing and the row does not move; the confirm times out; the second press deletes that ride's row and its 1,800 samples and nothing else; totals update; it stays gone after a tab switch and a reload; the other rides still download; deleting every ride gives the empty state; an unfinished ride is untouched and its recovery notice still shows.
+
+## Supabase, Nov 21, 2026
+
+Nate offered to set up a Supabase backend. Not needed for anything built here, and not recommended yet:
+
+- The one slow spot (totals with many long rides) is a local read. A saved summary per ride in this browser fixes it with no server.
+- A backend means accounts and sync. The scope guardrails hold those until going public is a real decision.
+- Where it would earn its place later: ride history across devices, and Strava auto-upload (the client secret has to live on a server).
 
 ### Left for later
 
 - A saved summary per ride, if the totals wait is noticed (see Speed).
 - Two rides that start in the same minute get the same FIT file name. This was already true of End Ride.
-- Deleting a ride from history.

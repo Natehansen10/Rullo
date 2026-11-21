@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { downloadRide, lastDays, loadHistory, peekHistory, totalsOf, type RideSummary, type Totals } from '../lib/history'
+import { deleteRide, downloadRide, lastDays, loadHistory, peekHistory, totalsOf, type RideSummary, type Totals } from '../lib/history'
 import { FEET_PER_METER, METERS_PER_MILE } from '../lib/physics'
 import type { RideSnapshot } from '../lib/ride'
 import { Button } from './Button'
@@ -17,6 +17,8 @@ interface HomePageProps {
 /** Rows of history shown at first, and added by each Show more. */
 const PAGE = 10
 const EMPTY = '--'
+/** How long Confirm delete stays up before it goes back to Delete. */
+const CONFIRM_MS = 3000
 
 function hms(ms: number): string {
   const total = Math.floor(ms / 1000)
@@ -107,6 +109,14 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
     }
   }, [s.phase])
 
+  /** The ride whose Delete was pressed once. The second press deletes it. */
+  const [confirming, setConfirming] = useState<number | null>(null)
+  useEffect(() => {
+    if (confirming === null) return
+    const t = setTimeout(() => setConfirming(null), CONFIRM_MS)
+    return () => clearTimeout(t)
+  }, [confirming])
+
   const next = nextStep(s)
   const courseName = (id: string) => s.courses.find((c) => c.id === id)?.name ?? (s.coursesLoaded ? 'Removed course' : '')
   const workoutName = (r: RideSummary) =>
@@ -122,11 +132,23 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
     })
   }
 
+  const onDelete = (r: RideSummary) => {
+    if (confirming !== r.id) return setConfirming(r.id)
+    setConfirming(null)
+    setMessage(null)
+    deleteRide(r.id)
+      .then(() => setRides((list) => list && list.filter((x) => x.id !== r.id)))
+      .catch((err) => {
+        console.error('Could not delete the ride:', err)
+        setMessage('Could not delete that ride.')
+      })
+  }
+
   return (
     <div className="flex max-w-7xl flex-col gap-6">
       <h1 className="text-title font-semibold text-fg">Home</h1>
       <div className="ww-home">
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="ww-home-rail">
           <section aria-label="Rider" className="flex flex-col gap-4 rounded-lg border border-line bg-surface px-6 py-4">
             <h2 className="font-semibold text-fg">Rider</h2>
             <div className="flex flex-wrap gap-x-8 gap-y-4">
@@ -172,7 +194,7 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
               ) : rides.length === 0 ? (
                 <p className="text-fg-muted">No rides yet. Each ride you finish will be listed here.</p>
               ) : (
-                <p className="text-fg-muted">Saved in this browser. Time is moving time. Download FIT rebuilds the file from the saved ride.</p>
+                <p className="text-fg-muted">Saved in this browser. Time is moving time. Download FIT rebuilds the file from the saved ride. Delete removes the ride for good.</p>
               )}
             </div>
             {rides && rides.length > 0 && (
@@ -193,7 +215,7 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
                         Avg power
                       </th>
                       <th scope="col">
-                        <span className="sr-only">File</span>
+                        <span className="sr-only">File and delete</span>
                       </th>
                     </tr>
                   </thead>
@@ -218,9 +240,20 @@ export function HomePage({ s, onSetup, onRide }: HomePageProps) {
                             {Math.round(r.avgPowerW)} <span className="font-normal text-fg-muted">W</span>
                           </td>
                           <td className="text-right">
-                            <Button onClick={() => onDownload(r)} aria-label={`Download FIT, ride on ${day} at ${time}`}>
-                              Download FIT
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" onClick={() => onDownload(r)} aria-label={`Download FIT, ride on ${day} at ${time}`}>
+                                Download FIT
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={confirming === r.id ? 'danger' : 'secondary'}
+                                onClick={() => onDelete(r)}
+                                aria-label={`${confirming === r.id ? 'Confirm delete' : 'Delete'}, ride on ${day} at ${time}`}
+                                className="ww-history-delete"
+                              >
+                                {confirming === r.id ? 'Confirm delete' : 'Delete'}
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       )

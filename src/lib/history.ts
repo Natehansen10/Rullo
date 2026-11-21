@@ -141,6 +141,13 @@ export function lastDays(rides: RideSummary[], now: number, days = LAST_DAYS): R
   return rides.filter((r) => r.startedAt >= from)
 }
 
+/** Delete a finished ride for good: its row, its samples and its place in this session's list. */
+export async function deleteRide(id: number): Promise<void> {
+  await recorder.deleteEndedRide(id)
+  cache.delete(id)
+  if (lastFull) lastFull = lastFull.filter((r) => r.id !== id)
+}
+
 /** Rebuild a finished ride's FIT file from its saved samples and download it. */
 export async function downloadRide(id: number): Promise<void> {
   const samples = await recorder.getSamples(id)
