@@ -458,10 +458,10 @@ The final review of parts 1 to 5 left a short list. Closed here.
 - Both are now two-tone: the `fg` line with a 1px `surface` hairline on each side. The line sits on `surface` (17.4:1) whatever the fill. The hairline against the fill is Z1 3.2, Z2 3.8, Z3 3.6, Z4 3.3, Z5 3.6, Z6 5.2, Z7 6.4. No token changed.
 - DESIGN.md has the rule under Power zones.
 
-**The Ride tab at 1024x768 (gap 4, not closed, waiting on Nate)**
+**The Ride tab at 1024x768 (gap 4, accepted as is)**
 
 - Free ride fits. Course is 91px too tall, workout 63px, course + workout 180px waiting and 191px started.
 - Padding steps alone are about 75px short of fitting course + workout.
 - The Heart rate tile (added by the Home work the same day) took the room a side-by-side power tile would have used.
 - Power, Cadence and Heart rate in one row below 1280 would fit course only and workout only. Course + workout would still be about 44px short. A fit that holds means hiding something at 1024, such as the course note line and the mile ticks.
-- The layout is unchanged. Removing or hiding anything is Nate's call.
+- **Nate's call (Nov 21, 2026): accept the scroll at 1024.** The layout is unchanged. The fit target stays 1280x720. Below 1280 wide the page may scroll with a course or workout row, and the hover chip may flip above the strip.
