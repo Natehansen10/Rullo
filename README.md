@@ -199,7 +199,7 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/courses.ts` | Built-in courses plus imported ones (IndexedDB) |
 | `src/lib/ride.ts` | Ride state, smoothing, stale detection, auto-pause, time and distance from timestamps |
 | `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
-| `src/lib/history.ts` | Ride history for the Home tab: each finished ride's time, distance, power and climbing from its saved samples, with the FIT writer's own totals; kept in memory for the session |
+| `src/lib/history.ts` | Ride history for the Home tab: each finished ride's time, distance, power and climbing from its saved samples, with the FIT writer's own totals; worked out once per ride, then kept in localStorage so Home opens at once |
 | `src/lib/fit.ts` | FIT file writer: records, one lap per workout interval, timer stop / start events around pauses |
 | `src/lib/wakeLock.ts` | Keeps the screen on while riding |
 | `src/lib/customWorkouts.ts` | Workouts built in the app: stored step lists, cleaned and validated on load |
