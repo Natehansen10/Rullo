@@ -127,7 +127,7 @@ Asked for by Nate on Nov 20, 2026, ahead of the v3.2 ride test. No trainer code 
 - Read from the rides already saved in the browser. No new table, no server; a small summary per ride is kept in localStorage so Home opens at once
 - Added Nov 21, 2026, from `docs/zwift-accounts-profile-flow-research.md` (items 1, 3 in part and 6 of its build list): a ride summary opened from a history row (numbers, power / cadence / heart rate / elevation lines, time in zone), power bests at 5 s, 1, 5 and 20 min with PR tags, and back up and restore of everything in one file
 - **Cut:** W/lb (it needs kg to mean anything), TSS / IF and normalized power, weekly goal and streak, the summary taking over the Ride tab after End Ride, rename, undo for delete, a rider picker, placeholders for anything not built
-- **Groundwork for other riders:** a rider id on every saved record was built Nov 21, 2026 (`docs/riders.md`): one rider per browser, nothing visible, every read and write goes through it. Still not built: a rider picker, the profile and settings per rider, and optional sign-in that only syncs (this is where a backend such as Supabase would come in). The backup file is the shape a sync would send
+- **Groundwork for other riders:** a rider id on every saved record was built Nov 21, 2026 (`docs/riders.md`): one rider per browser, nothing visible, every read and write goes through it. The rider picker followed the same day ("Who's riding" on the Profile tab: add, switch, rename, remove a rider with nothing saved; profile and settings per rider). Still not built: optional sign-in that only syncs (this is where a backend such as Supabase would come in). The backup file is the shape a sync would send
 
 ### Heart rate (built Nov 20, 2026; ride test pending)
 

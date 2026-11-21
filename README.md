@@ -13,7 +13,7 @@ Chrome or Edge on desktop only (needs Web Bluetooth).
 - **Home** (`#/`, where the app opens): your FTP and weight, your power zones, totals from your saved rides (all rides and the last 7 days), your power bests (5 s, 1 min, 5 min, 20 min), and your ride history with **Download FIT** and **Delete** on every ride. Click a ride to open its **summary**: its numbers, a line each for power, cadence, heart rate and elevation, time in each power zone, and its bests. A ride that beat every earlier ride over a stretch gets a **PR** tag. One button takes you to the next step: **Set up a ride**, or **Go to Ride** once a setup is on the Ride tab.
 - **Ride** (`#/ride`): live numbers only.
 - **Workout** (`#/workout`): pick a course and a workout.
-- **Profile** (`#/profile`): weights, position, FTP, your power zones, your own files, and back up and restore.
+- **Profile** (`#/profile`): who's riding, weights, position, FTP, your power zones, your own files, and back up and restore.
 
 Ride history is read from the rides saved in this browser. Nothing is uploaded. **Delete**, then **Confirm delete**, removes a ride and its recording from this browser for good; download the FIT first if you want to keep it. A ride that was never ended (a reload or a crash) is not in the list until you end it from the Ride tab.
 
@@ -103,6 +103,17 @@ To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "..."
 ## Profile
 
 Open the **Profile** tab (`#/profile`) and set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these. The profile is saved in this browser and applies to your next ride; past rides don't change.
+
+### More than one rider
+
+**Who's riding**, at the top of the Profile tab, is for a shared trainer. No passwords.
+
+- **Add rider** makes a new rider and switches to them. They start with the default profile and nothing saved.
+- **Switch** changes who is riding. The page reloads, so disconnect the trainer and end the ride first.
+- Each rider has their own name, profile, settings, rides, courses, workouts and backups. Nobody sees another rider's rides.
+- Type in the name field to rename yourself.
+- **Remove** works only for a rider with nothing saved. A rider's rides are never deleted from this list.
+- With more than one rider, the name of whoever is riding shows in the top bar.
 
 ### Power zones
 
@@ -209,7 +220,7 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/courses.ts` | Built-in courses plus imported ones (IndexedDB) |
 | `src/lib/ride.ts` | Ride state, smoothing, stale detection, auto-pause, time and distance from timestamps |
 | `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less. Every saved ride, course and workout is stamped with its rider, and every read returns only that rider's |
-| `src/lib/rider.ts` | The rider this browser belongs to: an id made on the first visit. One rider today, no picker (see `docs/riders.md`) |
+| `src/lib/rider.ts` | The riders on this browser and who is riding: add, switch, rename, remove. Switching swaps the profile and settings in place and reloads (see `docs/riders.md`) |
 | `src/lib/history.ts` | Ride history for the Home tab: each finished ride's time, distance, power and climbing from its saved samples, with the FIT writer's own totals; worked out once per ride, then kept in localStorage so Home opens at once |
 | `src/lib/rideDetail.ts` | One finished ride in full for its summary: totals, bests, time in zone and the per-second lines |
 | `src/lib/backup.ts` | Back up and restore: one JSON file, checked field by field on the way in; restore only adds |

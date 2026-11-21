@@ -12,7 +12,7 @@ import { customFromRow } from './customWorkouts'
 import { MAX_GPX_BYTES } from './gpx'
 import { normalizeProfile, type Profile } from './profile'
 import * as recorder from './recorder'
-import { currentRider, isRiderId, type Rider } from './rider'
+import { cleanRiderName, currentRider, isRiderId, knownRiderIds, renameRider, type Rider } from './rider'
 import type { CustomWorkoutRow, ImportedCourseRow, ImportedWorkoutRow, RideRow, SampleRow } from './recorder'
 import { MAX_ZWO_BYTES } from './zwo'
 
@@ -224,7 +224,7 @@ function readCustom(v: unknown): CustomWorkoutRow {
 }
 
 /** Check a parsed backup from top to bottom. Throws with a rider-facing message; writes nothing. */
-export function readBackup(data: unknown): { rows: recorder.ImportRows; settings: Record<string, string>; riderId: string | null } {
+export function readBackup(data: unknown): { rows: recorder.ImportRows; settings: Record<string, string>; riderId: string | null; riderName: string } {
   if (!isObject(data) || data.format !== FORMAT || !isNum(data.version)) throw new Error(BAD)
   if (data.version > VERSION) throw new Error('This backup was made by a newer Weem Watts. Reload the app to update it, then restore again.')
   const settings: Record<string, string> = {}
@@ -250,6 +250,7 @@ export function readBackup(data: unknown): { rows: recorder.ImportRows; settings
     },
     settings,
     riderId: isObject(data.rider) && isRiderId(data.rider.id) ? data.rider.id : null,
+    riderName: isObject(data.rider) ? cleanRiderName(data.rider.name) : '',
   }
 }
 
@@ -271,11 +272,14 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
   } catch {
     throw new Error(BAD)
   }
-  const { rows, settings, riderId } = readBackup(data)
-  // A browser with nothing saved takes on the backup's rider, so a rider stays one rider across a wipe or a new
+  const { rows, settings, riderId, riderName } = readBackup(data)
+  // A rider with nothing saved takes on the backup's rider, so a rider stays one rider across a wipe or a new
   // computer. A browser that already has rides keeps its own, and what is restored joins it.
-  const adopt = riderId !== null && (await recorder.nothingSaved()) ? riderId : undefined
+  // Not when another rider on this browser already has that id: then the rows simply join whoever is riding.
+  const adopt = riderId !== null && !knownRiderIds().includes(riderId) && (await recorder.nothingSaved()) ? riderId : undefined
   const counts = await recorder.importRows(rows, adopt)
+  // The name comes along with the id, unless another rider here has it.
+  if (adopt && riderName) renameRider(adopt, riderName)
   let profile: Profile | null = null
   for (const [k, v] of Object.entries(settings)) {
     try {

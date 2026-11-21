@@ -317,6 +317,15 @@ export async function nothingSaved(): Promise<boolean> {
   return true
 }
 
+/** True when no saved record carries this rider's id. For a rider who is not the one riding. */
+export async function nothingSavedFor(riderId: string): Promise<boolean> {
+  await owner
+  for (const table of OWNED_TABLES()) {
+    if ((await table.filter((row) => row.riderId === riderId).count()) > 0) return false
+  }
+  return true
+}
+
 /** Everything the rider has saved, for a backup: finished rides and their own files. */
 export async function exportRows(): Promise<{
   rides: RideRow[]

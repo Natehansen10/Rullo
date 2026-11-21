@@ -7,6 +7,7 @@
 import { downloadFit, rideTotals, stoppedBetween } from './fit'
 import * as recorder from './recorder'
 import type { SampleRow } from './recorder'
+import { currentRider, SUMMARIES_KEY_PREFIX } from './rider'
 
 /** The windows power bests are kept for, in seconds: 5 s, 1 min, 5 min, 20 min. */
 export const BEST_WINDOWS_S = [5, 60, 300, 1200] as const
@@ -96,9 +97,13 @@ function summarize(ride: recorder.RideRow, samples: SampleRow[]): RideSummary | 
  * Bump the version when rideTotals or bestPowerW changes what they return, so
  * old numbers are worked out again.
  */
-const STORE_KEY = 'ww.rideSummaries.v2'
+/** One store per rider, so a rider's first frame never shows another rider's rides. Null before the first visit has made a rider. */
+const storeKey = (): string | null => {
+  const id = currentRider()?.id
+  return id ? SUMMARIES_KEY_PREFIX + id : null
+}
 /** Older versions of the saved summaries, removed on load. */
-const OLD_STORE_KEYS = ['ww.rideSummaries.v1']
+const OLD_STORE_KEYS = ['ww.rideSummaries.v1', 'ww.rideSummaries.v2']
 
 interface Saved {
   /** The ride row's own start and end, to tell this ride from a later one that got the same id. */
@@ -144,7 +149,8 @@ function cleanSaved(id: number, v: unknown): Saved | null {
 function readStore(): Map<number, Saved> | null {
   try {
     for (const k of OLD_STORE_KEYS) localStorage.removeItem(k)
-    const raw = localStorage.getItem(STORE_KEY)
+    const key = storeKey()
+    const raw = key === null ? null : localStorage.getItem(key)
     if (raw === null) return null
     const parsed = JSON.parse(raw) as unknown
     const out = new Map<number, Saved>()
@@ -167,7 +173,8 @@ const saved: Map<number, Saved> = hadStore ?? new Map()
 
 function writeStore(): void {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(Object.fromEntries(saved)))
+    const key = storeKey()
+    if (key !== null) localStorage.setItem(key, JSON.stringify(Object.fromEntries(saved)))
   } catch {
     // storage full or unavailable: the summaries still hold for this session
   }

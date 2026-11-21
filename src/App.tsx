@@ -26,7 +26,9 @@ import {
 import { ride, useRide } from './hooks/useRide'
 import { go, href, isRoute, useRoute, useSummaryId } from './hooks/useRoute'
 import { downloadBackup, restoreBackup } from './lib/backup'
+import * as recorder from './lib/recorder'
 import type { RideSnapshot } from './lib/ride'
+import { addRider, listRiders, onRiderChanged, removeRider, renameRider, switchRider } from './lib/rider'
 import { builder, type ReturnTo } from './lib/workoutDraft'
 
 const EMPTY = '--'
@@ -235,6 +237,66 @@ export default function App() {
   /** The outcome of the last back up or restore, shown on the Profile tab. */
   const [backupNote, setBackupNote] = useState<string | null>(null)
 
+  /** Everyone who rides on this browser. Read again after each change; a switch reloads the page. */
+  const [riders, setRiders] = useState(listRiders)
+  const [riderNote, setRiderNote] = useState<string | null>(null)
+  // The first visit makes the rider a moment after the page draws.
+  useEffect(() => {
+    if (riders) return
+    const t = setInterval(() => {
+      const r = listRiders()
+      if (r) setRiders(r)
+    }, 250)
+    return () => clearInterval(t)
+  }, [riders])
+  /** Switching reloads the page, which drops the trainer: only with nothing connected and no ride waiting. */
+  const canSwitchRider = s.phase === 'idle' && !s.resuming && s.connection.kind !== 'connecting'
+  const riderName = riders?.riders.find((r) => r.id === riders.current)?.name ?? null
+
+  // Another tab switched riders: this tab's profile and settings are no longer its own. Reload when no ride is at stake.
+  const canSwitchRef = useRef(canSwitchRider)
+  canSwitchRef.current = canSwitchRider
+  useEffect(
+    () =>
+      onRiderChanged(() => {
+        if (canSwitchRef.current) window.location.reload()
+        else ride.notify('The rider was switched in another tab. Reload this tab after your ride.')
+      }),
+    [],
+  )
+
+  const onSwitchRider = (id: string) => {
+    if (!canSwitchRider) return
+    if (switchRider(id)) window.location.reload()
+    else setRiderNote('Could not switch riders. Nothing was changed.')
+  }
+
+  const onAddRider = () => {
+    if (!canSwitchRider) return
+    const id = addRider()
+    if (id && switchRider(id)) window.location.reload()
+    else setRiderNote('Could not add a rider. Nothing was changed.')
+  }
+
+  const onRenameRider = (name: string): boolean => {
+    const ok = !!riders && renameRider(riders.current, name)
+    setRiders(listRiders())
+    setRiderNote(ok ? null : 'That name is empty or another rider has it.')
+    return ok
+  }
+
+  const onRemoveRider = (id: string) => {
+    const name = riders?.riders.find((r) => r.id === id)?.name ?? 'That rider'
+    recorder
+      .nothingSavedFor(id)
+      .then((empty) => {
+        if (!empty) return setRiderNote(`${name} has rides or files saved here, so they can't be removed. Their rides are never deleted from this list.`)
+        setRiderNote(removeRider(id) ? `Removed ${name}.` : 'Could not remove that rider.')
+        setRiders(listRiders())
+      })
+      .catch(() => setRiderNote('Could not remove that rider.'))
+  }
+
   const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
 
   const onBackup = () => {
@@ -377,6 +439,13 @@ export default function App() {
           <TabNav tabs={TABS} current={route === 'builder' ? 'workout' : route === 'summary' ? 'home' : route} />
         </div>
         <div className="flex items-center gap-3">
+          {/* Only on a shared browser: with one rider there is nothing to tell apart. */}
+          {riders && riders.riders.length > 1 && riderName && (
+            <a href={href('profile')} aria-label={`Riding as ${riderName}. Switch on the Profile tab.`} title={riderName}
+              className="ww-label hidden max-w-[14ch] shrink-0 truncate no-underline hover:text-fg xl:block">
+              {riderName}
+            </a>
+          )}
           <StatusPill tone={pill.tone} label={pill.label} />
           {s.phase === 'idle' && (
             <Button
@@ -426,7 +495,7 @@ export default function App() {
 
       {route === 'home' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
-          <HomePage s={s} onSetup={() => go('workout')} onRide={() => go('ride')} />
+          <HomePage s={s} riderName={riderName} onSetup={() => go('workout')} onRide={() => go('ride')} />
         </main>
       ) : route === 'summary' && summaryId !== null ? (
         <main className="flex flex-1 flex-col px-8 py-6">
@@ -448,6 +517,13 @@ export default function App() {
             onEditWorkout={(id) => openBuilder('edit', id, 'profile')}
             onCopyWorkout={(id) => openBuilder('copy', id, 'profile')}
             notice={s.notice && <Notice title={s.notice} />}
+            riders={riders}
+            canSwitchRider={canSwitchRider}
+            onSwitchRider={onSwitchRider}
+            onAddRider={onAddRider}
+            onRenameRider={onRenameRider}
+            onRemoveRider={onRemoveRider}
+            riderNote={riderNote}
             onBackup={onBackup}
             onRestore={onRestore}
             backupNote={backupNote}

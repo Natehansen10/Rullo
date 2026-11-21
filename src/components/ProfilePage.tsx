@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { POSITIONS, type Position } from '../config'
 import { MPS_TO_MPH, steadySpeedMps } from '../lib/physics'
 import { riderParams, type Profile } from '../lib/profile'
+import { MAX_RIDER_NAME_CHARS, MAX_RIDERS, type Riders } from '../lib/rider'
 import type { CourseOption, WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
 import { SegmentedControl } from './SegmentedControl'
+import { TextField } from './TextField'
 import { ZoneTable } from './ZoneTable'
 
 interface ProfilePageProps {
@@ -24,6 +26,17 @@ interface ProfilePageProps {
   onEditWorkout: (id: string) => void
   onCopyWorkout: (id: string) => void
   notice?: ReactNode
+  /** Everyone who rides on this browser, and who is riding now. Null until the first visit has made a rider. */
+  riders: Riders | null
+  /** Riders can be switched and added only with the trainer disconnected and no ride on: it reloads the page. */
+  canSwitchRider: boolean
+  onSwitchRider: (id: string) => void
+  onAddRider: () => void
+  /** Returns false when the name is empty or another rider has it. */
+  onRenameRider: (name: string) => boolean
+  onRemoveRider: (id: string) => void
+  /** The outcome of the last rider action, in plain words. */
+  riderNote: string | null
   /** Download one file with everything saved in this browser. */
   onBackup: () => void
   /** Add what a backup file holds and this browser does not. */
@@ -204,6 +217,32 @@ function Row({ label, htmlFor, help, children }: { label: string; htmlFor?: stri
   )
 }
 
+/** The current rider's name as a field: saved when the field is left, put back when the name can't be used. */
+function RiderName({ name, disabled, onRename }: { name: string; disabled: boolean; onRename: (name: string) => boolean }) {
+  const [text, setText] = useState(name)
+  const [bad, setBad] = useState(false)
+  useEffect(() => setText(name), [name])
+  return (
+    <TextField
+      aria-label="Your name"
+      value={text}
+      maxLength={MAX_RIDER_NAME_CHARS}
+      disabled={disabled}
+      invalid={bad}
+      onChange={(v) => {
+        setText(v)
+        setBad(false)
+      }}
+      onCommit={() => {
+        if (text.trim() === name) return setText(name)
+        setBad(!onRename(text))
+      }}
+      inputClassName="w-full font-semibold"
+      className="min-w-0 flex-1"
+    />
+  )
+}
+
 /** Rider profile on its own screen. Saved in this browser; applies to the next ride. */
 export function ProfilePage({
   profile,
@@ -219,6 +258,13 @@ export function ProfilePage({
   onEditWorkout,
   onCopyWorkout,
   notice,
+  riders,
+  canSwitchRider,
+  onSwitchRider,
+  onAddRider,
+  onRenameRider,
+  onRemoveRider,
+  riderNote,
   onBackup,
   onRestore,
   backupNote,
@@ -238,6 +284,51 @@ export function ProfilePage({
         <div className="rounded-lg border border-line bg-surface px-6 py-4 text-fg">
           You're mid-ride. End the ride to edit your profile.
         </div>
+      )}
+
+      {riders && (
+        <section aria-label="Riders" className="rounded-lg border border-line bg-surface">
+          <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+            <div className="flex flex-col gap-1">
+              <h2 className="font-semibold text-fg">Who's riding</h2>
+              <span className="text-fg-muted">
+                Each rider has their own profile, rides, courses and workouts on this browser. No passwords.
+              </span>
+            </div>
+            <Button onClick={onAddRider} disabled={!canSwitchRider || riders.riders.length >= MAX_RIDERS}>
+              Add rider
+            </Button>
+          </div>
+          {riders.riders.map((r) => {
+            const current = r.id === riders.current
+            return (
+              <div key={r.id} data-rider={r.id} className="flex items-center gap-4 border-t border-line px-6 py-3">
+                {current ? (
+                  <RiderName name={r.name} disabled={!editable} onRename={onRenameRider} />
+                ) : (
+                  <span className="min-w-0 flex-1 truncate font-semibold text-fg">{r.name}</span>
+                )}
+                {current ? (
+                  <span className="font-mono text-mono whitespace-nowrap text-fg-muted">riding now</span>
+                ) : (
+                  <>
+                    <Button onClick={() => onSwitchRider(r.id)} disabled={!canSwitchRider} aria-label={`Switch to ${r.name}`}>
+                      Switch
+                    </Button>
+                    <Button onClick={() => onRemoveRider(r.id)} disabled={!canSwitchRider} aria-label={`Remove ${r.name}`}>
+                      Remove
+                    </Button>
+                  </>
+                )}
+              </div>
+            )
+          })}
+          {(riderNote || !canSwitchRider) && (
+            <p className="border-t border-line px-6 py-3 text-fg" aria-live="polite">
+              {riderNote ?? 'Disconnect the trainer and end the ride to switch or add riders.'}
+            </p>
+          )}
+        </section>
       )}
 
       <section aria-label="Rider profile" className="rounded-lg border border-line bg-surface">
