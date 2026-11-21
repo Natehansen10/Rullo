@@ -721,7 +721,22 @@ export function BuilderGraph({ draft, ftpW, unit, selected, onSelect, full }: Bu
                         </g>
                       )
                     })}
-                    {isSel && <rect x={x0 + 1} y={top - 3} width={Math.max(2, x1 - x0 - 2)} height={floor - top + 3} fill="none" stroke="var(--ww-fg)" strokeWidth={2} rx={2} pointerEvents="none" />}
+                    {/* Two-tone outline: an fg line with a surface hairline on each side, so it reads on every zone fill (fg alone is 2.7:1 on z7). */}
+                    {isSel &&
+                      (['surface', 'fg'] as const).map((tone) => (
+                        <rect
+                          key={tone}
+                          x={x0 + 1}
+                          y={top - 3}
+                          width={Math.max(2, x1 - x0 - 2)}
+                          height={floor - top + 3}
+                          fill="none"
+                          stroke={`var(--ww-${tone})`}
+                          strokeWidth={tone === 'fg' ? 2 : 4}
+                          rx={2}
+                          pointerEvents="none"
+                        />
+                      ))}
                   </g>
                 )
               })}

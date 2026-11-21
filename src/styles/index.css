@@ -126,6 +126,9 @@
    * Hover details on the workout strip: one mono line on a surface chip.
    * Absolutely positioned and never a pointer target, so it cannot move the
    * layout or take a click meant for what it covers.
+   * 22px tall (12px line, 4px padding, 1px border) and 4px under the strip, so
+   * it ends 26px below it: inside the 29px between the strip and the control
+   * row's buttons (12px row padding, 1px hairline, 16px control row padding).
    */
   .ww-strip-tip {
     position: absolute;
@@ -140,7 +143,7 @@
     color: var(--ww-fg-muted);
     font-family: var(--ww-font-mono);
     font-size: var(--ww-mono-size);
-    line-height: 16px;
+    line-height: 12px;
     white-space: nowrap;
     pointer-events: none;
     animation: ww-strip-tip-in var(--ww-dur-fast) var(--ww-ease);
