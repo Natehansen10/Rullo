@@ -21,7 +21,7 @@ export function MetricTile({ label, value, unit, size = 'lg', dim = false, actio
   return (
     <div className={`flex min-w-0 flex-col justify-between ${dense ? 'gap-2' : 'gap-4'} ${className}`}>
       <div className={`flex items-center justify-between gap-3 ${size === 'hero' || !dense ? 'min-h-8' : ''}`}>
-        <span className="ww-label">{label}</span>
+        <span className="ww-label whitespace-nowrap">{label}</span>
         {action}
       </div>
       <div className={`ww-num whitespace-nowrap ${size === 'hero' ? 'ww-num-hero' : 'ww-num-lg'} ${color}`}>

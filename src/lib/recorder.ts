@@ -42,6 +42,8 @@ export interface SampleRow {
   workoutS?: number
   /** Total paused time before this sample, ms (auto-pauses and dropouts). Absent until the first pause. */
   pausedMs?: number
+  /** Heart rate in bpm, only when the sensor gave a fresh reading for this second. Never carried forward, never 0. */
+  heartRateBpm?: number
 }
 
 /** A GPX the rider imported. Rebuilt into a Course on load. */

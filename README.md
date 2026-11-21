@@ -1,6 +1,6 @@
 # Weem Watts
 
-A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, runs structured workouts in ERG (built-ins, imported ZWO files, or ones you build in the app), saves every second to the browser, and exports a FIT file.
+A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, heart rate, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, runs structured workouts in ERG (built-ins, imported ZWO files, or ones you build in the app), saves every second to the browser, and exports a FIT file.
 
 **Live:** https://weem-watts.vercel.app
 
@@ -33,6 +33,7 @@ Open http://localhost:5173/?fake=1 and press **Connect**. A fake trainer sends p
 - Press **S** to stop pedaling until you press it again. After Start, the ride auto-pauses after 3 seconds; the status shows "Paused" and time, distance and recording stop. Press **S** again and the fake rider spins back up from 0 rpm.
 - Press **J** (or open `?fake=1&jitter=1`) for jittery delivery: readings arrive 0.3 to 2.6 s apart. The FIT file should still have a record every second.
 - Press **D** to drop data for 5 seconds. The numbers gray out and the status shows "Reconnecting", then recover.
+- Press **Connect** on the Heart rate tile for a fake heart rate sensor. It follows your power with a lag. Press **H** to drop it for 8 seconds: the tile grays out, the ride carries on, and those seconds have no heart rate in the FIT file.
 - Press **End Ride** twice (the second click confirms) to end and download the FIT file.
 - On the **Workout** tab pick **Test Intervals** (2 minutes) to watch ERG follow each interval, or **Test Ramp** and press **C** mid-ramp to fail the test and get an FTP estimate. These two show only with `?fake=1`.
 - Reload mid-ride to test crash recovery: an "Unfinished ride found" bar offers Resume or End and download.
@@ -94,6 +95,29 @@ To add a built-in ZWO: put the file in `public/workouts/` and add `{ "id": "..."
 
 Open the **Profile** tab (`#/profile`) and set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these. The profile is saved in this browser and applies to your next ride; past rides don't change.
 
+## Heart rate
+
+The Ride tab has a **Heart rate** tile. It reads any standard Bluetooth heart rate sensor: a chest strap, an armband, or an Apple Watch through a relay app.
+
+1. Put the strap on, or start the relay app (below).
+2. Press **Connect** in the Heart rate tile and pick the sensor in the browser's list. It is a second device, separate from the Kickr. You can do this before or during a ride.
+3. The tile shows bpm. Each recorded second with a reading gets heart rate in the FIT file, with average and max on every lap and the ride.
+
+- The sensor never affects the ride. If it drops, the tile grays out and the app retries every 2 seconds; time, recording and the trainer carry on. Seconds with no reading have no heart rate in the file.
+- Nothing is recorded before **Start ride**, the same as power.
+- **Disconnect** is in the same tile. After a page reload, Chrome needs you to pick the sensor again.
+- No zones or targets. The tile is a number.
+
+**Apple Watch.** The watch does not broadcast heart rate on its own. A relay app makes it show up as a standard sensor. None of these has been tested with Weem Watts yet:
+
+| App | Runs on | Needs |
+| --- | --- | --- |
+| HeartBLE | The watch itself | watchOS 26 or later. No iPhone in the chain. |
+| HeartCast | Watch and iPhone | The iPhone nearby with the app open; the phone is what the browser sees. |
+| HR Broadcast | Watch and iPhone | The same: the phone relays the watch. |
+
+Start the session on the watch (in the relay app). Weem Watts cannot start it for you; it only listens. A strap works the same way with no app at all.
+
 ## ERG mode
 
 Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG you set a target in watts and the Kickr holds it at any cadence or gear.
@@ -152,7 +176,9 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/ble.ts` | Web Bluetooth connect and reconnect loop, and the ERG release sequence (a low ERG target, then minimum resistance) |
 | `src/lib/ftms.ts` | FTMS parsing, the control point queue (Request Control, Reset, Set Target Resistance, Set Target Power), resistance range |
 | `src/lib/cyclingPower.ts` | Cycling Power fallback, cadence from crank revolutions |
+| `src/lib/heartRate.ts` | Heart rate sensor: the standard Heart Rate service, its own connection and reconnect loop |
 | `src/lib/fakeTrainer.ts` | `?fake=1` trainer |
+| `src/lib/fakeHeartRate.ts` | `?fake=1` heart rate sensor |
 | `src/lib/physics.ts` | Speed from power and grade, with a light indoor inertia and a 4 s coast-down |
 | `src/lib/profile.ts` | Rider profile (weights, position, FTP), saved in the browser |
 | `src/lib/gpx.ts` | Reads GPX track points |

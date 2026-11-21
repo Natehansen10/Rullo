@@ -192,6 +192,6 @@ Option S from the research: a step-list editor, not a drag canvas.
 ## Needs a real Kickr ride
 
 - ERG following a custom workout's steps and ramps on the trainer (only the fake trainer was used).
-- Reading the cadence cue from the saddle: is "target 90 rpm · under" in the Cadence tile big enough?
+- Reading the cadence cue from the saddle: is "target 90 · under" in the Cadence tile big enough? (Shortened from "target 90 rpm" on Nov 20, 2026 when the Heart rate tile joined the row.)
 - A step with a cadence target under 60 rpm: how it feels against the ERG release.
 - Recovery after a real reload mid-workout (Chrome asks to pick the trainer again).

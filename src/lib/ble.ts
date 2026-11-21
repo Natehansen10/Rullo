@@ -33,7 +33,7 @@ import {
 } from './ftms'
 import type { ControlResult, Trainer, TrainerHandlers } from './types'
 
-const GATT_CONNECT_TIMEOUT_MS = 10000
+export const GATT_CONNECT_TIMEOUT_MS = 10000
 
 let device: BluetoothDevice | null = null
 
@@ -41,9 +41,9 @@ export function bluetoothSupported(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Timed out')), ms)
     p.then(

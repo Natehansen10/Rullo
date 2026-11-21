@@ -151,7 +151,7 @@ function controlStatus(s: RideSnapshot): ReactNode {
 const CADENCE_ON_TARGET_RPM = 5
 
 /**
- * The workout's cadence cue for the Cadence tile: "target 90", toned on, under
+ * The workout's cadence cue for the Cadence tile: "target 90" (the tile's unit is rpm), toned on, under
  * or over once the workout runs. A cue for the rider only; the trainer holds
  * power in ERG whatever the cadence.
  */
@@ -170,8 +170,39 @@ function cadenceCue(s: RideSnapshot, live: boolean): ReactNode {
   const word = !judged ? '' : diff < -CADENCE_ON_TARGET_RPM ? ' · under' : diff > CADENCE_ON_TARGET_RPM ? ' · over' : ' · on'
   return (
     <span className={`font-mono text-mono whitespace-nowrap ${tone}`}>
-      target {target} rpm{word}
+      target {target}{word}
     </span>
+  )
+}
+
+/**
+ * The Heart rate tile's label-row control: one button whose word follows the
+ * sensor (Connect, Connecting, Disconnect, Reconnecting, Retry). It stays the
+ * same element through every state, so keyboard focus stays on it. Pressing it
+ * while it reconnects stops the retries.
+ */
+function heartRateAction(s: RideSnapshot): ReactNode {
+  const st = s.heartRate.status
+  if (!s.supported) return null
+  const idle = st === 'off' || st === 'failed'
+  const word = { off: 'Connect', failed: 'Retry', connecting: 'Connecting', connected: 'Disconnect', reconnecting: 'Reconnecting' }[st]
+  const label = {
+    off: 'Connect a heart rate sensor',
+    failed: 'Heart rate sensor lost. Connect it again',
+    connecting: 'Connecting the heart rate sensor',
+    connected: 'Disconnect heart rate sensor',
+    reconnecting: 'Heart rate sensor lost, reconnecting. Press to stop',
+  }[st]
+  return (
+    <button
+      type="button"
+      className={`ww-tile-link ${st === 'reconnecting' ? 'text-state-under' : ''}`}
+      aria-label={label}
+      aria-disabled={st === 'connecting'}
+      onClick={idle ? ride.connectHeartRate : st === 'connecting' ? undefined : ride.disconnectHeartRate}
+    >
+      {word}
+    </button>
   )
 }
 
@@ -439,7 +470,7 @@ export default function App() {
           {s.notice && <Notice title={s.notice} />}
           <section
             aria-label="Live ride data"
-            className="grid flex-1 auto-rows-auto grid-cols-1 grid-rows-[1fr] rounded-lg border border-line bg-surface xl:grid-cols-2"
+            className="grid flex-1 auto-rows-auto grid-cols-1 grid-rows-[1fr] rounded-lg border border-line bg-surface xl:grid-cols-[2fr_3fr]"
           >
             <MetricTile
               size="hero"
@@ -459,7 +490,9 @@ export default function App() {
                 />
               }
             />
-            <div className="grid grid-cols-2 grid-rows-2">
+            {/* Top row: three tiles, Cadence a little wider for its cue. Bottom row: two, which need the width (112.34 mi, 1:23:45). */}
+            <div className="grid grid-rows-2">
+              <div className="grid grid-cols-[9fr_8fr_8fr]">
               <MetricTile
                 label="Cadence"
                 value={cadence}
@@ -470,6 +503,15 @@ export default function App() {
                 className={`border-r border-b border-line ${pad}`}
               />
               <MetricTile
+                label="Heart rate"
+                value={s.heartRate.bpm === null ? EMPTY : String(s.heartRate.bpm)}
+                unit="bpm"
+                dim={s.heartRate.stale || s.heartRate.bpm === null}
+                dense={dense}
+                action={heartRateAction(s)}
+                className={`border-r border-b border-line ${pad}`}
+              />
+              <MetricTile
                 label="Speed"
                 value={speed}
                 unit="mph"
@@ -477,6 +519,8 @@ export default function App() {
                 dense={dense}
                 className={`border-b border-line ${pad}`}
               />
+              </div>
+              <div className="grid grid-cols-2">
               <MetricTile
                 label="Distance"
                 value={s.distanceMi.toFixed(2)}
@@ -493,6 +537,7 @@ export default function App() {
                 action={s.phase === 'ready' && <span className="ww-label whitespace-nowrap text-state-under">Not recording</span>}
                 className={pad}
               />
+              </div>
             </div>
             {s.course && (
               <ElevationProfile
@@ -583,7 +628,7 @@ export default function App() {
               {s.connection.kind === 'connected' ? `${s.connection.protocol}` : 'Kickr Core 2 over FTMS'}
               {' · '}power smoothed over {s.smoothing}s
             </span>
-            {s.fake && <span>FAKE TRAINER · D drop data · C low cadence · S stop pedaling · J jitter</span>}
+            {s.fake && <span>FAKE TRAINER · D drop data · C low cadence · S stop pedaling · J jitter · H drop heart rate</span>}
           </footer>
         </main>
       )}

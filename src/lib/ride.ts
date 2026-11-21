@@ -12,6 +12,8 @@ import {
   GRADE_MIN_PCT,
   GRADE_SEND_EVERY_MS,
   GRADE_SMOOTH_S,
+  HR_FRESH_MS,
+  HR_STALE_AFTER_MS,
   ERG_MAX_W,
   ERG_MIN_W,
   ERG_RELEASE_AFTER_MS,
@@ -34,7 +36,9 @@ import {
 import { bluetoothSupported, createBleTrainer } from './ble'
 import { elevationAt, gradeAt, type Course , profilePoints } from './course'
 import { importGpxFile, loadCourses, removeImportedCourse } from './courses'
+import { createFakeHeartRate } from './fakeHeartRate'
 import { createFakeTrainer, isFakeMode } from './fakeTrainer'
+import { createBleHeartRate, type HeartRateSensor, type HeartRateStatus } from './heartRate'
 import { downloadFit } from './fit'
 import { FEET_PER_METER, METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
 import { loadProfile, normalizeProfile, riderParams, saveProfile, type Profile } from './profile'
@@ -231,6 +235,15 @@ export interface WorkoutLive {
   rampTest: RampTestLive | null
 }
 
+/** The heart rate sensor, a second device beside the trainer. It never affects the ride or the trainer. */
+export interface HeartRateLive {
+  status: HeartRateStatus
+  /** The last reading, or null when there is none to show. */
+  bpm: number | null
+  /** No fresh reading: the number must not read as live. */
+  stale: boolean
+}
+
 export interface RideSnapshot {
   phase: Phase
   connection: ConnectionStatus
@@ -285,6 +298,7 @@ export interface RideSnapshot {
   workoutsLoaded: boolean
   /** The confirmed workout (what the trainer does), or null. Set only by confirmSetup or a resumed ride. */
   workout: WorkoutLive | null
+  heartRate: HeartRateLive
 }
 
 const TICK_MS = 250
@@ -352,6 +366,11 @@ export class RideController {
   private controlInFlight = false
   private controlDirty = false
 
+  /** Heart rate sensor: its own connection. Readings from the last few seconds, newest last. */
+  private readonly hrSensor: HeartRateSensor
+  private hrStatus: HeartRateStatus = 'off'
+  private hrReadings: { t: number; bpm: number }[] = []
+
   private courses: Course[] = []
   private coursesLoaded = false
   private course: Course | null = null
@@ -387,6 +406,11 @@ export class RideController {
       onStatus: (s: ConnectionStatus) => this.onStatus(s),
     }
     this.trainer = this.fake ? createFakeTrainer(handlers) : createBleTrainer(handlers)
+    const hrHandlers = {
+      onBpm: (t: number, bpm: number) => this.onHeartRate(t, bpm),
+      onStatus: (st: HeartRateStatus) => this.onHeartRateStatus(st),
+    }
+    this.hrSensor = this.fake ? createFakeHeartRate(hrHandlers, () => this.fakeEffortW()) : createBleHeartRate(hrHandlers)
     for (const key of OLD_SETUP_KEYS) storageSet(key, null)
     this.snapshot = this.build()
     setInterval(() => this.emit(), TICK_MS)
@@ -492,7 +516,61 @@ export class RideController {
       workouts: this.workoutOptions,
       workoutsLoaded: this.workoutsLoaded,
       workout: this.workoutLive(),
+      heartRate: this.heartRateLive(now),
     }
+  }
+
+  // --- heart rate sensor ---
+
+  private heartRateLive(now: number): HeartRateLive {
+    const last = this.hrReadings[this.hrReadings.length - 1]
+    const showing = this.hrStatus === 'connected' || this.hrStatus === 'reconnecting'
+    return {
+      status: this.hrStatus,
+      bpm: showing && last ? last.bpm : null,
+      stale: this.hrStatus !== 'connected' || !last || now - last.t > HR_STALE_AFTER_MS,
+    }
+  }
+
+  private onHeartRate(t: number, bpm: number) {
+    this.hrReadings.push({ t, bpm })
+    // Only the last few seconds are ever needed (a late trainer reading fills up to 3 skipped seconds).
+    while (this.hrReadings.length > 1 && this.hrReadings[0].t < t - 10000) this.hrReadings.shift()
+  }
+
+  private onHeartRateStatus(st: HeartRateStatus) {
+    this.hrStatus = st
+    if (st === 'off' || st === 'failed') this.hrReadings = []
+    this.emit()
+  }
+
+  /**
+   * The heart rate for a recorded second ending at `t`: the newest reading
+   * from the HR_FRESH_MS before it, or null. A second with no fresh reading
+   * has no heart rate; an old value is never carried forward.
+   */
+  private heartRateAt(t: number): number | null {
+    for (let i = this.hrReadings.length - 1; i >= 0; i--) {
+      const r = this.hrReadings[i]
+      if (r.t <= t) return t - r.t <= HR_FRESH_MS ? r.bpm : null
+    }
+    return null
+  }
+
+  /** What the fake heart rate follows: the fake rider's power while the trainer is sending it. */
+  private fakeEffortW(): number {
+    return this.connection.kind === 'connected' && Date.now() - this.lastDataAt <= STALE_AFTER_MS ? this.lastPowerW : 0
+  }
+
+  /** From a click on the Heart rate tile. Separate from the trainer in every way. */
+  connectHeartRate = () => {
+    if (!this.supported || this.hrStatus === 'connecting' || this.hrStatus === 'connected' || this.hrStatus === 'reconnecting') return
+    void this.hrSensor.connect()
+  }
+
+  disconnectHeartRate = () => {
+    if (this.hrStatus === 'off') return
+    this.hrSensor.disconnect()
   }
 
   // --- workout player ---
@@ -1147,7 +1225,8 @@ export class RideController {
   }
 
   /** The ride as it stands now, stamped with a whole wall-clock second. */
-  private sampleAt(sec: number): Omit<recorder.SampleRow, 'rideId'> {
+  private sampleAt(sec: number, now: number): Omit<recorder.SampleRow, 'rideId'> {
+    const bpm = this.heartRateAt(now)
     return {
       t: sec * 1000,
       powerW: Math.round(this.lastPowerW),
@@ -1161,6 +1240,7 @@ export class RideController {
         ? { lap: indexAt(this.intervals, Math.min(this.workoutS, totalS(this.intervals) - 0.001)), workoutS: this.workoutS }
         : {}),
       ...(this.pausedTotalMs > 0 ? { pausedMs: Math.round(this.pausedTotalMs) } : {}),
+      ...(bpm !== null ? { heartRateBpm: bpm } : {}),
     }
   }
 
@@ -1175,7 +1255,7 @@ export class RideController {
   private record(t: number, sinceLastMs: number) {
     const sec = Math.floor(t / 1000)
     if (sec <= this.lastRecordedSec || !this.rideId) return
-    const sample = this.sampleAt(sec)
+    const sample = this.sampleAt(sec, t)
     const prev = this.lastSample
     const missed = sec - this.lastRecordedSec - 1
     const fills: Omit<recorder.SampleRow, 'rideId'>[] = []
@@ -1184,8 +1264,12 @@ export class RideController {
         a === undefined || b === undefined ? a : a + (b - a) * f
       for (let k = 1; k <= missed; k++) {
         const f = k / (missed + 1)
+        // A filled second holds the last power and cadence, but heart rate only if the sensor read in that second.
+        const { heartRateBpm: _old, ...held } = prev
+        const bpm = this.heartRateAt((this.lastRecordedSec + k + 1) * 1000)
         fills.push({
-          ...prev,
+          ...held,
+          ...(bpm !== null ? { heartRateBpm: bpm } : {}),
           t: (this.lastRecordedSec + k) * 1000,
           distanceM: mix(prev.distanceM, sample.distanceM, f) as number,
           courseM: mix(prev.courseM, sample.courseM, f),

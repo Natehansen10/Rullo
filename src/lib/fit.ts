@@ -6,6 +6,11 @@
  * pauses out; total_elapsed_time covers the whole ride. Sport cycling; sub-sport indoor cycling for a free
  * ride, virtual activity (Strava: Virtual Ride) for a course ride, which also
  * gets altitude on every record and total ascent.
+ * A ride with a heart rate sensor also gets heart_rate on each record that
+ * had a fresh reading (the invalid value on the others) and average and max
+ * heart rate on every lap and the session. Without a sensor none of those
+ * fields are defined, so the file is what it was before heart rate existed.
+ * Field numbers are from the FIT profile (Garmin FIT SDK, Profile.xlsx).
  * Written from the FIT protocol docs. Structure informed by GPX Rider fit.mjs (MIT).
  * No code copied.
  */
@@ -74,13 +79,15 @@ class FitWriter {
     for (const [num, type] of fields) this.out.push(num, SIZE[type], type)
   }
 
-  write(local: number, values: number[]): void {
+  /** A null value is written as the type's invalid value (all bits set): the field is absent for this message. */
+  write(local: number, values: (number | null)[]): void {
     const fields = this.defs.get(local)
     if (!fields || fields.length !== values.length) throw new Error(`Bad FIT message ${local}`)
     this.out.push(local)
     fields.forEach(([, type], i) => {
       const size = SIZE[type]
-      const v = Math.max(0, Math.round(values[i]))
+      const value = values[i]
+      const v = value === null ? 2 ** (8 * size) - 1 : Math.max(0, Math.round(value))
       for (let b = 0; b < size; b++) this.out.push(Math.floor(v / 2 ** (8 * b)) & 0xff)
     })
   }
@@ -121,6 +128,9 @@ interface Totals {
   avgPower: number
   maxPower: number
   ascentM: number
+  /** Over the samples that have a heart rate. Null when none do. */
+  avgHeartRate: number | null
+  maxHeartRate: number | null
 }
 
 /** The timer was stopped between these two samples: an auto-pause, or a dropout longer than MAX_SAMPLE_GAP_MS. */
@@ -143,6 +153,9 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
   let cadenceSum = 0
   let cadenceCount = 0
   let ascentM = 0
+  let hrSum = 0
+  let hrCount = 0
+  let maxHr = 0
   let alt = prevAltM
   run.forEach((s, i) => {
     const after = run[i + 1] ?? next
@@ -154,6 +167,11 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
     if (s.cadenceRpm > 0) {
       cadenceSum += s.cadenceRpm
       cadenceCount++
+    }
+    if (s.heartRateBpm !== undefined) {
+      hrSum += s.heartRateBpm
+      hrCount++
+      maxHr = Math.max(maxHr, s.heartRateBpm)
     }
     if (s.altitudeM !== undefined) {
       if (alt !== undefined && s.altitudeM > alt) ascentM += s.altitudeM - alt
@@ -176,6 +194,8 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
     avgPower: powerSum / run.length,
     maxPower,
     ascentM,
+    avgHeartRate: hrCount ? hrSum / hrCount : null,
+    maxHeartRate: hrCount ? maxHr : null,
   }
 }
 
@@ -196,6 +216,9 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
   const last = samples[samples.length - 1]
 
   const onCourse = samples.some((s) => s.altitudeM !== undefined)
+  /** Heart rate fields are defined only when the ride has any, so a ride without a sensor is unchanged. */
+  const hasHr = samples.some((s) => s.heartRateBpm !== undefined)
+  const hr = (v: number | null | undefined) => (v === null || v === undefined ? null : Math.min(254, v))
   const subSport = onCourse ? SUB_SPORT_VIRTUAL_ACTIVITY : SUB_SPORT_INDOOR_CYCLING
   const all = totals(samples, undefined, 0, undefined)
   const avgSpeed = (t: Totals) => t.distanceM / (t.timerMs / 1000)
@@ -226,9 +249,10 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [5, UINT32], // distance, m * 100
   ]
   if (onCourse) recordFields.push([2, UINT16]) // altitude, (m + 500) * 5
+  if (hasHr) recordFields.push([3, UINT8]) // heart_rate, bpm
   w.define(2, MESG_RECORD, recordFields)
 
-  w.define(3, MESG_LAP, [
+  const lapFields: Field[] = [
     [254, UINT16], // message_index
     [253, UINT32], // timestamp
     [0, ENUM], // event
@@ -246,7 +270,9 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [21, UINT16], // total_ascent, m
     [25, ENUM], // sport
     [39, ENUM], // sub_sport
-  ])
+  ]
+  if (hasHr) lapFields.push([15, UINT8], [16, UINT8]) // avg_heart_rate, max_heart_rate
+  w.define(3, MESG_LAP, lapFields)
   const writeLap = (index: number, t: Totals) =>
     w.write(3, [
       index,
@@ -266,6 +292,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
       t.ascentM,
       SPORT_CYCLING,
       subSport,
+      ...(hasHr ? [hr(t.avgHeartRate), hr(t.maxHeartRate)] : []),
     ])
 
   // Records, with each finished lap written right after its records.
@@ -287,11 +314,13 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
         w.write(1, [ts, EVENT_TIMER, EVENT_TYPE_START])
       }
       prev = s
-      const values = [ts, s.powerW, Math.min(254, s.cadenceRpm), s.speedMps * 1000, s.distanceM * 100]
+      const values: (number | null)[] = [ts, s.powerW, Math.min(254, s.cadenceRpm), s.speedMps * 1000, s.distanceM * 100]
       if (onCourse) {
         if (s.altitudeM !== undefined) lastAlt = s.altitudeM
         values.push((lastAlt + 500) * 5)
       }
+      // No fresh reading this second: the invalid value, never the last one and never 0.
+      if (hasHr) values.push(hr(s.heartRateBpm))
       w.write(2, values)
     }
     const lap = totals(run, runs[i + 1]?.[0], lapStartDistance, lapPrevAlt)
@@ -304,7 +333,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
   w.write(1, [fitTime(last.t), EVENT_TIMER, EVENT_TYPE_STOP_ALL])
   writeLap(runs.length - 1, finalLaps[0])
 
-  w.define(4, MESG_SESSION, [
+  const sessionFields: Field[] = [
     [254, UINT16], // message_index
     [253, UINT32], // timestamp
     [0, ENUM], // event
@@ -324,7 +353,9 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [22, UINT16], // total_ascent, m
     [25, UINT16], // first_lap_index
     [26, UINT16], // num_laps
-  ])
+  ]
+  if (hasHr) sessionFields.push([16, UINT8], [17, UINT8]) // avg_heart_rate, max_heart_rate
+  w.define(4, MESG_SESSION, sessionFields)
   w.write(4, [
     0,
     fitTime(last.t),
@@ -345,6 +376,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     all.ascentM,
     0,
     runs.length,
+    ...(hasHr ? [hr(all.avgHeartRate), hr(all.maxHeartRate)] : []),
   ])
 
   const timerMs = all.timerMs

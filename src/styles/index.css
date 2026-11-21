@@ -180,6 +180,36 @@
     color: var(--ww-fg-muted);
     line-height: 16px;
   }
+  /*
+   * A small text control in a tile's label row (connect a heart rate sensor).
+   * Label type, so the row keeps its height; underlined so it reads as a control.
+   * The padding widens the click target without moving anything.
+   */
+  .ww-tile-link {
+    font-size: var(--ww-label-size);
+    font-weight: var(--ww-label-weight);
+    letter-spacing: var(--ww-label-tracking);
+    text-transform: uppercase;
+    line-height: 16px;
+    color: var(--ww-fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: var(--ww-space-2);
+    margin: calc(-1 * var(--ww-space-2));
+    border-radius: var(--ww-radius-sm);
+    transition: color var(--ww-dur-fast) var(--ww-ease);
+  }
+  .ww-tile-link:hover {
+    color: var(--ww-fg-muted);
+  }
+  /* Busy (connecting): words only, not a control right now. */
+  .ww-tile-link[aria-disabled='true'] {
+    color: var(--ww-fg-muted);
+    text-decoration: none;
+    cursor: default;
+  }
   .ww-press {
     transition-property: background-color, color, border-color, transform;
     transition-duration: var(--ww-dur-fast);

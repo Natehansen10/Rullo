@@ -116,6 +116,16 @@ Moved out of "Later" on Nov 20, 2026 at Nate's request, ahead of the v3.2 ride t
 - **Cut:** ZWO export, free-ride blocks, text events, TSS / IF, text syntax
 - **Done when:** build a workout by keyboard, ride it on the Kickr with ERG changing at each step, and see one lap per interval in the FIT
 
+### Heart rate (built Nov 20, 2026; ride test pending)
+
+Moved out of "Stretch features" on Nov 20, 2026 at Nate's request (v1 had cut it). Decisions are in `docs/heart-rate-and-strava.md`.
+
+- Any standard Bluetooth heart rate sensor (Heart Rate service 0x180D): a strap, an armband, or an Apple Watch through a relay app (HeartBLE, HeartCast, HR Broadcast)
+- A second device with its own connection. It never pauses the ride, stops recording or changes trainer control
+- Its own tile on the Ride tab, saved with each one-second sample, and written to the FIT file (records, laps, session)
+- **Cut:** heart rate zones, targets, HR-driven ERG, a native watch or phone app
+- **Done when:** ride with the Kickr and the watch, see bpm on the tile for the whole ride, and see heart rate on the activity after uploading the FIT
+
 ### Later: Strava auto-upload
 
 Moved out of v3 on Nov 19, 2026: it needs a server function to keep the Strava client secret, and the guardrails hold server features until going public is a real decision. Manual upload at strava.com/upload/select works meanwhile.
@@ -180,7 +190,7 @@ Not in scope now. This is the ceiling for how big it could get.
 
 - AI coach that adjusts the day's workout based on HRV, resting heart rate, and sleep
 - Post-ride summary with what went well and what to change
-- Heart rate strap support with heart rate zones
+- Heart rate zones (the sensor itself was built Nov 20, 2026: see Heart rate above)
 
 ### Social
 

@@ -41,6 +41,13 @@ export const COAST_DOWN_S = 4
 
 /** No data for this long means the numbers are stale. */
 export const STALE_AFTER_MS = 3000
+/** No heart rate reading for this long: the Heart rate tile grays out. The ride is never paused for it. */
+export const HR_STALE_AFTER_MS = 3000
+/**
+ * A recorded second gets a heart rate only if a reading arrived within this
+ * long before it. An older value is never carried forward into the file.
+ */
+export const HR_FRESH_MS = 2000
 /** Reconnect cadence and limit after an unexpected disconnect. */
 export const RECONNECT_INTERVAL_MS = 2000
 export const RECONNECT_MAX_TRIES = 30
