@@ -192,7 +192,7 @@ Checked: back up in one browser profile, restore in a clean one. Home (rows, tot
 
 - **Weekly goal and streak:** held until these three have been used.
 - **Rename a ride, undo for delete:** asked about, not chosen.
-- **Rider picker and a rider id on every record:** the real groundwork for other riders. It touches every saved record, so it gets its own pass.
+- **Rider picker:** not built. The rider id on every record was built later the same day: see `docs/riders.md`.
 - **First-visit setup, sign-in:** only matter once other people arrive.
 
 ## Supabase, Nov 21, 2026

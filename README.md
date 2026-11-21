@@ -139,6 +139,7 @@ Everything is saved in this browser only. Clearing site data wipes it, and anoth
 - **Restore** reads a backup file and adds the rides, courses and workouts this browser does not have. It never changes or removes anything already here, so restoring twice is safe. Your profile and settings are restored only where this browser has none saved.
 - A damaged file, or one that is not a backup, is refused and nothing is changed.
 - A ride that was never ended is not in a backup. End it first.
+- The file names its rider. A browser with nothing saved becomes that rider on restore, so you stay one rider across a wipe or a new computer.
 
 ## ERG mode
 
@@ -207,7 +208,8 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/course.ts` | Course model: distance along the slope, two-pass 75 m elevation smoothing, grade over 50 m |
 | `src/lib/courses.ts` | Built-in courses plus imported ones (IndexedDB) |
 | `src/lib/ride.ts` | Ride state, smoothing, stale detection, auto-pause, time and distance from timestamps |
-| `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
+| `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less. Every saved ride, course and workout is stamped with its rider, and every read returns only that rider's |
+| `src/lib/rider.ts` | The rider this browser belongs to: an id made on the first visit. One rider today, no picker (see `docs/riders.md`) |
 | `src/lib/history.ts` | Ride history for the Home tab: each finished ride's time, distance, power and climbing from its saved samples, with the FIT writer's own totals; worked out once per ride, then kept in localStorage so Home opens at once |
 | `src/lib/rideDetail.ts` | One finished ride in full for its summary: totals, bests, time in zone and the per-second lines |
 | `src/lib/backup.ts` | Back up and restore: one JSON file, checked field by field on the way in; restore only adds |
