@@ -213,6 +213,43 @@
     text-decoration: none;
     cursor: default;
   }
+  /* A text link in a sentence or a bar (View on Strava): bold and underlined, in the text color. */
+  .ww-link {
+    color: var(--ww-fg);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+    border-radius: var(--ww-radius-sm);
+    transition: color var(--ww-dur-fast) var(--ww-ease);
+  }
+  .ww-link:hover {
+    color: var(--ww-fg-muted);
+  }
+  /*
+   * Strava's own "Connect with Strava" button (the white one), shown at its
+   * given size and never restyled: the one brand exception to this system.
+   * The asset is white with no edge, so on a white panel it gets a hairline
+   * frame; the frame is ours, the image is untouched.
+   */
+  .ww-strava-connect {
+    display: inline-flex;
+    padding: 0;
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius-md);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color var(--ww-dur-fast) var(--ww-ease);
+  }
+  .ww-strava-connect:hover {
+    border-color: var(--ww-fg-muted);
+  }
+  .ww-strava-connect:disabled {
+    cursor: not-allowed;
+  }
+  .ww-strava-connect img {
+    display: block;
+  }
   .ww-press {
     transition-property: background-color, color, border-color, transform;
     transition-duration: var(--ww-dur-fast);

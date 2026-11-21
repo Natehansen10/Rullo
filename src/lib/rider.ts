@@ -32,6 +32,8 @@ const RIDER_KEYS = [
   'ww.workoutDraft',
   'ww.builderUnit',
   'ww.builderList',
+  // The rider's Strava connection: one rider's rides must never upload to another rider's Strava.
+  'ww.strava',
 ] as const
 
 export const MAX_RIDER_NAME_CHARS = 30

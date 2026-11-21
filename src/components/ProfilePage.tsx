@@ -37,6 +37,8 @@ interface ProfilePageProps {
   onRemoveRider: (id: string) => void
   /** The outcome of the last rider action, in plain words. */
   riderNote: string | null
+  /** The Strava block (connect, who is connected, disconnect), the last block on the page. */
+  strava?: ReactNode
   /** Download one file with everything saved in this browser. */
   onBackup: () => void
   /** Add what a backup file holds and this browser does not. */
@@ -265,6 +267,7 @@ export function ProfilePage({
   onRenameRider,
   onRemoveRider,
   riderNote,
+  strava,
   onBackup,
   onRestore,
   backupNote,
@@ -444,6 +447,8 @@ export function ProfilePage({
           </p>
         )}
       </section>
+
+      {strava}
 
       <p className="font-mono text-mono text-fg-subtle">
         total {profile.riderLb + profile.bikeLb} lb · {PREVIEW_W} W on a flat road ≈ {previewMph.toFixed(1)} mph

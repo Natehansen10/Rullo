@@ -29,6 +29,23 @@ export interface RideRow {
    * can't move the intervals under a ride in progress. Untrusted on load.
    */
   workoutSnapshot?: unknown
+  /** Where the data came from: a real trainer or the fake one. Absent on rides saved before Nov 21, 2026. */
+  origin?: 'trainer' | 'fake'
+  /** The ride's name from its setup, e.g. "Sweet Spot 3x12 on Test Hills". Used as the Strava activity name. */
+  name?: string
+  /** Set once the rider uploaded this ride to Strava, so the app does not invite a second upload. Untrusted on load. */
+  strava?: StravaMark
+}
+
+/** What is remembered about a ride's Strava upload. Ids are digits only. */
+export interface StravaMark {
+  /** Strava's upload id, kept while Strava is still processing. */
+  uploadId?: string
+  /** The activity on Strava, once known. */
+  activityId?: string
+  /** Strava said it already had this ride. */
+  duplicate?: boolean
+  at: number
 }
 
 export interface SampleRow {
@@ -191,6 +208,7 @@ export async function startRide(
   startOffsetM?: number,
   workoutId?: string,
   workoutSnapshot?: unknown,
+  extra: Pick<RideRow, 'origin' | 'name'> = {},
 ): Promise<number> {
   const riderId = await owner
   return db.rides.add({
@@ -201,6 +219,7 @@ export async function startRide(
     startOffsetM,
     workoutId,
     ...(workoutSnapshot !== undefined ? { workoutSnapshot } : {}),
+    ...extra,
   } as RideRow)
 }
 
@@ -273,6 +292,11 @@ export async function recordSample(s: SampleRow): Promise<void> {
 
 export async function endRide(id: number, endedAt: number): Promise<void> {
   await db.rides.update(id, { endedAt, status: 'ended' })
+}
+
+/** Remember a ride's Strava upload on the ride itself. */
+export async function markStrava(id: number, strava: StravaMark): Promise<void> {
+  await db.rides.update(id, { strava })
 }
 
 export async function getSamples(rideId: number): Promise<SampleRow[]> {

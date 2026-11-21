@@ -39,7 +39,7 @@ import { importGpxFile, loadCourses, removeImportedCourse } from './courses'
 import { createFakeHeartRate } from './fakeHeartRate'
 import { createFakeTrainer, isFakeMode } from './fakeTrainer'
 import { createBleHeartRate, type HeartRateSensor, type HeartRateStatus } from './heartRate'
-import { downloadFit } from './fit'
+import { buildFit, downloadFit, type RideOrigin } from './fit'
 import { FEET_PER_METER, METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
 import { loadProfile, normalizeProfile, riderParams, saveProfile, type Profile } from './profile'
 import * as recorder from './recorder'
@@ -235,6 +235,46 @@ export interface WorkoutLive {
   rampTest: RampTestLive | null
 }
 
+/** The ride that just ended and has a file: what Download FIT and Upload to Strava work on. */
+export interface EndedRide {
+  id: number
+  /** From the setup: "Sweet Spot 3x12 on Test Hills", "Test Hills", or "Free ride". */
+  name: string
+  /** A real trainer, the fake one, or null for a ride saved before origins were recorded. Only 'trainer' can be uploaded. */
+  origin: RideOrigin | null
+  /** This ride's Strava upload, if the rider made one. */
+  strava: recorder.StravaMark | null
+}
+
+/** A ride as it will be sent to Strava: the same bytes Download FIT gives. */
+export interface RideFile {
+  rideId: number
+  bytes: Uint8Array
+  name: string
+  /** Stable for the ride, so Strava can tell a second upload of it. */
+  externalId: string
+}
+
+const digits = (v: unknown): string | undefined => (typeof v === 'string' && /^\d{1,20}$/.test(v) ? v : undefined)
+
+/** A stored Strava mark is untrusted like everything read back from the browser: ids must be digits. */
+function cleanStravaMark(v: unknown): recorder.StravaMark | null {
+  if (!v || typeof v !== 'object') return null
+  const m = v as Record<string, unknown>
+  const uploadId = digits(m.uploadId)
+  const activityId = digits(m.activityId)
+  if (!uploadId && !activityId && m.duplicate !== true) return null
+  return {
+    ...(uploadId ? { uploadId } : {}),
+    ...(activityId ? { activityId } : {}),
+    ...(m.duplicate === true ? { duplicate: true } : {}),
+    at: typeof m.at === 'number' && Number.isFinite(m.at) ? m.at : 0,
+  }
+}
+
+const cleanOrigin = (v: unknown): RideOrigin | null => (v === 'trainer' || v === 'fake' ? v : null)
+const cleanName = (v: unknown): string => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 100) : 'Free ride')
+
 /** The heart rate sensor, a second device beside the trainer. It never affects the ride or the trainer. */
 export interface HeartRateLive {
   status: HeartRateStatus
@@ -263,6 +303,8 @@ export interface RideSnapshot {
   /** True while a resumed ride is waiting for the trainer. */
   resuming: boolean
   canDownload: boolean
+  /** The ended ride, when it has a file. Null otherwise. */
+  ended: EndedRide | null
   notice: string | null
   resistancePct: number
   mode: ControlMode
@@ -317,6 +359,11 @@ export class RideController {
   private speed = new SpeedModel(riderParams(loadProfile()))
 
   private rideId: Promise<number> | null = null
+  /** The ride's row id once known, with its name, origin and Strava mark: for the ended ride's buttons. */
+  private rideRowId: number | null = null
+  private rideOrigin: RideOrigin | null = null
+  private rideName = 'Free ride'
+  private rideStrava: recorder.StravaMark | null = null
   private startedAt = 0
   private endedAt = 0
   private distanceM = 0
@@ -476,6 +523,10 @@ export class RideController {
         : null,
       resuming: this.phase === 'idle' && this.rideId !== null,
       canDownload: this.phase === 'ended' && this.rideId !== null && !this.recordingFailed,
+      ended:
+        this.phase === 'ended' && this.rideRowId !== null && !this.recordingFailed
+          ? { id: this.rideRowId, name: this.rideName, origin: this.rideOrigin, strava: this.rideStrava }
+          : null,
       notice: this.notice,
       resistancePct: this.resistancePct,
       mode: this.mode,
@@ -1199,6 +1250,11 @@ export class RideController {
     this.lastSample = null
     this.climbedM = 0
     this.resetPause()
+    // A fake ride is marked as one for good: on its row and in its FIT file. It can never be uploaded.
+    this.rideOrigin = this.fake ? 'fake' : 'trainer'
+    this.rideName = this.setupName()
+    this.rideStrava = null
+    this.rideRowId = null
     this.rideId = recorder
       .startRide(
         t,
@@ -1207,7 +1263,12 @@ export class RideController {
         this.workout?.id,
         // A custom workout can be edited or deleted later; the ride keeps its own copy for recovery.
         this.workout?.source === 'custom' ? snapshotOf(this.workout) : undefined,
+        { origin: this.rideOrigin, name: this.rideName },
       )
+      .then((id) => {
+        this.rideRowId = id
+        return id
+      })
       .catch((err) => {
         console.error('Could not start recording:', err)
         this.notice = "This browser isn't saving the ride, so there will be no FIT file. Check that site data is allowed."
@@ -1215,6 +1276,13 @@ export class RideController {
         this.emit()
         return NO_RIDE
       })
+  }
+
+  /** The ride's name from its setup. Also the Strava activity name. */
+  private setupName(): string {
+    const w = this.workout?.name.trim()
+    const c = this.course?.name.trim()
+    return (w && c ? `${w} on ${c}` : w || c || 'Free ride').slice(0, 100)
   }
 
   private resetPause() {
@@ -1572,12 +1640,82 @@ export class RideController {
         this.emit()
         return
       }
-      downloadFit(samples, samples[0].t)
+      downloadFit(samples, samples[0].t, this.rideOrigin ?? undefined)
     } catch (err) {
       console.error('FIT export failed:', err)
       this.notice = 'Could not build the FIT file. The ride is still saved in this browser; try Download FIT again.'
       this.emit()
     }
+  }
+
+  /**
+   * The ended ride as a file for Strava: built by the same code as Download
+   * FIT. Refused for anything but a ride made on a real trainer: a fake ride
+   * (?fake=1) is never uploadable, and the server refuses its file as well.
+   */
+  rideFile = async (): Promise<RideFile> => {
+    if (this.phase !== 'ended' || this.rideRowId === null) throw new Error('There is no finished ride to upload.')
+    if (this.fake || this.rideOrigin !== 'trainer') throw new Error('Only a ride made on a real trainer can be uploaded.')
+    const rideId = this.rideRowId
+    const samples = await recorder.getSamples(rideId)
+    if (samples.length === 0) throw new Error('Nothing was recorded.')
+    return {
+      rideId,
+      bytes: buildFit(samples, 'trainer'),
+      name: this.rideName,
+      externalId: `weem-watts-${Math.round(samples[0].t / 1000)}`,
+    }
+  }
+
+  /** Remember this ride's Strava upload on the ride, so a reload does not invite a second one. */
+  markStrava = async (rideId: number, mark: recorder.StravaMark | null) => {
+    const clean = cleanStravaMark(mark)
+    if (this.rideRowId === rideId) {
+      this.rideStrava = clean
+      this.emit()
+    }
+    if (!clean) return
+    try {
+      await recorder.markStrava(rideId, clean)
+    } catch (err) {
+      console.error('Could not save the upload state:', err)
+    }
+  }
+
+  /**
+   * Show a finished ride as "Ride ended" again, with its Download and Upload
+   * buttons. Used when the rider comes back from connecting Strava: the
+   * sign-in leaves the page, and the ride they wanted to upload must still be there.
+   */
+  reopenEnded = async (id: number): Promise<boolean> => {
+    if (this.phase !== 'idle' || this.rideId !== null) return false
+    try {
+      const row = await recorder.getRide(id)
+      if (!row || row.status !== 'ended') return false
+      const samples = await recorder.getSamples(id)
+      const last = samples[samples.length - 1]
+      if (!last || this.phase !== 'idle' || this.rideId !== null) return false
+      this.rideId = Promise.resolve(id)
+      this.adoptRow(row)
+      this.startedAt = row.startedAt
+      this.endedAt = row.endedAt ?? last.t + 1000
+      this.pausedTotalMs = last.pausedMs ?? 0
+      this.distanceM = last.distanceM
+      this.phase = 'ended'
+      this.emit()
+      return true
+    } catch (err) {
+      console.error('Could not reopen the ride:', err)
+      return false
+    }
+  }
+
+  /** Take the name, origin and Strava mark from a saved ride row. */
+  private adoptRow(row: recorder.RideRow) {
+    this.rideRowId = row.id
+    this.rideOrigin = cleanOrigin(row.origin)
+    this.rideName = cleanName(row.name)
+    this.rideStrava = cleanStravaMark(row.strava)
   }
 
   /**
@@ -1598,6 +1736,10 @@ export class RideController {
   private resetRide() {
     this.phase = 'idle'
     this.rideId = null
+    this.rideRowId = null
+    this.rideOrigin = null
+    this.rideName = 'Free ride'
+    this.rideStrava = null
     this.recordingFailed = false
     this.startedAt = 0
     this.endedAt = 0
@@ -1745,6 +1887,7 @@ export class RideController {
     const rec = this.recovery
     if (!rec?.last || this.phase !== 'idle') return
     this.rideId = Promise.resolve(rec.ride.id)
+    this.adoptRow(rec.ride)
     this.startedAt = rec.ride.startedAt
     this.distanceM = rec.last.distanceM
     this.lastRecordedSec = Math.floor(rec.last.t / 1000)
@@ -1796,6 +1939,7 @@ export class RideController {
     if (!rec?.last || this.phase !== 'idle') return
     this.recovery = null
     this.rideId = Promise.resolve(rec.ride.id)
+    this.adoptRow(rec.ride)
     this.startedAt = rec.ride.startedAt
     this.endedAt = rec.last.t + 1000
     this.pausedTotalMs = rec.last.pausedMs ?? 0

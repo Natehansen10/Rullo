@@ -316,5 +316,7 @@ export async function deleteRide(id: number): Promise<void> {
 export async function downloadRide(id: number): Promise<void> {
   const samples = await recorder.getSamples(id)
   if (samples.length === 0) throw new Error('That ride has no samples.')
-  downloadFit(samples, samples[0].t)
+  // The file keeps the ride's origin mark (real or fake trainer), the same as the download after End Ride.
+  const origin = (await recorder.getRide(id))?.origin
+  downloadFit(samples, samples[0].t, origin === 'trainer' || origin === 'fake' ? origin : undefined)
 }
