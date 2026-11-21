@@ -444,3 +444,24 @@ The final review of parts 1 to 5 left a short list. Closed here.
 - **Paused wins.** Paused mid-workout in Grade or Resistance, the control row's second line stayed "Workout targets are off." It now reads "Paused. Pedal to resume." in every mode, so a stopped rider is told how to go on. "Workout targets are off." comes back on the first pedal stroke. The words table in part 4 says so.
 
 **Regression after the merge with main:** 20 s of pedaling before Start on a workout and on a free ride: Time 0:00, Distance 0.00, 0 rides and 0 samples. After Start both counted from zero.
+
+**The hover chip no longer touches the control row (gap 2)**
+
+- With a course and a workout at 1280 wide, the chip's bottom edge sat 1px over the step buttons.
+- The chip is now 22px tall (12px line, 4px padding, 1px border; was 26px). It still sits 4px under the strip, so it ends 26px below it, inside the 29px between the strip and the buttons. Text size and colors are unchanged.
+- **Checks:** hovered every 3px of the strip at 1280x720, 1440x900 and 1920x1080, workout only and course + workout, waiting and started, on Test Intervals and a custom workout with a ramp, a repeat, cadence targets and all seven zones. The chip crossed no number, label or button (nearest 3px away with both rows, 7px with the workout row alone), stayed inside the panel and the window, and nothing moved.
+- **Still open at 1024x768 with a course and a workout:** the page scrolls there (gap 4), so the chip flips above the strip and covers "Total left" and the top of Skip interval while you hover. Clicks pass through it.
+
+**The block outline reads on every zone (gap 3)**
+
+- The 1px `fg` outline on a hovered strip block and the builder's 2px `fg` selected-block outline were 2.7:1 on a Z7 block.
+- Both are now two-tone: the `fg` line with a 1px `surface` hairline on each side. The line sits on `surface` (17.4:1) whatever the fill. The hairline against the fill is Z1 3.2, Z2 3.8, Z3 3.6, Z4 3.3, Z5 3.6, Z6 5.2, Z7 6.4. No token changed.
+- DESIGN.md has the rule under Power zones.
+
+**The Ride tab at 1024x768 (gap 4, accepted as is)**
+
+- Free ride fits. Course is 91px too tall, workout 63px, course + workout 180px waiting and 191px started.
+- Padding steps alone are about 75px short of fitting course + workout.
+- The Heart rate tile (added by the Home work the same day) took the room a side-by-side power tile would have used.
+- Power, Cadence and Heart rate in one row below 1280 would fit course only and workout only. Course + workout would still be about 44px short. A fit that holds means hiding something at 1024, such as the course note line and the mile ticks.
+- **Nate's call (Nov 21, 2026): accept the scroll at 1024.** The layout is unchanged. The fit target stays 1280x720. Below 1280 wide the page may scroll with a course or workout row, and the hover chip may flip above the strip.
