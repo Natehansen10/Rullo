@@ -10,6 +10,11 @@
  * had a fresh reading (the invalid value on the others) and average and max
  * heart rate on every lap and the session. Without a sensor none of those
  * fields are defined, so the file is what it was before heart rate existed.
+ * Every lap and the session carry total_work (J) and total_calories (kcal),
+ * worked out from recorded power: each record is one second at its power, and
+ * 1 kJ of work counts as 1 kcal, the usual cycling convention (a rider is
+ * about 24% efficient, and 1 kcal is 4.184 kJ, so the two nearly cancel).
+ * Paused time and dropouts have no records, so they add nothing.
  * Field numbers are from the FIT profile (Garmin FIT SDK, Profile.xlsx).
  * Written from the FIT protocol docs. Structure informed by GPX Rider fit.mjs (MIT).
  * No code copied.
@@ -128,6 +133,8 @@ interface Totals {
   avgPower: number
   maxPower: number
   ascentM: number
+  /** Work in joules: every sample is one second at its power. */
+  workJ: number
   /** Over the samples that have a heart rate. Null when none do. */
   avgHeartRate: number | null
   maxHeartRate: number | null
@@ -153,6 +160,7 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
   let cadenceSum = 0
   let cadenceCount = 0
   let ascentM = 0
+  let workJ = 0
   let hrSum = 0
   let hrCount = 0
   let maxHr = 0
@@ -161,6 +169,7 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
     const after = run[i + 1] ?? next
     timerMs += after && !stoppedBetween(s, after) ? after.t - s.t : 1000
     powerSum += s.powerW
+    workJ += Math.max(0, Math.round(s.powerW))
     maxPower = Math.max(maxPower, s.powerW)
     maxCadence = Math.max(maxCadence, s.cadenceRpm)
     maxSpeed = Math.max(maxSpeed, s.speedMps)
@@ -195,6 +204,7 @@ function totals(run: SampleRow[], next: SampleRow | undefined, startDistanceM: n
     avgPower: powerSum / run.length,
     maxPower,
     ascentM,
+    workJ,
     avgHeartRate: hrCount ? hrSum / hrCount : null,
     maxHeartRate: hrCount ? maxHr : null,
   }
@@ -292,10 +302,17 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [21, UINT16], // total_ascent, m
     [25, ENUM], // sport
     [39, ENUM], // sub_sport
+    [41, UINT32], // total_work, J
+    [11, UINT16], // total_calories, kcal
   ]
   if (hasHr) lapFields.push([15, UINT8], [16, UINT8]) // avg_heart_rate, max_heart_rate
   w.define(3, MESG_LAP, lapFields)
-  const writeLap = (index: number, t: Totals) =>
+  // Calories are rounded on the running total, so the laps add up exactly to the session's whole number.
+  const kcal = (joules: number) => Math.round(joules / 1000)
+  let workSoFarJ = 0
+  const writeLap = (index: number, t: Totals) => {
+    const calories = kcal(workSoFarJ + t.workJ) - kcal(workSoFarJ)
+    workSoFarJ += t.workJ
     w.write(3, [
       index,
       fitTime(t.lastT),
@@ -314,8 +331,11 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
       t.ascentM,
       SPORT_CYCLING,
       subSport,
+      t.workJ,
+      calories,
       ...(hasHr ? [hr(t.avgHeartRate), hr(t.maxHeartRate)] : []),
     ])
+  }
 
   // Records, with each finished lap written right after its records.
   // Laps on a workout ride are its intervals; otherwise the whole ride is one lap.
@@ -375,6 +395,8 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [22, UINT16], // total_ascent, m
     [25, UINT16], // first_lap_index
     [26, UINT16], // num_laps
+    [48, UINT32], // total_work, J
+    [11, UINT16], // total_calories, kcal
   ]
   if (hasHr) sessionFields.push([16, UINT8], [17, UINT8]) // avg_heart_rate, max_heart_rate
   w.define(4, MESG_SESSION, sessionFields)
@@ -398,6 +420,8 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     all.ascentM,
     0,
     runs.length,
+    all.workJ,
+    kcal(all.workJ),
     ...(hasHr ? [hr(all.avgHeartRate), hr(all.maxHeartRate)] : []),
   ])
 

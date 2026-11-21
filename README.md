@@ -177,7 +177,7 @@ Import your own GPX on the **Profile** tab. An imported course is picked in step
 4. Press **Start ride** (**Start workout** with a workout loaded). It is the blue button where Connect was. Time, distance and the recording start from zero at that moment. If you forget, the ride is not saved. Pressed while you are not pedaling, the ride starts paused at 0:00 and begins on your first pedal stroke. Press **Disconnect** to back out before Start. You can still change the course or workout on the Workout tab until you press Start.
 5. Change resistance with the step buttons (-10 / -5 / -1, +1 / +5 / +10) or keys: **Arrow Up / Down** 1%, **+ / -** 5%, **Shift + Arrow** 10%. Stay in one gear. The level is remembered for next time and re-sent after a reconnect.
 6. Stop pedaling and the ride **auto-pauses** after 3 seconds (power and cadence both 0). Time, distance, the workout clock and recording stop; the first pedal stroke resumes. The FIT file marks each pause, so Strava shows moving time. If you stop and never resume, the file ends where you stopped pedaling.
-7. Press **End Ride**, then **Confirm end**. The FIT file downloads. Upload it to Strava or Garmin Connect.
+7. Press **End Ride**, then **Confirm end**. The FIT file downloads. It carries power, cadence, speed, distance, laps, heart rate if a sensor was connected, and work and calories from your power (1 kJ of work counts as 1 kcal). Upload it to Strava or Garmin Connect.
 
 If the trainer drops, the app retries every 2 seconds, up to 30 times. After a page reload, Chrome needs you to pick the trainer again.
 
@@ -200,7 +200,7 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/ride.ts` | Ride state, smoothing, stale detection, auto-pause, time and distance from timestamps |
 | `src/lib/recorder.ts` | One sample per wall-clock second to IndexedDB (Dexie); skipped seconds are filled when the gap is 3 s or less |
 | `src/lib/history.ts` | Ride history for the Home tab: each finished ride's time, distance, power and climbing from its saved samples, with the FIT writer's own totals; kept in memory for the session |
-| `src/lib/fit.ts` | FIT file writer: records, one lap per workout interval, timer stop / start events around pauses |
+| `src/lib/fit.ts` | FIT file writer: records (with heart rate when there is a sensor), one lap per workout interval, timer stop / start events around pauses, work and calories on every lap and the ride |
 | `src/lib/wakeLock.ts` | Keeps the screen on while riding |
 | `src/lib/customWorkouts.ts` | Workouts built in the app: stored step lists, cleaned and validated on load |
 | `src/lib/workoutDraft.ts` | The workout builder's draft: field parsing, checks, kept in the browser |

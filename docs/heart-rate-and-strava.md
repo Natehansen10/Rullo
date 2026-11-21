@@ -75,3 +75,32 @@ Screenshots: `docs/screenshots/hr-*.png` and `strava-*.png` (1280x720).
 3. Does the number match the watch?
 4. Walk away from the computer with the watch for 20 seconds mid-ride. The tile should go gray and say Reconnecting, the ride should carry on, and the number should come back when you return.
 5. Does connecting the sensor ever disturb the Kickr? It should not.
+
+## Part B: calories
+
+File only. Nothing about calories shows on the Ride tab.
+
+### What was built
+
+Every lap and the session in the FIT file now carry `total_work` (joules) and `total_calories` (kcal), worked out from recorded power.
+
+### Judgment calls
+
+- **1 kJ of work is 1 kcal.** This is the usual cycling convention, and the one Garmin, Wahoo and Zwift use for power-based calories. It works because a rider turns about 24% of the energy burned into work at the pedals, and 1 kcal is 4.184 kJ, so the two nearly cancel. It is an estimate of energy burned, not a measurement.
+- **Each record is one second at its power.** Work is the sum of the recorded watts, one second each. There are no records while paused or during a dropout, so those add nothing. A record is never stretched across a hole: after a 2-second hiccup the record before it still counts for one second, not three.
+- **Work is not average power times timer time.** The two differ by a few joules when a ride has small holes. The sum of the records was chosen because it only counts seconds that have data.
+- **Laps add up exactly.** Lap work is in whole joules, so the laps sum to the session. Calories are rounded on the running total (lap calories are the rounded total at the lap's end minus the rounded total at its start), so the laps always add up to the session's whole number. Rounding each lap on its own would drift: forty 3-second laps of 480 J would each round to 0.
+- **Heart rate is not used.** Calories come from power only, with or without a sensor.
+- **Field numbers** (from the Garmin FIT SDK profile): lap `total_work` 41 (uint32, J), lap `total_calories` 11 (uint16, kcal); session `total_work` 48, session `total_calories` 11.
+- **Every FIT changes by these four fields**, sensor or not. They sit after the existing lap and session fields, before the heart rate fields.
+- **Rides saved before this work** get work and calories too when they are downloaded again (from Home, for example): the numbers come from the samples, not from anything stored.
+
+### Checks (FIT decoded with @garmin/fitsdk in a scratch folder)
+
+- **Six built rides, 39 checks, all passing:** a 10-minute free ride; a workout with 7 laps, 2 pauses, a dropout, heart rate and a course; forty 3-second laps of under 1 kJ each; a ride of all zeros; 6 hours with 40 laps; a single sample. In each: session work equals the sum of the recorded watts, session calories equal that in kJ, lap work adds up to the session, lap calories add up to the session, and lap timer and distance still add up.
+- **Pauses add nothing:** the same 300 samples with two 1-minute pauses and a 20-second dropout gave the same work and calories (74,850 J, 75 kcal) while elapsed time went from 300 s to 440 s.
+- **From the browser** (fake workout, sensor connected, an 8-second heart rate drop): 61 records, 5 laps, 0 decode errors. Lap work 2,369 + 1,126 + 414 + 5,391 + 377 = 9,677 J, session 9,677 J. Lap calories 2 + 1 + 1 + 5 + 1 = 10, session 10. Each lap's work equals the sum of its records' power.
+
+### Needs a real ride
+
+Compare the calories Strava shows with the ride's work in kJ. They should match (Strava may show its own estimate beside it).
