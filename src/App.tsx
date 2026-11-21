@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from './components/Button'
 import { ElevationProfile } from './components/ElevationProfile'
+import { HomePage } from './components/HomePage'
 import { ProfilePage } from './components/ProfilePage'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
@@ -74,6 +75,7 @@ function isTyping(e: KeyboardEvent): boolean {
 const KEY_HINT = '↑↓ 1  ·  +/− 5  ·  shift ↑↓ 10  ·  E mode'
 const MODE_LABEL = { resistance: 'Resistance', erg: 'ERG', grade: 'Grade' } as const
 const TABS = [
+  { id: 'home', label: 'Home', href: href('home') },
   { id: 'ride', label: 'Ride', href: href('ride') },
   { id: 'workout', label: 'Workout', href: href('workout') },
   { id: 'profile', label: 'Profile', href: href('profile') },
@@ -114,6 +116,8 @@ function controlDetail(s: RideSnapshot): string | null {
   const started = !!s.workout?.started
   const moving = s.phase === 'riding' ? !s.paused : s.phase === 'ready' && ((s.cadenceRpm ?? 0) > 0 || (s.powerW ?? 0) > 0)
   if (s.phase === 'ended') return 'Press New ride.'
+  // Paused comes first: a stopped rider is told how to go on, whatever the mode or the workout.
+  if (s.paused && s.connection.kind === 'connected') return 'Paused. Pedal to resume.'
   if (started && !s.workout?.done && !erg && s.controlState !== 'unsupported') return 'Workout targets are off.'
   if (grade && s.gradeUnsupported) return 'No grade control here.'
   if (erg && s.ergUnsupported) return 'No ERG on this trainer.'
@@ -122,7 +126,6 @@ function controlDetail(s: RideSnapshot): string | null {
   if (s.connection.kind !== 'connected') {
     return erg && !started ? `${Math.round((s.ergTargetW / s.profile.ftpW) * 100)}% FTP · on connect` : 'Applies on connect'
   }
-  if (s.paused) return 'Paused. Pedal to resume.'
   if (erg && s.ergReleased && !s.ergUnsupported && s.phase === 'riding') return 'Released until 60 rpm.'
   // Waiting for Start: say so here too, where the rider's hands are.
   if (s.phase === 'ready') return `Press ${startLabel(s)}.`
@@ -285,6 +288,8 @@ export default function App() {
   const dimRide = s.phase === 'riding' ? s.stale || s.paused : true
   const connecting = s.connection.kind === 'connecting'
   const lost = live && (s.connection.kind === 'failed' || s.connection.kind === 'disconnected')
+  /** One primary per screen: where the page has its own (Home, Workout, the builder), the top bar's buttons are secondary. */
+  const pagePrimary = route === 'home' || route === 'workout' || route === 'builder'
 
   const onStart = () => {
     startedAtRef.current = Date.now()
@@ -328,7 +333,7 @@ export default function App() {
     <div className="flex min-h-full flex-col">
       <header className="flex items-center justify-between gap-6 border-b border-line px-8 py-4">
         <div className="flex items-center gap-8">
-          <a href={href('ride')} className="ww-wordmark no-underline">
+          <a href={href('home')} className="ww-wordmark no-underline">
             Weem Watts
           </a>
           <TabNav tabs={TABS} current={route === 'builder' ? 'workout' : route} />
@@ -337,7 +342,7 @@ export default function App() {
           <StatusPill tone={pill.tone} label={pill.label} />
           {s.phase === 'idle' && (
             <Button
-              variant={route === 'workout' || route === 'builder' ? 'secondary' : 'primary'}
+              variant={pagePrimary ? 'secondary' : 'primary'}
               onClick={() => {
                 go('ride')
                 ride.connect()
@@ -349,14 +354,14 @@ export default function App() {
           )}
           {s.phase === 'ready' && <Button onClick={ride.disconnect}>Disconnect</Button>}
           {live && lost && (
-            <Button variant="primary" onClick={ride.connect}>
+            <Button variant={route === 'home' ? 'secondary' : 'primary'} onClick={ride.connect}>
               Reconnect
             </Button>
           )}
           {/* Start takes the slot Connect had. Nothing is recorded until it is pressed. */}
           {s.phase === 'ready' && !lost && (
             <Button
-              variant={route === 'workout' || route === 'builder' ? 'secondary' : 'primary'}
+              variant={pagePrimary ? 'secondary' : 'primary'}
               onClick={onStart}
               disabled={s.connection.kind !== 'connected'}
             >
@@ -371,7 +376,7 @@ export default function App() {
           {s.phase === 'ended' && (
             <>
               {s.canDownload && (
-                <Button variant="primary" onClick={() => void ride.download()}>
+                <Button variant={route === 'home' ? 'secondary' : 'primary'} onClick={() => void ride.download()}>
                   Download FIT
                 </Button>
               )}
@@ -381,7 +386,11 @@ export default function App() {
         </div>
       </header>
 
-      {route === 'profile' ? (
+      {route === 'home' ? (
+        <main className="flex flex-1 flex-col px-8 py-6">
+          <HomePage s={s} onSetup={() => go('workout')} onRide={() => go('ride')} />
+        </main>
+      ) : route === 'profile' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
           <ProfilePage
             profile={s.profile}
@@ -449,7 +458,8 @@ export default function App() {
             </Notice>
           )}
           {s.connection.kind === 'failed' && (
-            <Notice title={live ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
+            // Lost while waiting for Start puts the ride back to idle, so the phase alone cannot tell the two apart.
+            <Notice title={live || s.connection.lost ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
           )}
           {s.recovery && s.coursesLoaded && s.workoutsLoaded && s.phase === 'idle' && !s.resuming && (
             <Notice
@@ -628,7 +638,7 @@ export default function App() {
               {s.connection.kind === 'connected' ? `${s.connection.protocol}` : 'Kickr Core 2 over FTMS'}
               {' · '}power smoothed over {s.smoothing}s
             </span>
-            {s.fake && <span>FAKE TRAINER · D drop data · C low cadence · S stop pedaling · J jitter · H drop heart rate</span>}
+            {s.fake && <span>FAKE TRAINER · D drop data · C low cadence · S stop pedaling · J jitter · X lose trainer · H drop heart rate</span>}
           </footer>
         </main>
       )}

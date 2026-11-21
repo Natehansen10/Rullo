@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
-import { indexAt, targetPct, targetWatts, zoneOf, type Interval } from '../lib/workout'
+import { indexAt, targetPct, targetWatts, zoneAt, type Interval } from '../lib/workout'
 
 interface WorkoutStripProps {
   intervals: Interval[]
@@ -104,7 +104,7 @@ export function WorkoutStrip({
         x1,
         tip: {
           label: iv.label,
-          zone: zoneOf((a + b) / 2),
+          zone: zoneAt((a + b) / 2, ftpW),
           watts: wa === wb ? String(wa) : `${wa}→${wb}`,
           pct: pa === pb ? String(pa) : `${pa}→${pb}`,
           length: clock(iv.durS),
@@ -112,7 +112,7 @@ export function WorkoutStrip({
         },
         key: iv.index,
         d: `M${x0.toFixed(1)},${h}L${x0.toFixed(1)},${y(a).toFixed(1)}L${x1.toFixed(1)},${y(b).toFixed(1)}L${x1.toFixed(1)},${h}Z`,
-        zone: zoneOf((a + b) / 2),
+        zone: zoneAt((a + b) / 2, ftpW),
         label: fits && labels ? { text, x: (x0 + x1) / 2, y: Math.min(y(a), y(b)) - 4 } : null,
       }
     })
