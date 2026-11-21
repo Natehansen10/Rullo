@@ -6,6 +6,8 @@ import { ProfilePage } from './components/ProfilePage'
 import { MetricTile } from './components/MetricTile'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
+import { StravaBlock } from './components/StravaBlock'
+import { isOnStrava, StravaUpload } from './components/StravaUpload'
 import { Stepper } from './components/Stepper'
 import { TabNav } from './components/TabNav'
 import { WorkoutBuilder } from './components/WorkoutBuilder'
@@ -24,7 +26,9 @@ import {
 } from './config'
 import { ride, useRide } from './hooks/useRide'
 import { go, href, isRoute, useRoute } from './hooks/useRoute'
+import { useStrava } from './hooks/useStrava'
 import type { RideSnapshot } from './lib/ride'
+import { strava } from './lib/strava'
 import { builder, type ReturnTo } from './lib/workoutDraft'
 
 const EMPTY = '--'
@@ -223,6 +227,7 @@ function Notice({ title, children, actions }: { title: string; children?: ReactN
 
 export default function App() {
   const s = useRide()
+  const st = useStrava()
   const [confirmEnd, setConfirmEnd] = useState(false)
   /** When Start was last pressed. See onEnd. */
   const startedAtRef = useRef(0)
@@ -271,6 +276,54 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Back from signing in at Strava? Check it, then show the ride that was waiting to be uploaded, or Profile.
+  useEffect(() => {
+    void strava.finishSignIn().then(async (back) => {
+      if (!back) return
+      if (back.rideId !== null && (await ride.reopenEnded(back.rideId))) go('ride')
+      else go('profile')
+    })
+  }, [])
+
+  /** Only a ride made on a real trainer can go to Strava. A fake ride never shows the button, and the server refuses its file too. */
+  const uploadable = !s.fake && s.ended?.origin === 'trainer'
+  /** Hidden until the server says Strava is set up. An already connected rider sees it at once. */
+  const showUpload = uploadable && (st.setup === 'on' || (st.setup === 'unknown' && !!st.athlete))
+  useEffect(() => {
+    if (uploadable) void strava.checkSetup()
+  }, [uploadable])
+
+  /** Upload to Strava: always from this click, with the same file Download FIT gives. */
+  const onUpload = async () => {
+    const ended = ride.getSnapshot().ended
+    if (!ended) return
+    // Strava already has the file and was still processing it: only ask how it went.
+    const resume = ended.strava?.uploadId && !ended.strava.activityId ? ended.strava.uploadId : null
+    let file = null
+    if (!resume) {
+      try {
+        file = await ride.rideFile()
+      } catch (err) {
+        ride.notify(err instanceof Error ? err.message : "This ride can't be uploaded.")
+        return
+      }
+    }
+    const result = await strava.upload(file, resume)
+    if (result.kind === 'done') {
+      await ride.markStrava(ended.id, {
+        ...(result.activityId ? { activityId: result.activityId } : {}),
+        ...(result.uploadId ? { uploadId: result.uploadId } : {}),
+        ...(result.duplicate ? { duplicate: true } : {}),
+        at: Date.now(),
+      })
+    } else if (result.kind === 'pending') {
+      await ride.markStrava(ended.id, { uploadId: result.uploadId, at: Date.now() })
+    } else if (resume) {
+      // That upload came to nothing: the next press sends the file again.
+      await ride.markStrava(ended.id, null)
+    }
+  }
+
   useEffect(() => {
     if (!confirmEnd) return
     const t = setTimeout(() => setConfirmEnd(false), CONFIRM_MS)
@@ -312,6 +365,7 @@ export default function App() {
   const onNewRide = () => {
     // New ride lands where Confirm end was: a double click there must not clear the ride just ended.
     if (Date.now() - endedAtRef.current < START_GUARD_MS) return
+    strava.clearMessage()
     ride.newRide()
   }
 
@@ -375,8 +429,24 @@ export default function App() {
           )}
           {s.phase === 'ended' && (
             <>
+              {showUpload && s.ended && (
+                <StravaUpload
+                  ended={s.ended}
+                  strava={st}
+                  primary={!pagePrimary}
+                  onUpload={() => void onUpload()}
+                  onConnect={() => {
+                    strava.clearMessage()
+                    go('profile')
+                  }}
+                />
+              )}
               {s.canDownload && (
-                <Button variant={route === 'home' ? 'secondary' : 'primary'} onClick={() => void ride.download()}>
+                <Button
+                  // One primary: Upload to Strava when it is on offer, else Download FIT.
+                  variant={route === 'home' || (showUpload && !!st.athlete && !isOnStrava(s.ended)) ? 'secondary' : 'primary'}
+                  onClick={() => void ride.download()}
+                >
                   Download FIT
                 </Button>
               )}
@@ -406,6 +476,7 @@ export default function App() {
             onEditWorkout={(id) => openBuilder('edit', id, 'profile')}
             onCopyWorkout={(id) => openBuilder('copy', id, 'profile')}
             notice={s.notice && <Notice title={s.notice} />}
+            strava={<StravaBlock canLeave={s.phase === 'idle' || s.phase === 'ended'} endedRideId={s.ended?.id ?? null} />}
           />
         </main>
       ) : route === 'builder' ? (
@@ -478,6 +549,7 @@ export default function App() {
             <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
           )}
           {s.notice && <Notice title={s.notice} />}
+          {s.phase === 'ended' && st.message && <Notice title={st.message} />}
           <section
             aria-label="Live ride data"
             className="grid flex-1 auto-rows-auto grid-cols-1 grid-rows-[1fr] rounded-lg border border-line bg-surface xl:grid-cols-[2fr_3fr]"

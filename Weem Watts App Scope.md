@@ -20,6 +20,7 @@ A free, browser-based indoor cycling app for the Wahoo Kickr Core 2. Built to re
 - **Code reuse:** borrow only from MIT or Apache-2.0 repos (GPX Rider, Croissant Ride, serpentine). Read AGPL code (Auuki, OpenRadlr) and unlicensed code (ride-hud) for ideas only.
 - **Units:** Miles
 - **Not building:** 3D worlds, multiplayer, accounts
+- **Server:** none, with one exception made on Nov 21, 2026: four stateless Vercel functions for Strava upload (see Strava upload below). Nothing else may depend on a server
 - **Approach:** Build for personal use first. No accounts or sharing until it has been used through the winter.
 
 ## Phases
@@ -137,11 +138,18 @@ Moved out of "Stretch features" on Nov 20, 2026 at Nate's request (v1 had cut it
 - **Cut:** heart rate zones, targets, HR-driven ERG, a native watch or phone app
 - **Done when:** ride with the Kickr and the watch, see bpm on the tile for the whole ride, and see heart rate on the activity after uploading the FIT
 
-### Later: Strava auto-upload
+### Strava upload (built Nov 21, 2026; first real upload pending)
 
-Moved out of v3 on Nov 19, 2026: it needs a server function to keep the Strava client secret, and the guardrails hold server features until going public is a real decision. Manual upload at strava.com/upload/select works meanwhile.
+Moved out of "Later" on Nov 21, 2026 at Nate's request. It had been parked on Nov 19 because it needs a server function to keep the Strava client secret, and the guardrails hold server features until going public is a real decision. **Nate made an exception for Strava upload only.** Decisions are in `docs/heart-rate-and-strava.md`.
 
-- Strava auto-upload through a Vercel function (VirtualRide, trainer=1). Single Player Mode covers personal use
+- One click after End Ride: Upload to Strava sends the same FIT as Download FIT (power, laps, heart rate, calories) as a Virtual Ride with the trainer flag, named from the setup. Never on its own
+- Connect and Disconnect on the Profile tab. OAuth with the smallest scope that can upload (`activity:write`). Nothing is read from Strava
+- The server part is as small as it can be: four stateless Vercel functions in `/api/strava` (is it set up, trade the sign-in code or refresh a token, revoke, pass the FIT on and report its status). No database, no accounts, no logs of tokens or rides. The secret lives only in Vercel's environment variables
+- The athlete's tokens are kept in the rider's own browser, like the profile and rides
+- Rides from the fake trainer cannot be uploaded: the file carries a mark and the function refuses it
+- Single Player Mode covers personal use: a new Strava app can connect its owner only
+- **Cut:** upload without a click, Garmin and TrainingPeaks, reading any activity data back from Strava, accounts, a database, uploading old rides from the Home tab
+- **Done when:** ride with the Kickr and a heart rate sensor, press End Ride, press Upload to Strava, and see the complete activity on Strava
 
 ### Later: Movie Mode overlay
 
@@ -158,7 +166,7 @@ The angle is open: no free tool rehearses a specific race course. ROUVY holds th
 - **Closest products:** MINI WATT ($1.99/mo desktop overlay) and Croissant Ride (free browser app with a mini window). Neither knows the course. Cycloscape's race pacing is paid only.
 - **Top complaints to avoid:** frozen numbers after a dropout, ERG spirals at low cadence, competing connections (close the Wahoo app first), noisy GPX grades.
 - **Chrome limit:** after a page reload the rider has to pick the trainer again. Reconnecting without a reload works.
-- **Strava rules:** the client secret stays in a Vercel function, and Strava data can't be used with AI.
+- **Strava rules:** the client secret stays in a Vercel function, and Strava data can't be used with AI. (The app reads no Strava data at all, so there is none to use.)
 - **Open questions:** Does the overlay float over fullscreen Netflix? Does ROUVY have Montana somewhere?
 
 ### Code to borrow
@@ -220,6 +228,6 @@ Not in scope now. This is the ceiling for how big it could get.
 
 - Ship each phase before starting the next
 - Every stretch feature has to earn its place after real use
-- If a feature needs servers or accounts, it waits until going public is a real decision
+- If a feature needs servers or accounts, it waits until going public is a real decision. One exception, Nov 21, 2026: the stateless functions for Strava upload. It is not a precedent: no database, no accounts, and nothing else in the app may depend on a server
 - Never copy AGPL or unlicensed code into the repo
 - No AI features built on Strava data

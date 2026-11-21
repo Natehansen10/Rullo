@@ -52,6 +52,16 @@ const EVENT_TYPE_STOP_ALL = 4
 const FILE_TYPE_ACTIVITY = 4
 const MANUFACTURER_DEVELOPMENT = 255
 
+/**
+ * Where a ride's data came from, saved on the ride and written into the FIT
+ * file_id as the product number: 0 unknown (a ride saved before this existed),
+ * 1 a real trainer, 2 the fake trainer (?fake=1). The Strava upload function
+ * takes product 1 only, so a fake ride cannot be uploaded even by hand.
+ * server/strava.js reads the same numbers.
+ */
+export type RideOrigin = 'trainer' | 'fake'
+const PRODUCT: Record<RideOrigin | 'unknown', number> = { unknown: 0, trainer: 1, fake: 2 }
+
 type Field = [num: number, baseType: number]
 
 const CRC_TABLE = [
@@ -242,7 +252,7 @@ function splitLaps(samples: SampleRow[]): SampleRow[][] {
   return runs
 }
 
-export function buildFit(samples: SampleRow[]): Uint8Array {
+export function buildFit(samples: SampleRow[], origin?: RideOrigin): Uint8Array {
   if (samples.length === 0) throw new Error('No samples to export')
   const first = samples[0]
   const last = samples[samples.length - 1]
@@ -264,7 +274,7 @@ export function buildFit(samples: SampleRow[]): Uint8Array {
     [3, UINT32Z],
     [4, UINT32],
   ])
-  w.write(0, [FILE_TYPE_ACTIVITY, MANUFACTURER_DEVELOPMENT, 0, fitTime(first.t) || 1, fitTime(first.t)])
+  w.write(0, [FILE_TYPE_ACTIVITY, MANUFACTURER_DEVELOPMENT, PRODUCT[origin ?? 'unknown'], fitTime(first.t) || 1, fitTime(first.t)])
 
   w.define(1, MESG_EVENT, [
     [253, UINT32],
@@ -447,8 +457,8 @@ export function fitFileName(startedAt: number): string {
   return `weem-watts-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.fit`
 }
 
-export function downloadFit(samples: SampleRow[], startedAt: number): void {
-  const bytes = buildFit(samples)
+export function downloadFit(samples: SampleRow[], startedAt: number, origin?: RideOrigin): void {
+  const bytes = buildFit(samples, origin)
   const blob = new Blob([bytes], { type: 'application/vnd.ant.fit' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

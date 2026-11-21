@@ -24,6 +24,8 @@ interface ProfilePageProps {
   onEditWorkout: (id: string) => void
   onCopyWorkout: (id: string) => void
   notice?: ReactNode
+  /** The Strava block (connect, who is connected, disconnect), under "Your files". */
+  strava?: ReactNode
 }
 
 const CONFIRM_MS = 3000
@@ -213,6 +215,7 @@ export function ProfilePage({
   onEditWorkout,
   onCopyWorkout,
   notice,
+  strava,
 }: ProfilePageProps) {
   const previewMph = steadySpeedMps(riderParams(profile), PREVIEW_W) * MPS_TO_MPH
   return (
@@ -306,6 +309,8 @@ export function ProfilePage({
           onRemove={onRemoveWorkout}
         />
       </section>
+
+      {strava}
 
       <p className="font-mono text-mono text-fg-subtle">
         total {profile.riderLb + profile.bikeLb} lb · {PREVIEW_W} W on a flat road ≈ {previewMph.toFixed(1)} mph

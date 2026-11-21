@@ -131,6 +131,25 @@ The Ride tab has a **Heart rate** tile. It reads any standard Bluetooth heart ra
 
 Start the session on the watch (in the relay app). Weem Watts cannot start it for you; it only listens. A strap works the same way with no app at all.
 
+## Strava
+
+After a ride, **Upload to Strava** sends the ride to your Strava account. It is always a click; nothing is uploaded on its own.
+
+1. **Connect once.** Open **Profile**, scroll to **Strava**, and press **Connect with Strava**. Strava asks you to allow Weem Watts to upload activities. That is the only permission it asks for; it reads nothing from your account. Leave the box checked and approve.
+2. **Ride**, then press **End Ride** and **Confirm end**.
+3. Press **Upload to Strava**, beside Download FIT. It reads "Uploading to Strava", then "Strava is processing", then turns into **View on Strava**, a link to the activity.
+
+- **What the activity contains:** the same FIT file Download FIT gives you. Power, cadence, speed, distance, one lap per workout interval, moving time, heart rate if a sensor was connected, work and calories, and elevation on a course. It is posted as a Virtual Ride on a trainer, named after the setup ("Sweet Spot 3x12 on Test Hills", or "Free ride").
+- **Turn off Strava's Apple Health import for rides.** If your Apple Watch workouts sync to Strava through Apple Health, each ride will show up twice: once from the watch and once from Weem Watts. In the Strava app's settings, find the Apple Health connection and turn the automatic workout import off, or delete the watch's copy after each ride. (The exact menu was not checked here; it has moved between app versions.)
+- **Uploaded twice?** Strava spots it. The button reads "Already on Strava" with the link.
+- **If it fails** the reason is shown in plain words and Download FIT is still there. You can add the file by hand on strava.com (Upload activity, File).
+- **Not connected** when you end a ride? The button reads "Connect Strava to upload" and takes you to Profile. After you connect, the ride is waiting on the Ride tab with Upload to Strava.
+- **Disconnect** (Profile, Strava) removes the connection from this browser and from your Strava account.
+- Rides made with `?fake=1` cannot be uploaded.
+- Your Strava sign-in is kept in this browser only. There are no accounts and no database.
+
+Setup for whoever hosts the site is under Deploy.
+
 ## ERG mode
 
 Switch the control row from **Resistance** to **ERG** (or press **E**). In ERG you set a target in watts and the Kickr holds it at any cadence or gear.
@@ -192,6 +211,8 @@ If the trainer drops, the app retries every 2 seconds, up to 30 times. After a p
 | `src/lib/heartRate.ts` | Heart rate sensor: the standard Heart Rate service, its own connection and reconnect loop |
 | `src/lib/fakeTrainer.ts` | `?fake=1` trainer |
 | `src/lib/fakeHeartRate.ts` | `?fake=1` heart rate sensor |
+| `src/lib/strava.ts` | Strava in the browser: sign-in, the tokens kept here, upload and waiting for Strava to process |
+| `api/strava/*.js`, `server/strava.js` | The only server code: four small Vercel functions that hold the Strava client secret (see Deploy) |
 | `src/lib/physics.ts` | Speed from power and grade, with a light indoor inertia and a 4 s coast-down |
 | `src/lib/profile.ts` | Rider profile (weights, position, FTP), saved in the browser |
 | `src/lib/gpx.ts` | Reads GPX track points |
@@ -209,4 +230,18 @@ Speed comes from power on a flat road, not from the trainer, so it reads the sam
 
 ## Deploy
 
-Hosted on Vercel at https://weem-watts.vercel.app. The GitHub repo is connected, so every push to `main` deploys automatically. Vercel detects Vite: build `npm run build`, output `dist`. No environment variables.
+Hosted on Vercel at https://weem-watts.vercel.app. The GitHub repo is connected, so every push to `main` deploys automatically. Vercel detects Vite: build `npm run build`, output `dist`.
+
+The app runs entirely in the browser, with one exception: Strava upload. Strava's sign-in needs a client secret that must not reach a browser, so four small functions in `/api/strava` do that part. They keep nothing: no database, no accounts, no logs of tokens or rides. Everything else works without them.
+
+**To turn Strava upload on:**
+
+1. Create an API application at https://www.strava.com/settings/api. Set **Authorization Callback Domain** to `weem-watts.vercel.app`.
+2. In the Vercel project, open Settings, Environment Variables, and add `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` from that page, for Production. Never put the secret in a file, a commit or a chat.
+3. Redeploy (Deployments, the latest one, Redeploy), so the functions see the variables.
+
+Without the variables the Profile tab reads "Strava upload is not set up yet" and the upload button does not show.
+
+A new Strava application can connect one athlete, its owner ("single player mode"). More riders need Strava's review.
+
+`npm run dev` and `npm run preview` do not run the functions, so Strava reads as not set up there. `vercel dev` runs them.

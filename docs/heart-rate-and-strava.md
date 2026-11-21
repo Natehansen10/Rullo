@@ -104,3 +104,123 @@ Every lap and the session in the FIT file now carry `total_work` (joules) and `t
 ### Needs a real ride
 
 Compare the calories Strava shows with the ride's work in kJ. They should match (Strava may show its own estimate beside it).
+
+## Part C: Strava upload (Nov 21, 2026)
+
+### What was built
+
+- **Profile, Strava block:** connect, the connected athlete's name, disconnect.
+- **After End Ride:** Upload to Strava beside Download FIT. It says what it is doing, then becomes a link to the activity.
+- **Four Vercel functions** in `/api/strava`, with shared code in `server/strava.js`. Plain Node, no framework, no new dependencies.
+
+| Function | Does |
+| --- | --- |
+| `GET /api/strava/config` | Says whether the two variables are set, and gives the client id (public; it is part of the sign-in address) |
+| `POST /api/strava/token` | Trades the sign-in code for tokens, or refreshes an expired token |
+| `POST /api/strava/revoke` | Removes the app's access at Strava (Disconnect) |
+| `POST` and `GET /api/strava/upload` | Passes the FIT to Strava; reports how the upload is doing |
+
+The brief expected three functions. Two more exist because (1) the browser has to learn whether Strava is set up, and the client id, without either being built into the bundle, and (2) Strava's revoke endpoint needs the client secret.
+
+### The server exception
+
+The scope doc held server features until going public is a real decision. Nate made an exception for Strava upload only, recorded in CLAUDE.md and the scope doc on Nov 21, 2026. The functions are stateless: no database, no accounts, nothing written, nothing logged. The app works fully without them, and nothing else calls them. The page does not call them at load: `config` is asked only when the Profile tab opens or a ride made on a real trainer ends.
+
+### Read first (Nov 20, 2026)
+
+Strava's Getting Started, Authentication, Uploads, API reference, Rate Limits, the API Agreement (effective June 1, 2026) and the Brand Guidelines (last revised Sep 29, 2025); Vercel's Functions quickstart, API reference, Node.js runtime and limits. What the code relies on:
+
+- Authorize at `https://www.strava.com/oauth/authorize` with `client_id`, `redirect_uri`, `response_type=code`, `approval_prompt`, `scope`, `state`. A refusal comes back as `error=access_denied`.
+- Tokens at `POST /oauth/token`. Access tokens last 6 hours. A refresh may return a new refresh token, and the old one stops working at once.
+- **Revoke is `POST /oauth/revoke`** with HTTP Basic auth (client id and secret). The older `/oauth/deauthorize` is supported only until June 1, 2027, so it is not used.
+- Upload at `POST /api/v3/uploads` (multipart): `file`, `data_type`, `sport_type`, `name`, `trainer`, `external_id`. `activity_type` is deprecated in favor of `sport_type`. Processing is asynchronous; Strava recommends checking no more than once a second and says the mean processing time is under 2 seconds.
+- Limits: 200 requests per 15 minutes and 2,000 a day overall; 429 when exceeded.
+- A new app is in "single player mode": one athlete, its owner.
+
+### Judgment calls
+
+**Everything goes through the functions.** Strava's docs say nothing about calling the API from a browser (no mention of CORS on any page read). The upload and the status check need only the rider's token, so they might work straight from the browser, but nothing documents it and a test against the real API was ruled out. So the default stands: the browser talks only to this site.
+
+**Scope: `activity:write` only.** It is the scope Strava's upload page names. The app asks for nothing else, not even `read`: the athlete's name comes with the sign-in reply. If the rider unticks the box on Strava's page, the app says so and does not connect.
+
+**The connect button** is Strava's own white "Connect with Strava" image at its own size, in a hairline frame, because the white asset has no edge and would vanish on a white panel. White was chosen over orange so the screen keeps one loud color. This is the one DESIGN.md exception; see "The Strava exception" there. The guidelines say an app that uses the button must link it to Strava's authorize address, which it does; they do not say plainly that the button is the only allowed way to connect. Using it is the safe reading.
+
+**Upload to Strava is an ordinary button, and it is the primary one.** When Strava is connected and the ride is not uploaded yet, Upload to Strava is Cobalt and Download FIT turns secondary, so there is still one primary on screen. The file has already downloaded at End Ride, so the next useful click is the upload. Once uploaded, or when Strava is not connected, Download FIT is primary again.
+
+**The link reads exactly "View on Strava"**, bold and underlined in the text color. The guidelines accept bold, underline or Strava orange; orange is not used.
+
+**"Compatible with Strava"** is a line of text under the Profile block, the wording the guidelines give. Strava's logo files were not added. If the app ever goes for Strava's review (more than one athlete), check then whether the logo is required.
+
+**Where the tokens live:** `localStorage` under `ww.strava`: access token, refresh token, expiry and the athlete's name. Nothing else about the athlete is kept. Disconnect clears them and revokes at Strava. If Strava cannot be reached, they are still cleared here, and the app says to remove Weem Watts on strava.com.
+
+**CSRF and the way back.** Connect makes a random 128-bit state, keeps it in `sessionStorage` (this tab only) with the page's origin and the time, and sends the rider to Strava. On the way back the app checks the state, the origin and that it took under 15 minutes, before the code goes anywhere. The code is removed from the address bar at once. A link with a code this tab did not ask for is refused and the code is never sent.
+
+**The functions accept only this site's own pages.** A browser sends `Origin` on every POST and `Sec-Fetch-Site` on a same-origin GET; the functions compare the origin with the host they were called on, so the live site, preview deployments and a local test all work with no list to keep. No CORS headers are ever sent. JSON bodies must be `application/json` and under 2,000 characters; codes and tokens must be 8 to 200 letters, digits, `_` or `-`; ids must be digits.
+
+**Errors are short codes.** The functions never pass Strava's own response on, apart from an upload's status text with all markup stripped. The browser turns each code into its own sentence. Nothing is logged anywhere in the functions.
+
+**Fake rides cannot be uploaded, three ways.**
+
+1. The ride is marked at Start: `origin: 'fake'` on its row when the app runs with `?fake=1`, `'trainer'` otherwise. The mark stays with the ride after a reload without `?fake=1`.
+2. The mark goes into the FIT file, as the `product` number of the `file_id` message: 1 a real trainer, 2 the fake trainer, 0 unknown (a ride saved before this work, or a file with no mark). The upload button shows only for `'trainer'`, never in fake mode.
+3. The upload function reads the file before Strava is called and takes product 1 only. It also checks the FIT header, the size the header declares, and the file's checksum, so changing the mark by hand breaks the file. Someone who edits the byte and recomputes the checksum can get past this; that is forging a file, which nothing here can stop.
+
+This changes one byte of every FIT made on a real trainer from now on (product 0 to 1).
+
+**Not a FIT, or too big.** Anything that is not a FIT activity file made by this app is refused: wrong header, wrong size, bad checksum, wrong file type, wrong manufacturer. The limit is 4 MB (Vercel's own limit is 4.5 MB). A 6-hour ride is about 0.5 MB.
+
+**The activity.** `sport_type=VirtualRide`, `trainer=1`, `data_type=fit`, the name from the setup ("Sweet Spot 3x12 on Test Hills", "Test Hills", "Sweet Spot 3x12" or "Free ride"), and `external_id` `weem-watts-` plus the ride's start time, so the same ride always has the same id. No description is sent: nothing is posted that the rider did not ask for. Every upload is a Virtual Ride, including a free ride on a flat road, as the brief asked; the FIT itself still says indoor cycling for those, and the parameter overrides it.
+
+**The same bytes as Download FIT.** The upload builds the file with the same function from the same samples. Checked byte for byte.
+
+**Waiting for Strava.** The app checks every 2 seconds, up to 30 times (a minute). If Strava is still working, the button becomes **Check upload**, which asks again without sending the file a second time. A failed check after Strava has taken the file is treated the same way, not as a failed upload.
+
+**Duplicates.** Strava reports a duplicate as an error text naming the activity, sometimes inside a link. Both forms are read. The button becomes "Already on Strava" with the link. It is not shown as an error.
+
+**Remembered on the ride.** The upload id and activity id are saved on the ride's row (`strava`), with the ride's `name` and `origin`. No new table; Dexie stays at version 4. A stored id must be digits before it is used in a link.
+
+**Connecting after the ride has ended.** Signing in leaves the page, which would lose the "Ride ended" screen. So the ride's id travels with the sign-in, and on the way back the app reopens that ride on the Ride tab with its buttons. For the same reason Connect is not offered while a trainer is connected or a ride is on: the Profile block says to end the ride first.
+
+**An expired token** is refreshed before the upload when it has under 5 minutes left. If Strava refuses the token anyway, on the upload or on a status check, the app refreshes once and repeats that one call. If the refresh is refused, access was removed on Strava's side: the tokens are cleared and the app says to connect again.
+
+**The upload slot hides** when Strava is not set up, for a fake ride, and when nothing was recorded. With the variables missing, the Profile block reads "Strava upload is not set up yet" and the console stays empty. A rider who is already connected sees the button at once, before the server has answered.
+
+**Old rides are not uploadable.** The Home tab lists past rides with Download FIT. Upload from there was left out: the brief asks for the button after End Ride.
+
+**AI.** The scope doc notes that Strava data cannot be used with AI. The agreement text read on Nov 20, 2026 had no clause that mentions AI by name; whichever is right, the app reads no Strava data, so there is none to use.
+
+### Checks
+
+All against a mock of Strava's endpoints and a local server that runs the functions the way Vercel does (a web Request in, a Response out). The real Strava API was never called: in the test server every outbound call is redirected to the mock and anything else throws, and in the browser every request to strava.com is blocked except the sign-in page, which the test answers itself. Rides were made on the real Bluetooth code with a mocked trainer and heart rate sensor, since a fake-mode ride cannot be uploaded.
+
+- **Functions called by hand, 38 checks, all passing.** Another origin, or no origin: 403. A fake ride's FIT: refused as `fake_ride`, Strava never called. A FIT with no mark: refused. A fake FIT with its mark edited: fails the checksum. Empty, random bytes, a GPX, a truncated FIT, a FIT with one byte changed: refused. Over 4 MB: 413. No token: 401. A code with odd characters: refused before Strava is called. Strava got `VirtualRide`, `trainer=1`, `fit`, the name and the id, and the same bytes. Duplicate, bad file, rate limit (429), Strava down (502), a rejected token (401), refresh and revoke all map as written above. No reply from any function on any method contains the secret or its variable name. With either variable missing: `configured: false` and 503 on the rest.
+- **In the browser, 76 checks, all passing:** connect (the sign-in address carries the client id, `code`, `activity:write`, this origin and a 32-character state, and no secret; the address bar is clean afterwards; tokens are in this browser only); reload keeps the connection and sends nothing to Strava; Disconnect revokes with the refresh token and clears it; upload (nothing sent before the click; the button says "Uploading to Strava" then "Strava is processing"; the link is `https://www.strava.com/activities/<id>`; one upload; the uploaded file is byte for byte the downloaded one and decodes with heart rate, 2 laps, work and calories, and the real-trainer mark); both forms of duplicate; sign-in cancelled, a wrong state, the upload box unticked, a code Strava refuses, and a sign-in link the tab never asked for; not connected at the end of a ride, then connect and come back to the ride; access revoked on Strava's side; a token near expiry, a token refused on the upload, and a token that expires while Strava is processing; rate limit; Strava down; offline; the variables removed from the server; a file Strava rejects (its reason shown with the markup stripped); Strava never finishing (30 checks, then Check upload); a fake ride (no button, the function refuses its file, still no button when the ride is reopened without `?fake=1`); nothing recorded (no upload, no download); keyboard focus and rings on the connect button, the upload button and the link; no sideways scroll at 1024, 1280 and 1920 with the link showing; the Ride tab still 720 px tall with the upload button.
+- **The secret is not in the bundle.** Built with `STRAVA_CLIENT_ID` and a test `STRAVA_CLIENT_SECRET` in the environment, then searched `dist` for both variable names, the test secret and `client_secret`: no matches. The only mention in `src` is a comment.
+- **Contrast:** no new token pairs. The link is `fg` on `bg` (15.6:1). Strava's button is Strava's.
+
+### Not checked
+
+- **The real Strava API.** Nothing here has talked to Strava. The first real upload is the test.
+- **A real Vercel deployment of the functions.** They were run locally through the same Request and Response shapes Vercel documents for a non-framework project (`export function GET(request)`). If the first deploy shows a problem, it will be on the Profile tab: "Strava upload is not set up yet" with the variables set means the functions are not answering.
+- **Whether Strava shows a free ride as a Virtual Ride** from the `sport_type` parameter alone.
+
+## What was cut
+
+- A native Apple Watch or iPhone app. Heart rate zones, zone colors, targets, HR-driven ERG.
+- Charts, a ride summary, calories on the Ride tab.
+- Upload without a click. Garmin and TrainingPeaks. Reading any activity data back from Strava. Accounts, a database.
+- Upload of past rides from the Home tab.
+- Strava's logo files, a description on the activity, a private or public choice (the activity gets the rider's Strava default).
+- A notice when the heart rate sensor is lost (the tile says it).
+
+## First real upload: checklist for Nate
+
+1. Create the Strava API app and add the two variables in Vercel (steps in the README under Deploy), then redeploy.
+2. Open Profile. It should offer Connect with Strava, not "not set up yet".
+3. Connect. Strava should ask for one permission: upload activities. After approving you should land on Profile, "Connected as" your name.
+4. In the Strava app, turn off the Apple Health workout import, or the watch's copy will appear beside this one.
+5. Ride 10 minutes with the Kickr and the watch: a course plus a short workout, so there are laps and elevation.
+6. End Ride, Confirm end, Upload to Strava. Within a few seconds it should read View on Strava.
+7. On Strava check: Virtual Ride, the name, power, heart rate, laps, calories close to the ride's kJ, moving time, elevation.
+8. Press nothing else and reload Strava's feed: one activity, not two.
+9. On Profile press Disconnect, then check strava.com, Settings, My Apps: Weem Watts should be gone.
