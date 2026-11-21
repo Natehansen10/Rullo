@@ -12,11 +12,13 @@ import { customFromRow } from './customWorkouts'
 import { MAX_GPX_BYTES } from './gpx'
 import { normalizeProfile, type Profile } from './profile'
 import * as recorder from './recorder'
+import { currentRider, isRiderId, type Rider } from './rider'
 import type { CustomWorkoutRow, ImportedCourseRow, ImportedWorkoutRow, RideRow, SampleRow } from './recorder'
 import { MAX_ZWO_BYTES } from './zwo'
 
 const FORMAT = 'weem-watts-backup'
-const VERSION = 1
+/** 2 added `rider`. A version 1 file has none and restores the same way otherwise. */
+const VERSION = 2
 /** A backup bigger than this is refused before it is read (about 500 hours of riding). */
 export const MAX_BACKUP_BYTES = 300 * 1024 * 1024
 const MAX_RIDES = 20000
@@ -50,6 +52,8 @@ interface BackupFile {
   format: typeof FORMAT
   version: number
   exportedAt: number
+  /** Whose backup this is. Rows in the file carry no rider of their own: they are all this rider's. */
+  rider: Rider | null
   settings: Record<string, string>
   rides: BackupRide[]
   courses: ImportedCourseRow[]
@@ -98,7 +102,17 @@ export async function buildBackup(): Promise<{ file: BackupFile; counts: BackupC
     }
   }
   return {
-    file: { format: FORMAT, version: VERSION, exportedAt: Date.now(), settings, rides, courses: rows.courses, workouts: rows.workouts, customWorkouts: rows.customWorkouts },
+    file: {
+      format: FORMAT,
+      version: VERSION,
+      exportedAt: Date.now(),
+      rider: currentRider(),
+      settings,
+      rides,
+      courses: rows.courses.map((c) => ({ id: c.id, name: c.name, gpx: c.gpx, addedAt: c.addedAt })),
+      workouts: rows.workouts.map((w) => ({ id: w.id, name: w.name, zwo: w.zwo, addedAt: w.addedAt })),
+      customWorkouts: rows.customWorkouts.map((w) => ({ id: w.id, name: w.name, description: w.description, tag: w.tag, steps: w.steps, createdAt: w.createdAt, updatedAt: w.updatedAt, v: 1 as const })),
+    },
     counts: { rides: rides.length, courses: rows.courses.length, workouts: rows.workouts.length + rows.customWorkouts.length },
   }
 }
@@ -210,7 +224,7 @@ function readCustom(v: unknown): CustomWorkoutRow {
 }
 
 /** Check a parsed backup from top to bottom. Throws with a rider-facing message; writes nothing. */
-export function readBackup(data: unknown): { rows: recorder.ImportRows; settings: Record<string, string> } {
+export function readBackup(data: unknown): { rows: recorder.ImportRows; settings: Record<string, string>; riderId: string | null } {
   if (!isObject(data) || data.format !== FORMAT || !isNum(data.version)) throw new Error(BAD)
   if (data.version > VERSION) throw new Error('This backup was made by a newer Weem Watts. Reload the app to update it, then restore again.')
   const settings: Record<string, string> = {}
@@ -235,6 +249,7 @@ export function readBackup(data: unknown): { rows: recorder.ImportRows; settings
       }),
     },
     settings,
+    riderId: isObject(data.rider) && isRiderId(data.rider.id) ? data.rider.id : null,
   }
 }
 
@@ -256,8 +271,11 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
   } catch {
     throw new Error(BAD)
   }
-  const { rows, settings } = readBackup(data)
-  const counts = await recorder.importRows(rows)
+  const { rows, settings, riderId } = readBackup(data)
+  // A browser with nothing saved takes on the backup's rider, so a rider stays one rider across a wipe or a new
+  // computer. A browser that already has rides keeps its own, and what is restored joins it.
+  const adopt = riderId !== null && (await recorder.nothingSaved()) ? riderId : undefined
+  const counts = await recorder.importRows(rows, adopt)
   let profile: Profile | null = null
   for (const [k, v] of Object.entries(settings)) {
     try {
