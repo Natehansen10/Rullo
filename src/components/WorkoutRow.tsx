@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { WorkoutLive } from '../lib/ride'
 import { Button } from './Button'
 import { Stat } from './Stat'
@@ -47,6 +48,12 @@ export function WorkoutRow({
   const estimateShown = compact && !!test?.ended && test.ftpW !== null
   /** A cadence column shows for the whole workout when any interval has a cue, so the row never shifts mid-ride. */
   const hasCadence = live.intervals.some((x) => x.cadenceRpm !== undefined)
+  /** Skip interval and End test are jumps: the strip's position snaps to them. */
+  const [skips, setSkips] = useState(0)
+  const skip = () => {
+    setSkips((n) => n + 1)
+    onSkip()
+  }
   return (
     <div className={`flex flex-col ${compact ? 'gap-2' : 'gap-3'} ${className}`}>
       {/* One line at desktop width, compact or not. The name gives way (truncates) before anything wraps. */}
@@ -112,7 +119,7 @@ export function WorkoutRow({
           {/* Only an old unfinished ride can be riding with its workout not started. */}
           {live.canStart && !ended && <Button onClick={onStart}>Start workout</Button>}
           {live.started && !live.done && !ended && (
-            <Button onClick={onSkip} disabled={!canSkip}>
+            <Button onClick={skip} disabled={!canSkip}>
               {inRamp ? 'End test' : 'Skip interval'}
             </Button>
           )}
@@ -124,6 +131,8 @@ export function WorkoutRow({
         totalS={live.totalS}
         elapsedS={live.elapsedS}
         intensityPct={live.intensityPct}
+        frozen={dim}
+        snapKey={skips}
         heightClass={compact ? 'ww-strip-compact' : 'ww-profile'}
       />
       <span className="sr-only">

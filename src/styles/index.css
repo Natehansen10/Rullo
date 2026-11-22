@@ -512,3 +512,10 @@
     transition: background-color var(--ww-dur-base) var(--ww-ease);
   }
 }
+
+@layer components {
+  /* A gliding mark is nearly always moving: keep it on its own layer. */
+  .ww-glide {
+    will-change: transform;
+  }
+}

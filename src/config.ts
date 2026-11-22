@@ -125,3 +125,12 @@ export const INTENSITY_MAX_PCT = 150
 export const FIRST_DATA_STAGGER_MS = 40
 /** Zone chip on the Power tile: the zone shown changes only after power has been out of it for this long, so it never flickers at an edge. */
 export const ZONE_HOLD_S = 2
+/**
+ * Glide (the workout playhead and the course dot). A position only changes when
+ * a reading arrives, about once a second from a trainer, so a glide takes as
+ * long as the last gap between two changes: at least one snapshot (TICK_MS in
+ * src/lib/ride.ts) and at most this. Set it to 250 to glide for one snapshot only.
+ */
+export const GLIDE_MAX_MS = 1200
+/** A forward move bigger than this share of the track's width snaps: it is a jump, not riding. */
+export const GLIDE_JUMP_SHARE = 0.02

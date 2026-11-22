@@ -1,4 +1,5 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useGlide } from '../hooks/useGlide'
 import { profilePoints } from '../lib/course'
 import { FEET_PER_METER, METERS_PER_MILE } from '../lib/physics'
 import type { CourseLive } from '../lib/ride'
@@ -17,6 +18,8 @@ interface ElevationProfileProps {
 
 const PAD_Y = 8
 const PAD_X = 8 // keeps the dot whole at mile 0 and the finish
+/** The position dot: 10px of Olive inside a 2px surface ring. */
+const DOT = 14
 const MIN_RANGE_M = 15 // keep near-flat courses from looking mountainous
 
 function niceTickMi(lengthMi: number): number {
@@ -30,7 +33,6 @@ export function ElevationProfile({ live, dim = false, compact = false, note, cla
   const boxRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(800)
   const [height, setHeight] = useState(140)
-  const clipId = useId()
 
   useEffect(() => {
     const el = boxRef.current
@@ -68,6 +70,12 @@ export function ElevationProfile({ live, dim = false, compact = false, note, cla
   const startX = x(live.startMi * METERS_PER_MILE)
   const posX = x(posM)
   const posE = pts.length ? interpolate(pts, posM) : 0
+  const posY = y(posE)
+  // The dot, its drop line and the ridden stretch are placed with transforms, so the browser eases between two readings. See useGlide for when it snaps.
+  const glide = useGlide(posX, width, [height, course, startX], !dim)
+  /** The ridden stretch, start to dot, in whole pixels so the Olive line is sharp at rest. */
+  const riddenW = Math.max(0, width - startX)
+  const ridden = Math.round(Math.min(riddenW, Math.max(0, posX - startX)))
 
   const lengthMi = course.lengthM / METERS_PER_MILE
   const tick = niceTickMi(lengthMi)
@@ -90,17 +98,38 @@ export function ElevationProfile({ live, dim = false, compact = false, note, cla
       </div>
       <div ref={boxRef} className={`relative ${compact ? 'ww-profile-compact' : 'ww-profile'}`}>
         <svg width={width} height={height} className="absolute inset-0 block" aria-hidden>
-          <defs>
-            <clipPath id={clipId}>
-              <rect x={Math.min(startX, posX)} y={0} width={Math.abs(posX - startX)} height={height} />
-            </clipPath>
-          </defs>
           <path d={area} fill="var(--ww-raised)" />
           <path d={line} fill="none" stroke="var(--ww-fg-subtle)" strokeWidth={1.5} />
-          <path d={line} fill="none" stroke="var(--ww-accent)" strokeWidth={2.5} clipPath={`url(#${clipId})`} />
-          <line x1={posX} x2={posX} y1={y(posE)} y2={height} stroke="var(--ww-line-strong)" strokeWidth={1} />
-          <circle cx={posX} cy={y(posE)} r={6} fill="var(--ww-accent)" stroke="var(--ww-surface)" strokeWidth={2} />
         </svg>
+        <div aria-hidden data-course-position className="pointer-events-none absolute inset-0">
+          {/*
+            The ridden stretch in Olive. A window that slides right from the start mile, over a line that
+            slides back by the same amount, so the line stands still and only its right edge moves.
+          */}
+          <div className="absolute top-0 bottom-0 overflow-hidden" style={{ left: startX, width: riddenW }}>
+            <div
+              className={`absolute inset-0 overflow-hidden ${glide.className}`}
+              style={{ ...glide.style, transform: `translateX(${ridden - riddenW}px)` }}
+            >
+              <div className={`absolute inset-0 ${glide.className}`} style={{ ...glide.style, transform: `translateX(${riddenW - ridden}px)` }}>
+                <svg width={width} height={height} className="absolute top-0 block" style={{ left: -startX }}>
+                  <path d={line} fill="none" stroke="var(--ww-accent)" strokeWidth={2.5} />
+                </svg>
+              </div>
+            </div>
+          </div>
+          {/* The drop line hangs from the dot; what runs past the bottom is cut off. */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div
+              className={`absolute top-0 left-0 h-full bg-line-strong ${glide.className}`}
+              style={{ ...glide.style, width: 1, marginLeft: -0.5, transform: `translate(${posX}px, ${posY}px)` }}
+            />
+          </div>
+          <div
+            className={`absolute top-0 left-0 rounded-full border-surface bg-accent ${glide.className}`}
+            style={{ ...glide.style, width: DOT, height: DOT, margin: -DOT / 2, borderWidth: 2, transform: `translate(${posX}px, ${posY}px)` }}
+          />
+        </div>
       </div>
       <div className="relative h-4 font-mono text-mono text-fg-subtle">
         {ticks.map((t) => (
