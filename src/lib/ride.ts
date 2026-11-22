@@ -42,6 +42,7 @@ import { createBleHeartRate, type HeartRateSensor, type HeartRateStatus } from '
 import { buildFit, downloadFit, type RideOrigin } from './fit'
 import { FEET_PER_METER, METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
 import { logFtpChange, type FtpSource } from './ftpHistory'
+import { intervalCue, playCue } from './sound'
 import { loadProfile, normalizeProfile, riderParams, saveProfile, type Profile } from './profile'
 import * as recorder from './recorder'
 import { PowerSmoother } from './smoothing'
@@ -692,7 +693,11 @@ export class RideController {
   private advanceWorkout(dtS: number, t: number, powerW: number) {
     if (!this.workout || !this.workoutStarted) return
     const total = totalS(this.intervals)
+    const beforeS = this.workoutS
     this.workoutS = Math.min(total, this.workoutS + dtS)
+    // Interval sounds, when the rider has them on. Only this clock asks for one, and it stands still while paused.
+    const cue = intervalCue(this.intervals, beforeS, this.workoutS)
+    if (cue) playCue(cue)
     const test = this.workout.rampTest
     if (test && !this.testEnded && dtS > 0) {
       const win = this.testWindow
