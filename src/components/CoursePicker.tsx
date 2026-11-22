@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { METERS_PER_MILE } from '../lib/physics'
+import { MOVE_ANY, moveStyle } from '../lib/viewTransition'
 import type { CourseOption, StagedCourse } from '../lib/ride'
 import { Button } from './Button'
 import { CourseOverview } from './CourseOverview'
@@ -57,6 +58,11 @@ export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi }:
 
   const lengthMi = selected ? selected.course.lengthM / METERS_PER_MILE : 0
 
+  // Draw-in: the profile is drawn when a course is picked here, not when the step is shown with one already picked.
+  const courseId = selected?.course.id ?? null
+  const [seen, setSeen] = useState({ id: courseId, picks: 0 })
+  if (seen.id !== courseId) setSeen({ id: courseId, picks: seen.picks + 1 })
+
   return (
     <div className="flex flex-col gap-4">
       <div role="radiogroup" aria-label="Course" className="grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-4">
@@ -101,9 +107,13 @@ export function CoursePicker({ courses, loaded, selected, onSelect, onStartMi }:
       </div>
       {!loaded && <p className="text-fg-subtle">Loading courses</p>}
       {selected && (
-        <section aria-label="Course overview" className="flex flex-col gap-4 rounded-lg border border-line bg-surface px-6 py-4">
+        <section
+          aria-label="Course overview"
+          className={`flex flex-col gap-4 rounded-lg border border-line bg-surface px-6 py-4 ${MOVE_ANY}`}
+          style={moveStyle('ww-course-overview')}
+        >
           <h2 className="text-title font-semibold text-fg">{selected.course.name}</h2>
-          <CourseOverview course={selected.course} startMi={startMi} />
+          <CourseOverview course={selected.course} startMi={startMi} drawKey={seen.picks} />
           <div className="flex flex-wrap items-center gap-4">
             <label htmlFor="start-mi" className="ww-label">
               Start at mile

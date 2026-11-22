@@ -63,18 +63,59 @@ Not tested: a real Kickr. The reading rate of the real trainer decides how the g
 
 `docs/screenshots/motion/`: `before-*` and `after-*` of the same states, plus three frames caught mid-move (`after-first-data-entering`, `after-interval-values-entering`, `after-heads-up`). Stills show the chip, the outline and that nothing else moved; the motion itself needs the preview.
 
+## Phase 2 (Nov 22, 2026): the setup flow
+
+Built as an exception (see `CLAUDE.md`). No ride test needed: nothing on the Ride tab, in the trainer code or in recording changed. The one shared file touched is `WorkoutStrip.tsx`, which now passes a `style` through.
+
+### What was built
+
+| What | Where |
+| --- | --- |
+| `moveLayout`: one helper that draws a state change as a move, with the browser's View Transitions. Tokens `--ww-dur-layout` (320ms), `--ww-dur-draw` (480ms), `--ww-step-shift` (24px). | `src/lib/viewTransition.ts`, `tokens.css`, `index.css` |
+| Step slide: step 1 and step 2 trade places, Next from the right, Back from the left. The setup line moves to its new place. | `WorkoutPage.tsx` |
+| Card to chart: a workout card opens into its overview and closes back into the card. The small graph becomes the big chart. | `WorkoutPicker.tsx` |
+| Filter reflow: cards that stay move, the rest fade. Length, Difficulty and the side menu. | `WorkoutPicker.tsx` |
+| Course overview: it fades in under the grid, the setup line moves down, and the profile is drawn in left to right. | `CoursePicker.tsx`, `CourseOverview.tsx` |
+
+### Decisions worth knowing
+
+- **No Motion library.** Phase 1's queue said "likely the Motion library". The app only runs in Chrome and Edge (Web Bluetooth), and both have View Transitions, which do exactly these four moves. So: zero new dependencies, about 40 lines of TypeScript and 100 of CSS. If Phase 3 needs drag physics for the builder, that is the point to look at the library again.
+- **Names are live only during a move.** Every card has a name, but only while a reflow or an open runs. At rest nothing is named, and a step slide does not capture 37 cards.
+- **The opening panel is never scaled.** The default would stretch the card's picture up to the panel's size, text and all. The panel instead shows its own content at full size, cut to the growing box. Only the chart is stretched, because it is the same chart at another size.
+- **The course card does not open into its overview.** The card stays where it is (it is the radio button), so there is nothing to morph. The overview fades in and its profile is drawn.
+- **Draw-in is for a pick, not for a visit.** Going Back to step 1 with a course already picked does not draw the profile again.
+- **A move freezes the page for about a third of a second.** That is why none is used on the Ride tab. On the Workout tab the only live thing is the StatusPill.
+- **A cut-short move is not an error.** Clicking again mid-move drops the first move and starts the next from where the page is.
+
+### Deliberately not animated
+
+| What | Why |
+| --- | --- |
+| The workout overview's chart drawing in | It already arrives by growing out of the card. Two moves on one chart is one too many. |
+| Cards on first load | They arrive with the page. An entrance for 37 cards is decoration. |
+| The start mile's Olive hairline | It moves when a number is typed. It should land where the number says, at once. |
+| The count ("12 workouts of 37") | A number. It updates in place. |
+| Ride this workout / Done (the jump to the Ride tab) | The Ride tab must be live the moment it shows. |
+| The builder, Home, Profile | Phase 3. |
+
+### How it was tested
+
+Headless Chromium against the dev server with `?fake=1`.
+
+- `npm run build` passes.
+- Every move ran, at about 350 ms: pick a course, step next, filter by click, filter by arrow key, open a card, close it, open it again, step back.
+- At 10x slower, each move was looked at mid-flight (`docs/screenshots/motion-2/`): the panel grows from the card, cards cross to their new places, the step comes in from the side.
+- Focus stays on the filter after an arrow key. The setup still reaches the Ride tab with its course and workout.
+- At rest no element has a move name.
+- Reduced motion: no move ran at all, and every change still happened.
+
+Not tested: Edge, and a real machine's frame rate with 37 cards moving at once.
+
 ## Queue
 
-### Phase 2: the setup flow
-
-Likely the point to add the Motion library, because these are layout animations that CSS alone does badly.
-
-- Card to chart: a workout or course card expands into its overview.
-- Chart draw-in: the elevation profile and the workout strip draw when an overview opens.
-- Filter reflow: cards move to their new places when Length or Difficulty changes.
-- Step slide: step 1 and step 2 of the Workout tab slide.
-
 ### Phase 3: the builder and the rest
+
+Look at the Motion library again here, for drag physics only. Everything else can use `moveLayout`.
 
 - Builder blocks with weight: a dragged block settles, neighbors make room.
 - Time-axis rescale: the graph eases when the workout gets longer or shorter.
