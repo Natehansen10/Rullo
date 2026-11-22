@@ -530,3 +530,18 @@
     --ww-fade-dur: var(--ww-dur-base);
   }
 }
+
+@layer components {
+  /*
+   * Stepper direction cue: a stepped value comes in from just below (up) or
+   * just above (down). Quick, and it starts part-way visible, so the number
+   * stays readable while a key is held down.
+   */
+  .ww-enter-step {
+    --ww-enter-dur: var(--ww-dur-fast);
+    --ww-enter-from: 0.4;
+  }
+  .ww-enter-step-down {
+    --ww-enter-y: calc(-1 * var(--ww-enter-shift));
+  }
+}

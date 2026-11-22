@@ -787,6 +787,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.workout.intensityPct)}
+                kind="intensity"
                 unit="%"
                 steps={INTENSITY_STEPS_PCT}
                 onStep={ride.stepIntensity}
@@ -801,6 +802,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.ergTargetW)}
+                kind="erg"
                 unit="W"
                 steps={ERG_STEPS_W}
                 onStep={ride.stepErg}
@@ -816,6 +818,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.gradeFeelPct)}
+                kind="grade"
                 unit="%"
                 steps={GRADE_FEEL_STEPS_PCT}
                 onStep={ride.stepGradeFeel}
@@ -830,6 +833,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.resistancePct)}
+                kind="resistance"
                 unit="%"
                 steps={RESISTANCE_STEPS_PCT}
                 onStep={ride.stepResistance}
