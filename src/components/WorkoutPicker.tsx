@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { WorkoutOption } from '../lib/ride'
+import { MOVE_CARD, MOVE_OPEN, moveLayout, moveName, moveStyle } from '../lib/viewTransition'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
 import { SegmentedControl } from './SegmentedControl'
@@ -99,6 +101,15 @@ export function WorkoutPicker({
   const [difficulty, setDifficulty] = useState<Difficulty>('all')
   const [length, setLength] = useState<Length>('any')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /**
+   * The workout whose overview is open, or was a moment ago: its card carries
+   * the panel's and the chart's move names in place of its own, so the card
+   * opens into the overview and the overview closes back into the card.
+   */
+  const [opened, setOpened] = useState(detail)
+  if (detail && opened !== detail) setOpened(detail)
+  /** Filter reflow: the cards that stay move to their new places; the rest fade. */
+  const reflow = (update: () => void) => void moveLayout(update, 'reflow')
   useEffect(() => {
     if (!confirmDelete) return
     const t = setTimeout(() => setConfirmDelete(false), CONFIRM_MS)
@@ -124,10 +135,14 @@ export function WorkoutPicker({
             key={v}
             type="button"
             aria-pressed={view === v}
-            onClick={() => {
-              setView(v)
-              onDetail(null)
-            }}
+            onClick={() =>
+              reflow(() => {
+                setView(v)
+                // The grid comes back with every card in its own place: nothing closes into a card.
+                setOpened(null)
+                if (detail) onDetail(null)
+              })
+            }
             className={`ww-press flex cursor-pointer items-baseline justify-between gap-2 rounded-md border px-3 py-2 text-left font-semibold ${
               active ? 'border-line-strong bg-surface text-fg' : 'border-transparent text-fg-muted hover:text-fg'
             }`}
@@ -146,7 +161,11 @@ export function WorkoutPicker({
     return (
       <div className="flex items-start gap-6">
         {menu}
-        <section aria-label="Workout overview" className="flex min-w-0 flex-1 flex-col rounded-lg border border-line bg-surface">
+        <section
+          aria-label="Workout overview"
+          className={`flex min-w-0 flex-1 flex-col rounded-lg border border-line bg-surface ${MOVE_OPEN}`}
+          style={moveStyle('', 'ww-open-panel')}
+        >
           <div className="flex flex-wrap items-center gap-4 border-b border-line px-6 py-3">
             <Button onClick={() => onDetail(null)}>← All workouts</Button>
             <h2 className="min-w-0 flex-1 truncate text-title font-semibold text-fg">{picked.name}</h2>
@@ -186,7 +205,7 @@ export function WorkoutPicker({
           </div>
           {picked.description && <p className="px-6 pb-4 text-fg-muted">{picked.description}</p>}
           <div className="border-t border-line px-6 py-4">
-            <WorkoutStrip intervals={picked.intervals} ftpW={ftpW} totalS={Math.max(1, picked.durationS)} heightClass="ww-builder-graph" detailsSide="above" />
+            <WorkoutStrip intervals={picked.intervals} ftpW={ftpW} totalS={Math.max(1, picked.durationS)} heightClass="ww-builder-graph" detailsSide="above" className={MOVE_OPEN} style={moveStyle('', 'ww-open-chart')} />
             <p className="pt-3 font-mono text-mono text-fg-subtle">watts at your FTP of {ftpW} W</p>
           </div>
         </section>
@@ -201,11 +220,11 @@ export function WorkoutPicker({
         <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
           <div className="flex items-center gap-3">
             <span className="ww-label">Length</span>
-            <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={setLength} format={lengthLabel} />
+            <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={(v) => reflow(() => setLength(v))} format={lengthLabel} />
           </div>
           <div className="flex items-center gap-3">
             <span className="ww-label">Difficulty</span>
-            <SegmentedControl label="Difficulty" options={DIFFICULTIES} value={difficulty} onChange={setDifficulty} format={(d) => DIFFICULTY_LABEL[d]} />
+            <SegmentedControl label="Difficulty" options={DIFFICULTIES} value={difficulty} onChange={(v) => reflow(() => setDifficulty(v))} format={(d) => DIFFICULTY_LABEL[d]} />
           </div>
           <span className="ml-auto font-mono text-mono text-fg-subtle" aria-live="polite">
             {shown.length} {shown.length === 1 ? 'workout' : 'workouts'}
@@ -218,7 +237,8 @@ export function WorkoutPicker({
             type="button"
             onClick={onNew}
             aria-label="Custom Workout"
-            className={`${CARD} border-line-strong bg-raised hover:bg-line`}
+            style={moveStyle('ww-card-new')}
+            className={`${CARD} ${MOVE_CARD} border-line-strong bg-raised hover:bg-line`}
           >
             <span aria-hidden className="ww-num ww-num-sm text-fg">
               +
@@ -236,7 +256,8 @@ export function WorkoutPicker({
                 aria-checked={!pickedId}
                 aria-label={`Free ride, no targets, ${onCourse ? "the trainer follows the course's hills" : 'your own resistance or ERG target'}`}
                 onClick={onFreeRide}
-                className={`${CARD} ${!pickedId ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
+                style={moveStyle('ww-card-free')}
+                className={`${CARD} ${MOVE_CARD} ${!pickedId ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
               >
                 <span className="ww-profile-compact flex items-center font-mono text-mono text-fg-subtle">no targets</span>
                 <span className="flex flex-col gap-1">
@@ -249,6 +270,7 @@ export function WorkoutPicker({
             )}
             {shown.map((w) => {
               const checked = pickedId === w.id
+              const opening = opened === w.id
               return (
                 <button
                   key={w.id}
@@ -256,11 +278,14 @@ export function WorkoutPicker({
                   role="radio"
                   aria-checked={checked}
                   onClick={() => {
+                    // The names go on this card first, so the move starts from it.
+                    flushSync(() => setOpened(w.id))
                     onDetail(w.id)
                   }}
-                  className={`${CARD} ${checked ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
+                  style={moveStyle(moveName('ww-card', w.id), opening ? 'ww-open-panel' : undefined)}
+                  className={`${CARD} ${MOVE_CARD} ${opening ? MOVE_OPEN : ''} ${checked ? 'border-fg bg-raised' : 'border-line bg-surface hover:bg-bg'}`}
                 >
-                  <WorkoutStrip intervals={w.intervals} ftpW={ftpW} totalS={Math.max(1, w.durationS)} heightClass="ww-profile-compact" labels={false} className="w-full" />
+                  <WorkoutStrip intervals={w.intervals} ftpW={ftpW} totalS={Math.max(1, w.durationS)} heightClass="ww-profile-compact" labels={false} className={`w-full ${opening ? MOVE_OPEN : ''}`} style={opening ? moveStyle('', 'ww-open-chart') : undefined} />
                   <span className="flex min-w-0 flex-col gap-1">
                     <span className="truncate font-semibold text-fg">{w.name}</span>
                     <span className="truncate font-mono text-mono text-fg-subtle">{metaOf(w)}</span>

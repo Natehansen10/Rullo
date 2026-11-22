@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { useGlide } from '../hooks/useGlide'
 import { indexAt, targetPct, targetWatts, zoneAt, type Interval } from '../lib/workout'
 
@@ -29,6 +29,8 @@ interface WorkoutStripProps {
   /** Index of a block to outline as a heads-up (the next interval, in the last seconds of this one), or null. */
   headsUp?: number | null
   className?: string
+  /** For a layout move name (see moveLayout). */
+  style?: CSSProperties
 }
 
 const MIN_SCALE_PCT = 130
@@ -72,6 +74,7 @@ export function WorkoutStrip({
   snapKey,
   headsUp = null,
   className = '',
+  style,
 }: WorkoutStripProps) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 800, h: 104 })
@@ -167,6 +170,7 @@ export function WorkoutStrip({
     <div
       ref={boxRef}
       className={`relative ${heightClass} ${className}`}
+      style={style}
       onPointerMove={details ? onMove : undefined}
       onPointerLeave={details ? () => setHover(null) : undefined}
     >

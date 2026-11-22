@@ -566,3 +566,121 @@
       width var(--ww-dur-base) var(--ww-ease);
   }
 }
+
+/*
+ * Layout moves on the setup flow (moveLayout in src/lib/viewTransition.ts).
+ * The browser moves a named element from its old box to its new one; one that
+ * is new fades in and one that is gone fades out. Everything without a name
+ * changes at once, as it did before.
+ */
+/* A name is live only while a move of its kind runs (data-vt on <html>), so at rest nothing is named. */
+:root[data-vt] .ww-move-any,
+:root[data-vt^='step'] .ww-move-step,
+:root[data-vt='reflow'] .ww-move-card,
+:root[data-vt='open'] .ww-move-card {
+  view-transition-name: var(--ww-move);
+}
+:root[data-vt='open'] .ww-move-open {
+  view-transition-name: var(--ww-move-open);
+}
+::view-transition-group(*) {
+  animation-duration: var(--ww-dur-layout);
+  animation-timing-function: var(--ww-ease);
+}
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--ww-dur-base);
+  animation-timing-function: var(--ww-ease);
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+/* Step slide: the step's own content leaves to one side and the next comes in from the other. */
+:root[data-vt='step-next']::view-transition-old(ww-step) {
+  animation: ww-step-out var(--ww-dur-fast) var(--ww-ease) both;
+  --ww-step-to: calc(-1 * var(--ww-step-shift));
+}
+:root[data-vt='step-next']::view-transition-new(ww-step) {
+  animation: ww-step-in var(--ww-dur-layout) var(--ww-ease) both;
+  --ww-step-from: var(--ww-step-shift);
+}
+:root[data-vt='step-back']::view-transition-old(ww-step) {
+  animation: ww-step-out var(--ww-dur-fast) var(--ww-ease) both;
+  --ww-step-to: var(--ww-step-shift);
+}
+:root[data-vt='step-back']::view-transition-new(ww-step) {
+  animation: ww-step-in var(--ww-dur-layout) var(--ww-ease) both;
+  --ww-step-from: calc(-1 * var(--ww-step-shift));
+}
+/* The step is taller or shorter than the last: no stretching, each side keeps its own size. */
+::view-transition-group(ww-step) {
+  animation: none;
+}
+::view-transition-old(ww-step),
+::view-transition-new(ww-step) {
+  height: auto;
+  mix-blend-mode: normal;
+}
+@keyframes ww-step-out {
+  to {
+    opacity: 0;
+    transform: translateX(var(--ww-step-to));
+  }
+}
+@keyframes ww-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--ww-step-from));
+  }
+}
+/*
+ * Card to chart: a workout card opens into its overview. The panel grows from
+ * the card's box and shows its own content at full size from the start
+ * (nothing is scaled, so no text is stretched); the card's content fades out.
+ * The chart is the same chart at another size, so it is stretched from one to the other.
+ */
+::view-transition-old(ww-open-panel),
+::view-transition-new(ww-open-panel) {
+  width: 100%;
+  height: 100%;
+  object-fit: none;
+  object-position: left top;
+  overflow: clip;
+  mix-blend-mode: normal;
+}
+::view-transition-group(ww-open-panel) {
+  overflow: clip;
+  border-radius: var(--ww-radius-lg);
+}
+::view-transition-old(ww-open-chart),
+::view-transition-new(ww-open-chart) {
+  width: 100%;
+  height: 100%;
+}
+/* The chart rides above the panel it belongs to. */
+::view-transition-group(ww-open-chart) {
+  z-index: 1;
+}
+
+@layer components {
+  /*
+   * Draw-in: a chart is uncovered from left to right. A cover in the panel's
+   * own color shrinks away to the right (transform only). Played by mounting
+   * the element with this class.
+   */
+  .ww-draw-in {
+    position: absolute;
+    inset: 0;
+    background: var(--ww-surface);
+    transform: scaleX(0);
+    transform-origin: right;
+    pointer-events: none;
+    animation: ww-draw-in var(--ww-dur-draw) var(--ww-ease);
+  }
+  @keyframes ww-draw-in {
+    from {
+      transform: scaleX(1);
+    }
+  }
+}

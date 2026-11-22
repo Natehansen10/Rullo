@@ -9,8 +9,10 @@ const MIN_RANGE_M = 15 // keep near-flat courses from looking mountainous
 /**
  * The route at a glance, for the course picker: distance, climbing, low and
  * high points over the elevation profile. A hairline marks the start mile.
+ * `drawKey` is a count of picks: when it changes after the first render the
+ * profile is drawn in, left to right (see "Motion" in DESIGN.md).
  */
-export function CourseOverview({ course, startMi }: { course: Course; startMi: number }) {
+export function CourseOverview({ course, startMi, drawKey = 0 }: { course: Course; startMi: number; drawKey?: number }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 600, h: 104 })
 
@@ -56,6 +58,8 @@ export function CourseOverview({ course, startMi }: { course: Course; startMi: n
           <path d={shape.line} fill="none" stroke="var(--ww-fg-subtle)" strokeWidth={1.5} />
           {startMi > 0 && <line x1={shape.startX} x2={shape.startX} y1={0} y2={h} stroke="var(--ww-accent)" strokeWidth={2} />}
         </svg>
+        {/* The cover that draws the profile in. A new one for every pick, so it plays again. */}
+        {drawKey > 0 && <span key={drawKey} aria-hidden className="ww-draw-in" />}
       </div>
       {course.description && <p className="text-fg-muted">{course.description}</p>}
     </div>
