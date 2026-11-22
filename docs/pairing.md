@@ -43,3 +43,17 @@ Without the flags, the app behaves as before plus the pairing step. If Chrome sh
 - Without flags: Connect, the step, the list, pair. Same on the Heart rate tile.
 - With both flags on: pair once, reload, press Connect. The trainer should connect with no list. Same for the watch. Quit Chrome fully and try again.
 - With flags on and the Kickr unplugged: Connect should give up after about 10 seconds and the next Connect should open the list.
+
+## The watch card (Nov 22, 2026)
+
+Nate asked for more on the heart rate sensor's step: what to do to connect a watch, which app to use, links to the apps, subtle motion, and a button that says Connect. It replaces the two-line heart rate step. The trainer's step did not change.
+
+- **Three steps:** Get a relay app, Start the broadcast, Pick it in the list. Side by side from 1280px wide, stacked below.
+- **Three apps, each a link to its App Store page** (read on Nov 22, 2026): HeartBLE (watch only, watchOS 26 or later), HeartCast (watch and iPhone), HR Broadcast (watch and iPhone; the iPhone app stays open). Links open in a new tab, so the card and the ride stay put. None has been ride-tested with Rullo.
+- **The button says Connect** and opens the browser's device list in that click, as before. It is secondary: the top bar keeps the one primary.
+- **Motion:** the panel enters, then the three steps enter 80ms apart. Once. Nothing loops (the status dot stays the only loop), and with reduced motion it all snaps.
+- **A strap needs no app.** One line in the footer says so.
+- **Height.** The card is about 300px tall at 1280, so the Ride tab scrolls while it is open. It is open only before the device list, never for a remembered sensor and never mid-reconnect.
+- **Not built:** a "do not show this again" choice, detecting which watch the rider has, Garmin or Wear OS instructions, app logos (they would need each brand's assets).
+- **Checked (headless Chromium, Bluetooth stand-in):** the tile's Connect opens the card with focus on Connect; Escape and Cancel close it with nothing asked of the browser; Connect asks for the device list once; three links with the right addresses and a new tab; no sideways scroll at 1280 and 1024; `?fake=1` shows no card and the numbers update.
+- **Needs the real watch:** which of the three apps works with Chrome, and what name it shows in the list. The card's wording on that ("HeartBLE or your iPhone") comes from the listings.
