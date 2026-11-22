@@ -5,6 +5,7 @@ import { HomePage } from './components/HomePage'
 import { RideSummaryPage } from './components/RideSummaryPage'
 import { ProfilePage } from './components/ProfilePage'
 import { MetricTile } from './components/MetricTile'
+import { PairingStep } from './components/PairingStep'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { StravaBlock } from './components/StravaBlock'
@@ -513,7 +514,8 @@ export default function App() {
           <StatusPill tone={pill.tone} label={pill.label} busy={pill.busy} />
           {s.phase === 'idle' && (
             <Button
-              variant={pagePrimary ? 'secondary' : 'primary'}
+              // While the pairing step is open, its button is the primary.
+              variant={pagePrimary || s.pairing === 'trainer' ? 'secondary' : 'primary'}
               onClick={() => {
                 go('ride')
                 ride.connect()
@@ -662,7 +664,7 @@ export default function App() {
               Web Bluetooth is not available here. Open Rullo in Chrome or Edge on a desktop computer.
             </Notice>
           )}
-          {s.connection.kind === 'failed' && (
+          {s.connection.kind === 'failed' && s.pairing !== 'trainer' && (
             // Lost while waiting for Start puts the ride back to idle, so the phase alone cannot tell the two apart.
             <Notice title={live || s.connection.lost ? 'Trainer lost' : 'Pairing failed'}>{s.connection.message}</Notice>
           )}
@@ -683,6 +685,16 @@ export default function App() {
             <Notice title="Resuming your ride">Press Connect and pick your Kickr. Distance picks up where it left off.</Notice>
           )}
           {s.notice && <Notice title={s.notice} />}
+          {s.pairing && (
+            <PairingStep
+              key={s.pairing}
+              kind={s.pairing}
+              // One primary: the trainer's step takes it from Connect. A sensor's step leaves it with the top bar.
+              primary={s.pairing === 'trainer'}
+              onContinue={ride.confirmPairing}
+              onCancel={ride.cancelPairing}
+            />
+          )}
           {s.phase === 'ended' && st.message && <Notice title={st.message} />}
           <section
             aria-label="Live ride data"

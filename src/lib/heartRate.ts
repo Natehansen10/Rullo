@@ -10,6 +10,7 @@
  */
 import { RECONNECT_INTERVAL_MS, RECONNECT_MAX_TRIES } from '../config'
 import { GATT_CONNECT_TIMEOUT_MS, sleep, withTimeout } from './ble'
+import { rememberDevice, rememberedDevice, skipRemembered, waitUntilSeen } from './pairing'
 
 export const HEART_RATE_SERVICE = 0x180d
 export const HEART_RATE_MEASUREMENT = 0x2a37
@@ -52,8 +53,17 @@ export function parseHeartRate(view: DataView): number | null {
   return bpm >= MIN_BPM && bpm <= MAX_BPM ? bpm : null
 }
 
-/** Kept in memory so a reconnect, or a second connect in the same tab, skips the picker. Chrome cannot restore it after a reload. */
+/**
+ * Kept in memory so a reconnect, or a second connect in the same tab, skips the
+ * browser's device list. After a reload the sensor from last time is asked for
+ * again without the list where the browser allows it (`pairing.ts`).
+ */
 let device: BluetoothDevice | null = null
+
+/** True when the next connect will open the browser's device list. */
+export async function heartRateNeedsList(): Promise<boolean> {
+  return !device && !(await rememberedDevice('heartRate'))
+}
 
 export function createBleHeartRate(h: HeartRateHandlers): HeartRateSensor {
   let userClosed = true
@@ -105,13 +115,21 @@ export function createBleHeartRate(h: HeartRateHandlers): HeartRateSensor {
       userClosed = false
       generation++
       h.onStatus('connecting')
+      /** This attempt is for the sensor from last time, with no device list. */
+      let remembered = false
       try {
+        if (!device) {
+          device = await rememberedDevice('heartRate')
+          remembered = !!device
+        }
         if (!device) {
           device = await navigator.bluetooth.requestDevice({ filters: [{ services: [HEART_RATE_SERVICE] }] })
         }
         device.removeEventListener('gattserverdisconnected', onDisconnected)
         device.addEventListener('gattserverdisconnected', onDisconnected)
+        if (remembered) await waitUntilSeen(device)
         await setup()
+        rememberDevice('heartRate', device.id)
       } catch (err) {
         userClosed = true
         if (err instanceof DOMException && err.name === 'NotFoundError') {
@@ -120,9 +138,11 @@ export function createBleHeartRate(h: HeartRateHandlers): HeartRateSensor {
           return
         }
         console.warn('Heart rate connect failed:', err)
+        device?.removeEventListener('gattserverdisconnected', onDisconnected)
         if (device?.gatt?.connected) device.gatt.disconnect()
         // Pick again next time: the remembered device may be the wrong one, or gone.
         device = null
+        skipRemembered('heartRate')
         h.onStatus('failed')
       }
     },

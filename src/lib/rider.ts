@@ -39,6 +39,8 @@ const RIDER_KEYS = [
   // The rider's FTP over time, and the suggested FTP they turned down.
   'ww.ftpHistory',
   'ww.ftpSuggestionDismissedW',
+  // The heart rate sensor that connected last (`pairing.ts`): worn by one rider. The trainer's is shared on purpose.
+  'ww.hrDeviceId',
 ] as const
 
 export const MAX_RIDER_NAME_CHARS = 30
