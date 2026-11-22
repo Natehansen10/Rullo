@@ -2,7 +2,9 @@
  * Web Bluetooth trainer connection: FTMS first, Cycling Power as fallback.
  *
  * The device object is kept in memory, so reconnects (and a second ride in the
- * same tab) skip the device picker. Chrome cannot restore it after a page reload.
+ * same tab) skip the browser's device list. After a page reload the trainer
+ * that connected last time is asked for again without the list where the
+ * browser allows it (`pairing.ts`); elsewhere the list opens.
  * Reconnect loop pattern informed by Croissant Ride ble.ts (Apache-2.0). No code copied.
  */
 import { CRR, ERG_RELEASE_W, RECONNECT_INTERVAL_MS, RECONNECT_MAX_TRIES } from '../config'
@@ -31,13 +33,23 @@ import {
   SUPPORTED_RESISTANCE_RANGE,
   type ResistanceRange,
 } from './ftms'
+import { rememberDevice, rememberedDevice, skipRemembered, waitUntilSeen } from './pairing'
 import type { ControlResult, Trainer, TrainerHandlers } from './types'
 
 export const GATT_CONNECT_TIMEOUT_MS = 10000
 /** Shown when a connected trainer dropped and the reconnect attempts ran out. */
 export const TRAINER_LOST_MESSAGE = 'Lost the trainer. Check that it has power, then connect again.'
 
+/** Shown when the trainer remembered from last time did not answer. The next Connect opens the device list. */
+export const TRAINER_NOT_FOUND_MESSAGE =
+  'Could not find your trainer. Spin the pedals to wake it, then press Connect and pick it from the list.'
+
 let device: BluetoothDevice | null = null
+
+/** True when the next connect will open the browser's device list: no trainer in memory and none the browser can hand back. */
+export async function trainerNeedsList(): Promise<boolean> {
+  return !device && !(await rememberedDevice('trainer'))
+}
 
 export function bluetoothSupported(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator
@@ -256,7 +268,13 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
       userClosed = false
       generation++
       h.onStatus({ kind: 'connecting' })
+      /** This attempt is for the trainer from last time, with no device list. */
+      let remembered = false
       try {
+        if (!device) {
+          device = await rememberedDevice('trainer')
+          remembered = !!device
+        }
         if (!device) {
           device = await navigator.bluetooth.requestDevice({
             filters: [{ services: [FTMS_SERVICE] }, { services: [CYCLING_POWER_SERVICE] }],
@@ -265,11 +283,24 @@ export function createBleTrainer(h: TrainerHandlers): Trainer {
         }
         device.removeEventListener('gattserverdisconnected', onDisconnected)
         device.addEventListener('gattserverdisconnected', onDisconnected)
+        if (remembered) await waitUntilSeen(device)
         await setup()
+        rememberDevice('trainer', device.id)
       } catch (err) {
         if (err instanceof DOMException && err.name === 'NotFoundError') {
           // User closed the picker without choosing.
           h.onStatus({ kind: 'disconnected' })
+          return
+        }
+        if (remembered) {
+          // Asleep, out of range or held by another app. Let go of it, so the next press opens the list.
+          console.warn('Remembered trainer did not connect:', err)
+          userClosed = true
+          device?.removeEventListener('gattserverdisconnected', onDisconnected)
+          device?.gatt?.disconnect()
+          device = null
+          skipRemembered('trainer')
+          h.onStatus({ kind: 'failed', message: TRAINER_NOT_FOUND_MESSAGE })
           return
         }
         console.warn('Connect failed:', err)

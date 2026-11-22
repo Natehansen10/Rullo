@@ -177,7 +177,7 @@ The angle is open: no free tool rehearses a specific race course. ROUVY holds th
 
 - **Closest products:** MINI WATT ($1.99/mo desktop overlay) and Croissant Ride (free browser app with a mini window). Neither knows the course. Cycloscape's race pacing is paid only.
 - **Top complaints to avoid:** frozen numbers after a dropout, ERG spirals at low cadence, competing connections (close the Wahoo app first), noisy GPX grades.
-- **Chrome limit:** after a page reload the rider has to pick the trainer again. Reconnecting without a reload works.
+- **Chrome limit:** after a page reload the rider has to pick the trainer again. Reconnecting without a reload works. Since Nov 22, 2026 a Rullo pairing step comes before the browser's device list, and the list is skipped where the browser can hand the trainer back (two Chrome flags today): see `docs/pairing.md`.
 - **Strava rules:** the client secret stays in a Vercel function, and Strava data can't be used with AI. (The app reads no Strava data at all, so there is none to use.)
 - **Open questions:** Does the overlay float over fullscreen Netflix? Does ROUVY have Montana somewhere?
 

@@ -33,12 +33,13 @@ import {
   STALE_AFTER_MS,
   type SmoothingSeconds,
 } from '../config'
-import { bluetoothSupported, createBleTrainer } from './ble'
+import { bluetoothSupported, createBleTrainer, trainerNeedsList } from './ble'
 import { elevationAt, gradeAt, type Course , profilePoints } from './course'
 import { importGpxFile, loadCourses, removeImportedCourse } from './courses'
 import { createFakeHeartRate } from './fakeHeartRate'
 import { createFakeTrainer, isFakeMode } from './fakeTrainer'
-import { createBleHeartRate, type HeartRateSensor, type HeartRateStatus } from './heartRate'
+import { createBleHeartRate, heartRateNeedsList, type HeartRateSensor, type HeartRateStatus } from './heartRate'
+import type { PairKind } from './pairing'
 import { buildFit, downloadFit, type RideOrigin } from './fit'
 import { FEET_PER_METER, METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
 import { logFtpChange, type FtpSource } from './ftpHistory'
@@ -295,6 +296,8 @@ export interface RideSnapshot {
   paused: boolean
   fake: boolean
   supported: boolean
+  /** Rullo's pairing step is open: the browser's device list comes next, for this device. Null when it is not. */
+  pairing: PairKind | null
   smoothing: SmoothingSeconds
   powerW: number | null
   cadenceRpm: number | null
@@ -398,6 +401,7 @@ export class RideController {
   private recovery: recorder.UnfinishedRide | null = null
   private recordingFailed = false
   private notice: string | null = null
+  private pairing: PairKind | null = null
   private resistancePct = loadPct(RESISTANCE_KEY, DEFAULT_RESISTANCE_PCT)
   private profile = loadProfile()
   private mode: ControlMode = storageGet(MODE_KEY) === 'erg' ? 'erg' : 'resistance'
@@ -514,6 +518,7 @@ export class RideController {
       paused: this.phase === 'riding' && this.paused,
       fake: this.fake,
       supported: this.supported,
+      pairing: this.pairing,
       smoothing: this.smoothing,
       powerW: avg === null ? null : Math.max(0, Math.round(avg)),
       cadenceRpm: hasData ? Math.round(this.cadenceRpm) : null,
@@ -621,8 +626,41 @@ export class RideController {
 
   /** From a click on the Heart rate tile. Separate from the trainer in every way. */
   connectHeartRate = () => {
-    if (!this.supported || this.hrStatus === 'connecting' || this.hrStatus === 'connected' || this.hrStatus === 'reconnecting') return
-    void this.hrSensor.connect()
+    if (!this.supported || this.hrBusy()) return
+    if (this.fake) return void this.hrSensor.connect()
+    // A sensor the browser can hand back connects at once. Otherwise its device list is next: say so first.
+    void heartRateNeedsList().then((needsList) => {
+      if (this.hrBusy()) return
+      if (needsList) this.openPairing('heartRate')
+      else void this.hrSensor.connect()
+    })
+  }
+
+  private hrBusy(): boolean {
+    return this.hrStatus === 'connecting' || this.hrStatus === 'connected' || this.hrStatus === 'reconnecting'
+  }
+
+  // --- pairing step ---
+
+  private openPairing(kind: PairKind) {
+    this.pairing = kind
+    this.emit()
+  }
+
+  /** From the pairing step's button. The device list needs a click, so the connect starts here, in the same one. */
+  confirmPairing = () => {
+    const kind = this.pairing
+    if (!kind) return
+    this.pairing = null
+    this.emit()
+    if (kind === 'trainer') void this.trainer.connect()
+    else void this.hrSensor.connect()
+  }
+
+  cancelPairing = () => {
+    if (!this.pairing) return
+    this.pairing = null
+    this.emit()
   }
 
   disconnectHeartRate = () => {
@@ -1600,9 +1638,19 @@ export class RideController {
   // --- actions ---
 
   connect = () => {
-    if (!this.supported || this.connection.kind === 'connecting' || this.connection.kind === 'connected') return
+    if (!this.supported || this.trainerBusy()) return
     this.notice = null
-    void this.trainer.connect()
+    if (this.fake) return void this.trainer.connect()
+    // A trainer the browser can hand back connects at once. Otherwise its device list is next: say so first.
+    void trainerNeedsList().then((needsList) => {
+      if (this.trainerBusy()) return
+      if (needsList) this.openPairing('trainer')
+      else void this.trainer.connect()
+    })
+  }
+
+  private trainerBusy(): boolean {
+    return this.connection.kind === 'connecting' || this.connection.kind === 'connected'
   }
 
   setSmoothing = (s: SmoothingSeconds) => {
