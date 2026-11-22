@@ -587,7 +587,8 @@ export default function App() {
             section={profileSection}
             ridePhase={s.phase}
             profile={s.profile}
-            onChange={ride.setProfile}
+            onChange={(p) => ride.setProfile(p)}
+            onTakeFtp={(ftpW) => ride.setProfile({ ftpW }, 'best20')}
             editable={s.canEditProfile}
             courses={s.courses}
             workouts={s.workouts}

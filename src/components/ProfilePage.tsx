@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { POSITIONS, type Position } from '../config'
 import { PROFILE_SECTIONS, profileHref, type ProfileSection } from '../hooks/useRoute'
 import { lastBackupAt } from '../lib/backup'
+import { dismissFtpSuggestion, FTP_SOURCE_LABEL, loadFtpHistory, SUGGEST_DAYS, suggestFtp } from '../lib/ftpHistory'
 import { loadHistory, peekHistory, type RideSummary } from '../lib/history'
 import { MPS_TO_MPH, steadySpeedMps } from '../lib/physics'
 import { hasSavedProfile, riderParams, type Profile } from '../lib/profile'
@@ -22,6 +23,8 @@ interface ProfilePageProps {
   ridePhase: string
   profile: Profile
   onChange: (p: Partial<Profile>) => void
+  /** Set the FTP to the value the rider's best 20 minutes points to. Only ever from a press of its button. */
+  onTakeFtp: (ftpW: number) => void
   /** Editing is locked during a ride. */
   editable: boolean
   courses: CourseOption[]
@@ -168,6 +171,8 @@ const PREVIEW_W = 200
 /** The climb in the speed preview: steep enough that weight shows, common enough to know. */
 const PREVIEW_GRADE = 0.05
 const EMPTY = '--'
+/** Rows of FTP history shown before Show all. */
+const HISTORY_ROWS = 8
 
 const SECTION_LABEL: Record<ProfileSection, string> = {
   numbers: 'Your numbers',
@@ -240,7 +245,20 @@ function NumberInput({
   )
 }
 
-function Row({ label, htmlFor, help, children }: { label: string; htmlFor?: string; help: string; children: ReactNode }) {
+function Row({
+  label,
+  htmlFor,
+  help,
+  note,
+  children,
+}: {
+  label: string
+  htmlFor?: string
+  help: string
+  /** A small mono line under the help: when the value was set, and how. */
+  note?: string
+  children: ReactNode
+}) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-4 first:border-t-0">
       <div className="flex flex-col gap-1">
@@ -252,6 +270,7 @@ function Row({ label, htmlFor, help, children }: { label: string; htmlFor?: stri
           <span className="font-semibold text-fg">{label}</span>
         )}
         <span className="text-fg-muted">{help}</span>
+        {note && <span className="font-mono text-mono text-fg-subtle">{note}</span>}
       </div>
       {children}
     </div>
@@ -294,6 +313,7 @@ export function ProfilePage({
   ridePhase,
   profile,
   onChange,
+  onTakeFtp,
   editable,
   courses,
   workouts,
@@ -334,11 +354,20 @@ export function ProfilePage({
     return () => {
       live = false
     }
-  }, [ridePhase])
+    // Again after a ride starts or ends, and after a restore, which can add rides.
+  }, [ridePhase, backupNote])
 
   // Read again after a back up, a restore or a change to the numbers: each can change the answer.
   const backedUpAt = useMemo(() => lastBackupAt(), [backupNote])
   const starting = useMemo(() => !hasSavedProfile(), [profile, backupNote])
+
+  /** Oldest first. Read again when the FTP changes, and after a restore, which can bring a history with it. */
+  const ftpChanges = useMemo(() => loadFtpHistory(), [profile.ftpW, backupNote])
+  const lastChange = ftpChanges[ftpChanges.length - 1]
+  const [allChanges, setAllChanges] = useState(false)
+  /** Bumped by Not now, so the suggestion is worked out again. */
+  const [dismissed, setDismissed] = useState(0)
+  const suggestion = useMemo(() => (rides ? suggestFtp(rides, profile.ftpW, now) : null), [rides, profile.ftpW, now, dismissed])
 
   const me = riders?.riders.find((r) => r.id === riders.current) ?? null
   const myFiles = courses.filter((c) => c.source === 'imported').length + workouts.filter((w) => w.source !== 'builtin').length
@@ -435,9 +464,38 @@ export function ProfilePage({
               </section>
 
               <section aria-label="FTP and power zones" className="rounded-lg border border-line bg-surface">
-                <Row label="FTP" htmlFor="ftp-w" help="The power you can hold for about an hour. ERG shows targets as a % of it.">
+                <Row
+                  label="FTP"
+                  htmlFor="ftp-w"
+                  help="The power you can hold for about an hour. ERG shows targets as a % of it."
+                  note={lastChange && lastChange.ftpW === profile.ftpW ? `set ${day(lastChange.t)} · ${FTP_SOURCE_LABEL[lastChange.source].toLowerCase()}` : undefined}
+                >
                   <NumberInput id="ftp-w" value={profile.ftpW} step={1} unit="W" disabled={!editable} onCommit={(v) => onChange({ ftpW: v })} />
                 </Row>
+                {suggestion && (
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-4">
+                    <div className="flex max-w-md flex-col gap-1">
+                      <h3 className="font-semibold text-fg">Your rides point to a higher FTP</h3>
+                      <span className="text-fg-muted">
+                        Your best 20 minutes in the last {SUGGEST_DAYS} days is {suggestion.best20W} W, on {day(suggestion.startedAt)}. 95% of that
+                        is {suggestion.ftpW} W. Your FTP is {profile.ftpW} W.
+                      </span>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => {
+                          dismissFtpSuggestion(suggestion.ftpW)
+                          setDismissed((n) => n + 1)
+                        }}
+                      >
+                        Not now
+                      </Button>
+                      <Button onClick={() => onTakeFtp(suggestion.ftpW)} disabled={!editable}>
+                        Set FTP to {suggestion.ftpW} W
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {/* Right under the FTP field, so it follows the FTP as it changes. */}
                 <div className="flex flex-col gap-3 border-t border-line px-6 py-4">
                   <div className="flex flex-col gap-1">
@@ -446,6 +504,57 @@ export function ProfilePage({
                   </div>
                   <ZoneTable ftpW={profile.ftpW} />
                 </div>
+              </section>
+
+              <section aria-label="FTP history" className="rounded-lg border border-line bg-surface">
+                <div className="flex flex-col gap-1 px-6 py-4">
+                  <h3 className="font-semibold text-fg">FTP history</h3>
+                  <span className="text-fg-muted">
+                    {ftpChanges.length > 0
+                      ? 'Each change, newest first. A new ride keeps the FTP it was ridden at.'
+                      : 'No changes yet. Each time your FTP changes, the day and how it was set are listed here.'}
+                  </span>
+                </div>
+                {ftpChanges.length > 0 && (
+                  <table className="ww-table ww-history">
+                    <caption className="sr-only">Changes to your FTP, newest first</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col" className="ww-label">Day</th>
+                        <th scope="col" className="ww-label">How</th>
+                        <th scope="col" className="ww-label">Change</th>
+                        <th scope="col" className="ww-label text-right">FTP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...ftpChanges]
+                        .reverse()
+                        .slice(0, allChanges ? undefined : HISTORY_ROWS)
+                        .map((c) => (
+                          <tr key={c.t}>
+                            <td className="font-semibold text-fg">{dateOf(c.t, now).day}</td>
+                            <td className="text-fg-muted">{FTP_SOURCE_LABEL[c.source]}</td>
+                            <td className="font-mono text-mono text-fg-muted">
+                              {c.ftpW > c.fromW ? 'up' : 'down'} {Math.abs(c.ftpW - c.fromW)} W from {c.fromW}
+                            </td>
+                            <td className="text-right font-semibold whitespace-nowrap text-fg tabular-nums">
+                              {c.ftpW} <span className="font-normal text-fg-muted">W</span>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                )}
+                {ftpChanges.length > HISTORY_ROWS && !allChanges && (
+                  <div className="flex items-center justify-between gap-4 border-t border-line px-6 py-3">
+                    <span className="text-fg-muted">
+                      Showing {HISTORY_ROWS} of {ftpChanges.length} changes.
+                    </span>
+                    <Button size="sm" onClick={() => setAllChanges(true)}>
+                      Show all
+                    </Button>
+                  </div>
+                )}
               </section>
             </>
           )}

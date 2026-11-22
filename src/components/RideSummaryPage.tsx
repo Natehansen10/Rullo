@@ -202,7 +202,11 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
         <div className="flex flex-col gap-4 border-t border-line px-6 py-4">
           <div className="flex flex-col gap-1">
             <h2 className="font-semibold text-fg">Time in zone</h2>
-            <p className="text-fg-muted">Each second by its power, in the zones for your FTP of {ftpW} W today.</p>
+            <p className="text-fg-muted">
+              {detail.ownFtp
+                ? `Each second by its power, in the zones for the FTP you rode it at, ${detail.zoneFtpW} W.`
+                : `Each second by its power, in the zones for your FTP of ${detail.zoneFtpW} W today.`}
+            </p>
           </div>
           <div className="ww-zone-bars" role="table" aria-label="Time in each power zone">
             {ZONES.map((z, i) => {

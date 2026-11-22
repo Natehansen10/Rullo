@@ -29,6 +29,11 @@ export interface RideRow {
    * can't move the intervals under a ride in progress. Untrusted on load.
    */
   workoutSnapshot?: unknown
+  /**
+   * The rider's FTP when the ride started, W. Time in zone on the ride's summary uses it, so a later change of FTP
+   * does not move an old ride's zones. Absent on rides saved before Nov 22, 2026. Not indexed: no database change.
+   */
+  ftpW?: number
   /** Where the data came from: a real trainer or the fake one. Absent on rides saved before Nov 21, 2026. */
   origin?: 'trainer' | 'fake'
   /** The ride's name from its setup, e.g. "Sweet Spot 3x12 on Test Hills". Used as the Strava activity name. */
@@ -208,7 +213,7 @@ export async function startRide(
   startOffsetM?: number,
   workoutId?: string,
   workoutSnapshot?: unknown,
-  extra: Pick<RideRow, 'origin' | 'name'> = {},
+  extra: Pick<RideRow, 'origin' | 'name' | 'ftpW'> = {},
 ): Promise<number> {
   const riderId = await owner
   return db.rides.add({

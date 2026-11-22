@@ -106,6 +106,8 @@ Open the **Profile** tab (`#/profile`). On the left are the rider at a glance (r
 
 In **Your numbers**, set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these, and "On the road at 200 W" shows what they come to on a flat road and a 5% climb as you change them. Until you set a number the page says these are starting numbers. The profile is saved in this browser and applies to your next ride; past rides don't change.
 
+**FTP history** lists each change of FTP with its day and how it was set (typed, ramp test, or from your best 20 minutes). Each new ride keeps the FTP it was ridden at, so its time in zone does not move when your FTP does. When your best 20 minutes in the last 60 days points above your FTP (95% of it is higher), the page says so and offers **Set FTP to … W**. It never changes your FTP on its own; **Not now** puts that value away.
+
 ### More than one rider
 
 **Who's riding**, in the Riders section of the Profile tab, is for a shared trainer. No passwords.
