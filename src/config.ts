@@ -117,3 +117,22 @@ export const GRADE_SEND_EVERY_MS = 1000
 export const INTENSITY_STEPS_PCT = [1, 5, 10] as const
 export const INTENSITY_MIN_PCT = 50
 export const INTENSITY_MAX_PCT = 150
+
+/**
+ * Motion (see "Motion" in DESIGN.md; durations are tokens in src/styles/tokens.css).
+ * First data: Power, Cadence and Speed enter this far apart when their first readings land.
+ */
+export const FIRST_DATA_STAGGER_MS = 40
+/** Zone chip on the Power tile: the zone shown changes only after power has been out of it for this long, so it never flickers at an edge. */
+export const ZONE_HOLD_S = 2
+/**
+ * Glide (the workout playhead and the course dot). A position only changes when
+ * a reading arrives, about once a second from a trainer, so a glide takes as
+ * long as the last gap between two changes: at least one snapshot (TICK_MS in
+ * src/lib/ride.ts) and at most this. Set it to 250 to glide for one snapshot only.
+ */
+export const GLIDE_MAX_MS = 1200
+/** A forward move bigger than this share of the track's width snaps: it is a jump, not riding. */
+export const GLIDE_JUMP_SHARE = 0.02
+/** Interval heads-up: the next block in the workout strip is outlined for the last seconds of an interval. */
+export const INTERVAL_HEADS_UP_S = 5

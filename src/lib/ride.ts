@@ -343,7 +343,11 @@ export interface RideSnapshot {
   heartRate: HeartRateLive
 }
 
-const TICK_MS = 250
+/**
+ * How often the ride snapshot is rebuilt, and so the fastest the screen is drawn again.
+ * `--ww-dur-glide` in src/styles/tokens.css must equal this: a glide fills the gap between two snapshots.
+ */
+export const TICK_MS = 250
 
 export class RideController {
   private listeners = new Set<() => void>()

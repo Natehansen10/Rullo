@@ -22,9 +22,12 @@ import {
   INTENSITY_MAX_PCT,
   INTENSITY_MIN_PCT,
   INTENSITY_STEPS_PCT,
+  FIRST_DATA_STAGGER_MS,
   RESISTANCE_STEPS_PCT,
   SMOOTHING_OPTIONS,
+  ZONE_HOLD_S,
 } from './config'
+import { useHeld } from './hooks/useHeld'
 import { ride, useRide } from './hooks/useRide'
 import { go, href, isRoute, useRoute, useSummaryId } from './hooks/useRoute'
 import { downloadBackup, restoreBackup } from './lib/backup'
@@ -33,6 +36,7 @@ import { addRider, listRiders, onRiderChanged, removeRider, renameRider, switchR
 import { useStrava } from './hooks/useStrava'
 import type { RideSnapshot } from './lib/ride'
 import { strava } from './lib/strava'
+import { zoneAt } from './lib/workout'
 import { builder, type ReturnTo } from './lib/workoutDraft'
 
 const EMPTY = '--'
@@ -57,16 +61,17 @@ function formatClock(t: number): string {
   return new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 }
 
-function status(s: RideSnapshot): { tone: StatusTone; label: string } {
+/** `busy`: something is being tried (connecting, reconnecting), so the pill's dot breathes. A steady state never does. */
+function status(s: RideSnapshot): { tone: StatusTone; label: string; busy?: boolean } {
   if (!s.supported) return { tone: 'error', label: 'Not supported' }
   if (s.phase === 'ended') return { tone: 'idle', label: 'Ride ended' }
   const c = s.connection
-  if (c.kind === 'reconnecting') return { tone: 'warn', label: `Reconnecting ${c.attempt}/${c.max}` }
+  if (c.kind === 'reconnecting') return { tone: 'warn', label: `Reconnecting ${c.attempt}/${c.max}`, busy: true }
   if (s.stale) {
     if (c.kind === 'failed' || c.kind === 'disconnected') return { tone: 'error', label: 'Disconnected' }
-    return { tone: 'warn', label: 'Reconnecting' }
+    return { tone: 'warn', label: 'Reconnecting', busy: true }
   }
-  if (c.kind === 'connecting') return { tone: 'warn', label: 'Connecting' }
+  if (c.kind === 'connecting') return { tone: 'warn', label: 'Connecting', busy: true }
   if (s.paused) return { tone: 'idle', label: 'Paused' }
   // Connected and waiting for Start: nothing is being saved, and the pill says so.
   if (c.kind === 'connected') return s.phase === 'ready' ? { tone: 'warn', label: 'Not recording' } : { tone: 'on', label: 'Connected' }
@@ -482,6 +487,9 @@ export default function App() {
   const power = live && s.powerW !== null ? String(s.powerW) : EMPTY
   const cadence = live && s.cadenceRpm !== null ? String(s.cadenceRpm) : EMPTY
   const speed = live && s.speedMph !== null ? s.speedMph.toFixed(1) : EMPTY
+  // The zone of the power on screen (smoothed), from the same list as ZoneTable and the strip. Hidden when the number is not live.
+  const zoneNow = dimLive || s.powerW === null ? null : zoneAt((s.powerW / s.profile.ftpW) * 100, s.profile.ftpW)
+  const zone = useHeld(zoneNow, ZONE_HOLD_S * 1000)
 
   return (
     <div className="flex min-h-full flex-col">
@@ -501,7 +509,7 @@ export default function App() {
               {riderName}
             </a>
           )}
-          <StatusPill tone={pill.tone} label={pill.label} />
+          <StatusPill tone={pill.tone} label={pill.label} busy={pill.busy} />
           {s.phase === 'idle' && (
             <Button
               variant={pagePrimary ? 'secondary' : 'primary'}
@@ -683,6 +691,9 @@ export default function App() {
               unit="W"
               dim={dimLive || s.powerW === null}
               dense={dense}
+              empty={power === EMPTY}
+              zone={zone}
+              enterDelayMs={FIRST_DATA_STAGGER_MS * 0}
               className={`border-b border-line xl:border-r xl:border-b-0 ${pad}`}
               action={
                 <SegmentedControl
@@ -703,6 +714,8 @@ export default function App() {
                 unit="rpm"
                 dim={dimLive || s.cadenceRpm === null}
                 dense={dense}
+                empty={cadence === EMPTY}
+                enterDelayMs={FIRST_DATA_STAGGER_MS * 1}
                 action={cadenceCue(s, live)}
                 className={`border-r border-b border-line ${pad}`}
               />
@@ -712,6 +725,8 @@ export default function App() {
                 unit="bpm"
                 dim={s.heartRate.stale || s.heartRate.bpm === null}
                 dense={dense}
+                empty={s.heartRate.bpm === null}
+                enterDelayMs={0}
                 action={heartRateAction(s)}
                 className={`border-r border-b border-line ${pad}`}
               />
@@ -721,6 +736,8 @@ export default function App() {
                 unit="mph"
                 dim={dimLive || s.speedMph === null}
                 dense={dense}
+                empty={speed === EMPTY}
+                enterDelayMs={FIRST_DATA_STAGGER_MS * 2}
                 className={`border-b border-line ${pad}`}
               />
               </div>
@@ -770,6 +787,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.workout.intensityPct)}
+                kind="intensity"
                 unit="%"
                 steps={INTENSITY_STEPS_PCT}
                 onStep={ride.stepIntensity}
@@ -784,6 +802,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.ergTargetW)}
+                kind="erg"
                 unit="W"
                 steps={ERG_STEPS_W}
                 onStep={ride.stepErg}
@@ -799,6 +818,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.gradeFeelPct)}
+                kind="grade"
                 unit="%"
                 steps={GRADE_FEEL_STEPS_PCT}
                 onStep={ride.stepGradeFeel}
@@ -813,6 +833,7 @@ export default function App() {
               <Stepper
                 label={modeSwitch}
                 value={String(s.resistancePct)}
+                kind="resistance"
                 unit="%"
                 steps={RESISTANCE_STEPS_PCT}
                 onStep={ride.stepResistance}

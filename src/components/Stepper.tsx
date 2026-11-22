@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Button } from './Button'
 
 interface StepperProps {
@@ -6,6 +6,12 @@ interface StepperProps {
   label: ReactNode
   value: string
   unit?: string
+  /**
+   * What the value is (resistance, ERG target, hill feel, intensity). A step
+   * shows its direction only while this stays the same, so switching mode
+   * never reads as a step.
+   */
+  kind?: string
   /** Step sizes, smallest first. Renders minus steps (largest outside) and plus steps (largest outside). */
   steps: readonly number[]
   onStep: (delta: number) => void
@@ -28,6 +34,7 @@ export function Stepper({
   label,
   value,
   unit,
+  kind = '',
   steps,
   onStep,
   stepLabel,
@@ -38,6 +45,16 @@ export function Stepper({
   hint,
   className = '',
 }: StepperProps) {
+  // Direction cue: a stepped value enters from just below (up) or just above (down). Not on the
+  // first render, not across a mode switch, not while disabled.
+  const [seen, setSeen] = useState({ kind, value, dir: 0, n: 0 })
+  if (seen.kind !== kind || seen.value !== value) {
+    const diff = Number(value) - Number(seen.value)
+    const stepped = seen.kind === kind && !disabled && Number.isFinite(diff)
+    setSeen({ kind, value, dir: stepped ? Math.sign(diff) : 0, n: seen.n + 1 })
+  }
+  const cue = disabled || seen.dir === 0 ? '' : seen.dir > 0 ? 'ww-enter ww-enter-step' : 'ww-enter ww-enter-step ww-enter-step-down'
+
   const down = [...steps].reverse().map((s) => -s)
   const up = [...steps]
   const stepButton = (delta: number) => (
@@ -62,8 +79,11 @@ export function Stepper({
           aria-live="polite"
           className={`ww-num ww-num-control px-3 text-center ${disabled ? 'text-fg-subtle' : 'text-fg'}`}
         >
-          {value}
-          {unit && <span className="ww-unit">{unit}</span>}
+          {/* The live region stays; only this inner copy is replaced, so the cue restarts on every step. */}
+          <span key={seen.n} className={`inline-block ${cue}`}>
+            {value}
+            {unit && <span className="ww-unit">{unit}</span>}
+          </span>
         </span>
         {up.map(stepButton)}
       </div>

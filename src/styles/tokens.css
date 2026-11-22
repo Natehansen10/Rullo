@@ -89,12 +89,37 @@
   --ww-dur-base: 200ms;
   --ww-ease: cubic-bezier(0.2, 0, 0, 1);
   --ww-press-scale: 0.98;
+  /*
+   * Glide: how long the workout playhead and the course dot take to reach a new
+   * position. Must equal TICK_MS in src/lib/ride.ts (one ride snapshot), so the
+   * browser fills the gap between two snapshots and no more. Always linear.
+   */
+  --ww-dur-glide: 250ms;
+  /* Breathe: one slow pulse of the status dot while connecting or reconnecting. */
+  --ww-dur-breathe: 1600ms;
+  /* Enter: how far a value travels when it arrives (first data, a stepped value). */
+  --ww-enter-shift: 4px;
+  /* The same, for the workout row's values at an interval change. */
+  --ww-enter-shift-interval: 6px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
     --ww-dur-fast: 0ms;
     --ww-dur-base: 0ms;
+    --ww-dur-glide: 0ms;
     --ww-press-scale: 1;
+  }
+  /* Everything snaps and nothing loops: no breathing, no enter, no glide, no sliding chip. */
+  .ww-breathe,
+  .ww-enter,
+  .ww-fade-in,
+  .ww-fade-out {
+    animation: none;
+  }
+  .ww-glide,
+  .ww-chip-indicator,
+  .ww-pill {
+    transition: none;
   }
 }

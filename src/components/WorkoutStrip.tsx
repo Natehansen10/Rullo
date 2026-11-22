@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useGlide } from '../hooks/useGlide'
 import { indexAt, targetPct, targetWatts, zoneAt, type Interval } from '../lib/workout'
 
 interface WorkoutStripProps {
@@ -21,6 +22,12 @@ interface WorkoutStripProps {
   details?: boolean
   /** Side of the strip the overlay sits on. It never takes space in the layout. */
   detailsSide?: 'below' | 'above'
+  /** The ride is stale, paused or over: the position rests where the data is, and the first move after it snaps. */
+  frozen?: boolean
+  /** Change it to make the next position change snap (Skip interval). */
+  snapKey?: unknown
+  /** Index of a block to outline as a heads-up (the next interval, in the last seconds of this one), or null. */
+  headsUp?: number | null
   className?: string
 }
 
@@ -32,6 +39,8 @@ const CHAR_W = 6.6
 const LABEL_PAD = 4
 /** Space between the strip and its hover overlay (the `mt-1` / `mb-1` on it). */
 const TIP_GAP = 4
+/** The Olive position line. With its 1px surface hairline on each side it is 4.5px. */
+const LINE_W = 2.5
 
 /** m:ss, or h:mm:ss from an hour up. */
 function clock(s: number): string {
@@ -59,6 +68,9 @@ export function WorkoutStrip({
   labels = true,
   details = labels,
   detailsSide = 'below',
+  frozen = false,
+  snapKey,
+  headsUp = null,
   className = '',
 }: WorkoutStripProps) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -119,8 +131,12 @@ export function WorkoutStrip({
   }, [intervals, ftpW, totalS, intensityPct, w, h, labels])
 
   const posX = elapsedS === undefined ? null : Math.min(w, (elapsedS / totalS) * w)
+  // The position is a transform, so the browser eases between two readings. See useGlide for when it snaps.
+  const glide = useGlide(posX, w, [h, intervals, totalS, snapKey], !frozen)
 
   const hovered = details && hover !== null ? blocks[hover] : undefined
+  /** The heads-up outline. The hover outline wins: while a block is pointed at, it is the only one outlined. */
+  const ahead = headsUp !== null && !hovered ? blocks[headsUp] : undefined
   const tipText = hovered ? `${hovered.tip.label}|${hovered.tip.watts}|${hovered.tip.pct}|${hovered.tip.length}|${hovered.tip.cadenceRpm}` : ''
   // Measured before paint, so the overlay is clamped to the strip from its first frame.
   useLayoutEffect(() => {
@@ -173,13 +189,30 @@ export function WorkoutStrip({
               </text>
             ),
         )}
-        {posX !== null && (
-          <>
-            <rect x={0} y={0} width={posX} height={h} fill="var(--ww-surface)" opacity={0.6} />
-            {/* Two-tone, like the outline below: Olive alone is 2.3:1 on z3, so it gets a 1px surface hairline on each side. */}
-            <line x1={posX} x2={posX} y1={0} y2={h} stroke="var(--ww-surface)" strokeWidth={4.5} />
-            <line x1={posX} x2={posX} y1={0} y2={h} stroke="var(--ww-accent)" strokeWidth={2.5} />
-          </>
+      </svg>
+      {posX !== null && (
+        <div aria-hidden data-strip-position className="pointer-events-none absolute inset-0 overflow-hidden">
+          {/* The part done, washed with surface at 60%: a full-width layer scaled from the left. */}
+          <div
+            className={`absolute inset-0 origin-left bg-surface opacity-60 ${glide.className}`}
+            style={{ ...glide.style, transform: `scaleX(${posX / w})` }}
+          />
+          {/* Two-tone, like the outline below: Olive alone is 2.3:1 on z3, so it gets a 1px surface hairline on each side. */}
+          <div
+            className={`absolute top-0 bottom-0 left-0 bg-surface ${glide.className}`}
+            style={{ ...glide.style, width: LINE_W + 2, marginLeft: -(LINE_W + 2) / 2, transform: `translateX(${posX}px)` }}
+          >
+            <div className="absolute top-0 bottom-0 bg-accent" style={{ left: 1, width: LINE_W }} />
+          </div>
+        </div>
+      )}
+      <svg width={w} height={h} className="pointer-events-none absolute inset-0 block" aria-hidden>
+        {/* Heads-up: the same two-tone outline on the block that comes next, fading in. */}
+        {ahead && (
+          <g key={headsUp} data-heads-up className="ww-fade-in ww-fade-base">
+            <path d={ahead.d} fill="none" stroke="var(--ww-surface)" strokeWidth={3} />
+            <path d={ahead.d} fill="none" stroke="var(--ww-fg)" strokeWidth={1} />
+          </g>
         )}
         {/* Two-tone outline: an fg line with a surface hairline on each side, so it reads on every zone fill (fg alone is 2.7:1 on z7). */}
         {hovered && (
