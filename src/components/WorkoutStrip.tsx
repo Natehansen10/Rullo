@@ -26,6 +26,8 @@ interface WorkoutStripProps {
   frozen?: boolean
   /** Change it to make the next position change snap (Skip interval). */
   snapKey?: unknown
+  /** Index of a block to outline as a heads-up (the next interval, in the last seconds of this one), or null. */
+  headsUp?: number | null
   className?: string
 }
 
@@ -68,6 +70,7 @@ export function WorkoutStrip({
   detailsSide = 'below',
   frozen = false,
   snapKey,
+  headsUp = null,
   className = '',
 }: WorkoutStripProps) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -132,6 +135,8 @@ export function WorkoutStrip({
   const glide = useGlide(posX, w, [h, intervals, totalS, snapKey], !frozen)
 
   const hovered = details && hover !== null ? blocks[hover] : undefined
+  /** The heads-up outline. The hover outline wins: while a block is pointed at, it is the only one outlined. */
+  const ahead = headsUp !== null && !hovered ? blocks[headsUp] : undefined
   const tipText = hovered ? `${hovered.tip.label}|${hovered.tip.watts}|${hovered.tip.pct}|${hovered.tip.length}|${hovered.tip.cadenceRpm}` : ''
   // Measured before paint, so the overlay is clamped to the strip from its first frame.
   useLayoutEffect(() => {
@@ -202,6 +207,13 @@ export function WorkoutStrip({
         </div>
       )}
       <svg width={w} height={h} className="pointer-events-none absolute inset-0 block" aria-hidden>
+        {/* Heads-up: the same two-tone outline on the block that comes next, fading in. */}
+        {ahead && (
+          <g key={headsUp} data-heads-up className="ww-fade-in ww-fade-base">
+            <path d={ahead.d} fill="none" stroke="var(--ww-surface)" strokeWidth={3} />
+            <path d={ahead.d} fill="none" stroke="var(--ww-fg)" strokeWidth={1} />
+          </g>
+        )}
         {/* Two-tone outline: an fg line with a surface hairline on each side, so it reads on every zone fill (fg alone is 2.7:1 on z7). */}
         {hovered && (
           <>

@@ -519,3 +519,14 @@
     will-change: transform;
   }
 }
+
+@layer components {
+  /* Interval change: the workout row's values enter from a little further away than a first reading. */
+  .ww-enter-interval {
+    --ww-enter-y: var(--ww-enter-shift-interval);
+  }
+  /* A fade at the state-change speed (the heads-up outline). */
+  .ww-fade-base {
+    --ww-fade-dur: var(--ww-dur-base);
+  }
+}

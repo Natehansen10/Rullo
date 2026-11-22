@@ -134,3 +134,5 @@ export const ZONE_HOLD_S = 2
 export const GLIDE_MAX_MS = 1200
 /** A forward move bigger than this share of the track's width snaps: it is a jump, not riding. */
 export const GLIDE_JUMP_SHARE = 0.02
+/** Interval heads-up: the next block in the workout strip is outlined for the last seconds of an interval. */
+export const INTERVAL_HEADS_UP_S = 5

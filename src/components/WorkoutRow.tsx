@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { INTERVAL_HEADS_UP_S } from '../config'
 import type { WorkoutLive } from '../lib/ride'
 import { Button } from './Button'
 import { Stat } from './Stat'
@@ -48,6 +49,20 @@ export function WorkoutRow({
   const estimateShown = compact && !!test?.ended && test.ftpW !== null
   /** A cadence column shows for the whole workout when any interval has a cue, so the row never shifts mid-ride. */
   const hasCadence = live.intervals.some((x) => x.cadenceRpm !== undefined)
+  // The interval change moment: a count of the times the interval changed while the workout was running
+  // (Skip interval too). Not the first render, a new workout, or the start: those change nothing here.
+  const [seen, setSeen] = useState({ workout: live.workout, started: live.started, index: live.index, changes: 0 })
+  if (seen.workout !== live.workout || seen.started !== live.started || seen.index !== live.index) {
+    const changed = seen.workout === live.workout && seen.started && live.started && seen.index !== live.index
+    setSeen({ workout: live.workout, started: live.started, index: live.index, changes: seen.changes + (changed ? 1 : 0) })
+  }
+  const changeKey = seen.changes
+  /** Heads-up: in the last seconds of an interval the next block is outlined. Not for a next block shorter than the heads-up itself. */
+  const next = live.intervals[live.index + 1]
+  const headsUp =
+    live.started && !live.done && !ended && !!next && next.durS >= INTERVAL_HEADS_UP_S && live.intervalLeftS <= INTERVAL_HEADS_UP_S
+      ? live.index + 1
+      : null
   /** Skip interval and End test are jumps: the strip's position snaps to them. */
   const [skips, setSkips] = useState(0)
   const skip = () => {
@@ -67,9 +82,10 @@ export function WorkoutRow({
           value={`${live.index + 1}`}
           unit={`of ${live.intervals.length}`}
           dim={dim}
+          changeKey={changeKey}
           inline={compact}
         />
-        <Stat label="Target" value={String(live.targetW)} unit={`W · ${Math.round(live.targetPct)}%`} dim={dim} inline={compact} />
+        <Stat label="Target" value={String(live.targetW)} unit={`W · ${Math.round(live.targetPct)}%`} dim={dim} inline={compact} changeKey={changeKey} />
         {hasCadence && (
           <Stat
             label={compact ? 'RPM' : 'Cadence'}
@@ -77,6 +93,7 @@ export function WorkoutRow({
             unit={compact ? undefined : 'rpm'}
             dim={dim || live.cadenceTargetRpm === null}
             inline={compact}
+            changeKey={changeKey}
           />
         )}
         <Stat
@@ -88,7 +105,7 @@ export function WorkoutRow({
         {estimateShown ? null : test ? (
           <Stat label={compact ? 'Best min' : 'Best minute'} value={test.bestW === null ? '--' : String(test.bestW)} unit="W" dim={dim} inline={compact} />
         ) : (
-          <Stat label="Next" value={live.nextTargetW === null ? '--' : String(live.nextTargetW)} unit="W" dim={dim} inline={compact} />
+          <Stat label="Next" value={live.nextTargetW === null ? '--' : String(live.nextTargetW)} unit="W" dim={dim} inline={compact} changeKey={changeKey} />
         )}
         {!estimateShown && (
           <Stat
@@ -133,6 +150,7 @@ export function WorkoutRow({
         intensityPct={live.intensityPct}
         frozen={dim}
         snapKey={skips}
+        headsUp={headsUp}
         heightClass={compact ? 'ww-strip-compact' : 'ww-profile'}
       />
       <span className="sr-only">
