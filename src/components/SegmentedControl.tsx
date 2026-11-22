@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent } from 'react'
+import { useSlidingChip } from '../hooks/useSlidingChip'
 
 interface SegmentedControlProps<T extends string | number> {
   label: string
@@ -10,7 +11,8 @@ interface SegmentedControlProps<T extends string | number> {
 
 /**
  * Small option set. The selected option is a chip with its own surface and a
- * hairline border; hover only brightens text, so a hovered option can never be
+ * hairline border: one element behind the options that slides to the selected
+ * one (useSlidingChip). Hover only brightens text, so a hovered option can never be
  * mistaken for the selected one. One Tab stop; Left / Right move the selection.
  * Up / Down are left alone so the ride screen's step keys keep working.
  */
@@ -22,6 +24,7 @@ export function SegmentedControl<T extends string | number>({
   format = String,
 }: SegmentedControlProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const { trackRef, chipRef } = useSlidingChip<HTMLDivElement>(value)
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
@@ -36,11 +39,13 @@ export function SegmentedControl<T extends string | number>({
 
   return (
     <div
+      ref={trackRef}
       role="radiogroup"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className="inline-flex gap-1 rounded-md border border-line bg-raised p-1"
+      className="relative inline-flex gap-1 rounded-md border border-line bg-raised p-1"
     >
+      <span ref={chipRef} aria-hidden className="ww-chip-indicator" />
       {options.map((opt, i) => {
         const active = opt === value
         return (
@@ -53,9 +58,10 @@ export function SegmentedControl<T extends string | number>({
             role="radio"
             aria-checked={active}
             tabIndex={active ? 0 : -1}
+            data-chip={active ? 'on' : undefined}
             onClick={() => onChange(opt)}
-            className={`ww-press cursor-pointer rounded-sm border px-3 py-1 font-mono text-mono leading-none font-medium ${
-              active ? 'border-line-strong bg-surface text-fg' : 'border-transparent text-fg-muted hover:text-fg'
+            className={`ww-press relative cursor-pointer rounded-sm border border-transparent px-3 py-1 font-mono text-mono leading-none font-medium ${
+              active ? 'text-fg' : 'text-fg-muted hover:text-fg'
             }`}
           >
             {format(opt)}

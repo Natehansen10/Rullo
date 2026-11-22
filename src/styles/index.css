@@ -545,3 +545,24 @@
     --ww-enter-y: calc(-1 * var(--ww-enter-shift));
   }
 }
+
+@layer components {
+  /*
+   * The selected chip of a SegmentedControl or TabNav: one element behind the
+   * options, placed by useSlidingChip. At rest it is the chip the selected
+   * option used to draw itself: surface, line-strong border, radius-sm.
+   */
+  .ww-chip-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius-sm);
+    background: var(--ww-surface);
+    pointer-events: none;
+    transition:
+      transform var(--ww-dur-base) var(--ww-ease),
+      width var(--ww-dur-base) var(--ww-ease);
+  }
+}
