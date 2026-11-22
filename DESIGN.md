@@ -38,7 +38,8 @@ The wordmark is a heavy italic serif "Rullo" with a tall double L and a round "o
 - **The 48px rule.** Under 48px the inline cuts close up and blur, so the solid version is the only one allowed there.
 - Both files have no background, no fixed width or height (they scale from the viewBox, 1583 by 511) and `currentColor` fills. Color comes from CSS: `.ww-wordmark` draws the solid file as a mask over `fg`. Give it `role="img"` and `aria-label="Rullo"`.
 - The wordmark is in one place, the top bar. Do not add it elsewhere without asking.
-- **App icons** (`public/favicon.svg` and the icon files beside it) are finished artwork. They are never redrawn or recolored, and like Strava's button they carry their own hex values. The `theme-color` in `index.html` and the colors in `manifest.webmanifest` repeat `bg` because neither can read a CSS token.
+- `public/brand/rullo-r.svg` is the R on its own, the letter the app icons are made from, also with a `currentColor` fill. It is not used in the app.
+- **App icons** in `public/` (`favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`) are finished artwork: a cream R on an olive square. They are never redrawn or recolored, and like Strava's button they carry their own hex values. The `theme-color` in `index.html` and the colors in `manifest.webmanifest` repeat `bg` because neither can read a CSS token.
 
 ## Color tokens
 
