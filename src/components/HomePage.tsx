@@ -15,7 +15,8 @@ import {
   type Totals,
 } from '../lib/history'
 import { dateOf, feet, hms, miles, setupOf } from '../lib/rideFormat'
-import { summaryHref } from '../hooks/useRoute'
+import { profileHref, summaryHref } from '../hooks/useRoute'
+import { BACKUP_NUDGE_RIDES, ridesSinceBackup } from '../lib/backup'
 import type { RideSnapshot } from '../lib/ride'
 import { Button } from './Button'
 import { Stat } from './Stat'
@@ -131,6 +132,8 @@ export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
   const prs = useMemo(() => (rides && complete ? prsByRide(rides) : new Map<number, BestWindow[]>()), [rides, complete])
 
   const next = nextStep(s)
+  /** Rides that are in no backup. Waits for the full list, like the totals. */
+  const unsaved = useMemo(() => (rides && complete ? ridesSinceBackup(rides) : 0), [rides, complete])
 
   const onDownload = (r: RideSummary) => {
     setMessage(null)
@@ -184,6 +187,17 @@ export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
               {next.ride ? 'Go to Ride' : 'Set up a ride'}
             </Button>
           </section>
+
+          {unsaved >= BACKUP_NUDGE_RIDES && (
+            <section aria-label="Back up" className="rounded-lg border border-line bg-surface px-6 py-4">
+              <p className="text-fg">
+                {unsaved} rides are not in a backup. They live in this browser only.{' '}
+                <a className="ww-link" href={profileHref('data')}>
+                  Back up
+                </a>
+              </p>
+            </section>
+          )}
 
           {rides && rides.length > 0 && (
             <section aria-label="Totals" className="rounded-lg border border-line bg-surface">

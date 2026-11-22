@@ -140,6 +140,22 @@ export function lastBackupAt(): number | null {
   }
 }
 
+function noteBackupAt(t: number): void {
+  try {
+    localStorage.setItem(LAST_BACKUP_KEY, String(t))
+  } catch {
+    // storage unavailable: nothing to note it in
+  }
+}
+
+/** From this many rides with no backup, Home and the Profile tab say so. */
+export const BACKUP_NUDGE_RIDES = 5
+
+/** How many of these rides started after the rider's last backup: all of them when there has been none. */
+export function ridesSinceBackup(rides: { startedAt: number }[], at: number | null = lastBackupAt()): number {
+  return at === null ? rides.length : rides.filter((r) => r.startedAt > at).length
+}
+
 /** Build the backup and hand it to the browser as a download. */
 export async function downloadBackup(): Promise<BackupCounts> {
   const { file, counts } = await buildBackup()
@@ -151,11 +167,7 @@ export async function downloadBackup(): Promise<BackupCounts> {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 10000)
-  try {
-    localStorage.setItem(LAST_BACKUP_KEY, String(file.exportedAt))
-  } catch {
-    // storage unavailable: the file was still made
-  }
+  noteBackupAt(file.exportedAt)
   return counts
 }
 
@@ -301,7 +313,11 @@ export async function restoreBackup(file: File): Promise<RestoreResult> {
   // computer. A browser that already has rides keeps its own, and what is restored joins it.
   // Not when another rider on this browser already has that id: then the rows simply join whoever is riding.
   const adopt = riderId !== null && !knownRiderIds().includes(riderId) && (await recorder.nothingSaved()) ? riderId : undefined
+  // With nothing saved here before, every ride after the restore is in this file: the file is the last backup.
+  const wasEmpty = await recorder.nothingSaved()
   const counts = await recorder.importRows(rows, adopt)
+  const exportedAt = isObject(data) ? data.exportedAt : null
+  if (wasEmpty && isNum(exportedAt) && exportedAt > 0 && exportedAt <= Date.now() && lastBackupAt() === null) noteBackupAt(exportedAt)
   // The name comes along with the id, unless another rider here has it.
   if (adopt && riderName) renameRider(adopt, riderName)
   let profile: Profile | null = null

@@ -151,6 +151,8 @@ Start the session on the watch (in the relay app). Rullo cannot start it for you
 Everything is saved in this browser only. Clearing site data wipes it, and another browser or computer starts empty.
 
 - **Back up** downloads one file (`rullo-backup-<date>.json`) with your finished rides, courses, workouts, profile and settings. About 220 KB per hour ridden. A backup made when the app was called Weem Watts (`weem-watts-backup-<date>.json`) still restores.
+- **A reminder:** from 5 rides that are in no backup, Home and the Profile tab say so, with a link to Back up. Pressing Back up clears it. A clean browser that restores a backup counts that file as its backup.
+- **Storage in this browser** (same section) shows how much the app uses and whether the browser has agreed not to clear it. **Ask to keep it** asks the browser; it may say no, and a backup file is still the sure way.
 - **Restore** reads a backup file and adds the rides, courses and workouts this browser does not have. It never changes or removes anything already here, so restoring twice is safe. Your profile and settings are restored only where this browser has none saved.
 - A damaged file, or one that is not a backup, is refused and nothing is changed.
 - A ride that was never ended is not in a backup. End it first.

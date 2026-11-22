@@ -70,7 +70,37 @@ The FTP had no memory: no date, no source, and a ramp test left no trace. Old ri
 
 - The ramp test's own Set FTP on a real or fake ride. It calls the same `logFtpChange` as typing; the path through a finished test was not run.
 
-### Not built yet
+## Pass 3: backup reminder and storage, Nov 22, 2026
 
-- **Pass 3:** storage used, a request for persistent storage, and a nudge after rides with no backup.
+Rides live in one browser. The backup file is the only copy, and nothing said when it was getting old.
+
+### What was built
+
+- **A reminder from 5 rides that are in no backup:** one line on Home (under Next) and one in the Profile rail, each with a Back up link to Data and connections. The Back up row counts them too, from the first.
+- **Storage in this browser**, a panel in Data and connections: how much the site uses, and whether the browser has agreed not to clear it on its own. "Ask to keep it" shows only while the browser says it may clear it.
+
+### Calls
+
+- **A ride is "in a backup" when it started before the last Back up press.** With no backup, every ride counts.
+- **5 rides**, a constant in `src/lib/backup.ts`. Fewer would nag a new rider; more risks a week of riding.
+- **A sentence and a link, not a button and not a state color.** Home keeps its one primary. The reminder is calm and stays until a backup is made; there is no dismiss.
+- **A clean browser that restores a file counts that file as its backup** (the file's own date), so a restore of 50 rides does not open with a reminder. A browser that already had rides does not: some of its rides may be in no file. This replaces pass 1's "a restore does not set it".
+- **The browser is asked only from the button.** Chrome and Edge answer without a prompt, but another browser may show one, and a prompt at page load would come from nowhere.
+- **The app reports the answer and does not explain it.** How Chrome decides is not documented. A no reads "Browsers decide this on their own, so it may say yes later."
+- **Even a yes is not a backup.** The row says clearing site data still wipes it.
+- **Home changed by one panel** that shows only for the reminder. No ride or trainer code changed.
+
+### Checked (headless Chromium, production build, `?fake=1`)
+
+- One ride: no reminder. Six more restored into that browser: "7 rides are not in a backup" on Home and in the rail, and the link opens Data and connections. Back up clears both.
+- A clean browser restoring the same six rides: no reminder, and Last backup is the file's day.
+- Storage row: size shown; "may clear it" with the button; a no gives the line under it. With the browser reporting a yes: "has agreed not to clear it" and no button.
+- Ride tab numbers update each second. No sideways scroll on Home and Data and connections at 880 and 1024. No console errors.
+
+### Not checked
+
+- A real yes from Chrome. Headless Chromium says no; the yes was tested by standing in for the browser's answer.
+
+### Not built
+
 - **Left out on purpose:** units, W/lb, a photo, birthday, gender, country, heart rate zones, weekly goal and streak, a first-visit wizard, sign-in.
