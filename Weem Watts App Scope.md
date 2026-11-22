@@ -153,6 +153,16 @@ Moved out of "Later" on Nov 21, 2026 at Nate's request. It had been parked on No
 - **Cut:** upload without a click, Garmin and TrainingPeaks, reading any activity data back from Strava, accounts, a database, uploading old rides from the Home tab
 - **Done when:** ride with the Kickr and a heart rate sensor, press End Ride, press Upload to Strava, and see the complete activity on Strava
 
+### Interval sounds (built Nov 22, 2026; ride test pending)
+
+Asked for by Nate on Nov 22, 2026, from the complaints research (audio cues are Zwift's most-voted new request of the past year). Decisions are in `docs/interval-sounds.md`.
+
+- In a workout: three soft beeps in the last three seconds of an interval, and a tone when the next one starts or the workout ends
+- Off by default; one Off / On row on the Profile tab, per rider, open mid-ride
+- Web Audio, no files. Nothing sounds while paused
+- **Cut:** sounds on a free ride or a course (climbs, laps), a volume control, a mute key on the Ride tab, voice
+- **Done when:** ride a workout on the Kickr with sounds on and hear the beeps land on the countdown and the tone on the change, over the trainer and a fan
+
 ### Later: Movie Mode overlay
 
 Moved down the road on Nov 19, 2026. Not scheduled; pick it up after v4 or when it earns its place.

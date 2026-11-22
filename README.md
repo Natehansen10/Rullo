@@ -106,6 +106,8 @@ Open the **Profile** tab (`#/profile`). On the left are the rider at a glance (r
 
 In **Your numbers**, set rider weight, bike weight, FTP, and riding position (hoods, drops or aero). Speed and distance use these, and "On the road at 200 W" shows what they come to on a flat road and a 5% climb as you change them. Until you set a number the page says these are starting numbers. The profile is saved in this browser and applies to your next ride; past rides don't change.
 
+**Interval sounds** (the last row of Your numbers, off by default): in a workout, three soft beeps in the last three seconds of an interval and a tone when the next one starts. Turning it on plays the tone once. Nothing sounds while a ride is paused. You can switch it mid-ride.
+
 **FTP history** lists each change of FTP with its day and how it was set (typed, ramp test, or from your best 20 minutes). Each new ride keeps the FTP it was ridden at, so its time in zone does not move when your FTP does. When your best 20 minutes in the last 60 days points above your FTP (95% of it is higher), the page says so and offers **Set FTP to … W**. It never changes your FTP on its own; **Not now** puts that value away.
 
 ### More than one rider

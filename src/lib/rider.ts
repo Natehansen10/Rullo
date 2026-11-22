@@ -41,6 +41,8 @@ const RIDER_KEYS = [
   'ww.ftpSuggestionDismissedW',
   // The heart rate sensor that connected last (`pairing.ts`): worn by one rider. The trainer's is shared on purpose.
   'ww.hrDeviceId',
+  // Interval sounds on or off.
+  'ww.intervalSounds',
 ] as const
 
 export const MAX_RIDER_NAME_CHARS = 30
