@@ -493,3 +493,22 @@
     transition: width var(--ww-dur-base) var(--ww-ease);
   }
 }
+
+@layer components {
+  /*
+   * Zone chip on the Power tile: swatch and code. The width is fixed (8px
+   * swatch, 4px gap, two mono characters), so no zone moves what is beside it.
+   */
+  .ww-zone-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ww-space-1);
+    width: calc(var(--ww-space-3) + 2ch);
+    line-height: 16px;
+    white-space: nowrap;
+    transition: opacity var(--ww-dur-base) var(--ww-ease);
+  }
+  .ww-zone-chip > span:first-child {
+    transition: background-color var(--ww-dur-base) var(--ww-ease);
+  }
+}

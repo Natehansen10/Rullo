@@ -123,3 +123,5 @@ export const INTENSITY_MAX_PCT = 150
  * First data: Power, Cadence and Speed enter this far apart when their first readings land.
  */
 export const FIRST_DATA_STAGGER_MS = 40
+/** Zone chip on the Power tile: the zone shown changes only after power has been out of it for this long, so it never flickers at an edge. */
+export const ZONE_HOLD_S = 2

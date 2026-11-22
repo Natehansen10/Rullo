@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useRef, type CSSProperties, type ReactNode } from 'react'
 import { useFirstValue } from '../hooks/useFirstValue'
 
 interface MetricTileProps {
@@ -13,6 +13,11 @@ interface MetricTileProps {
   action?: ReactNode
   /** Tighter label-to-number gap, for when the ride panel also shows a course or workout row. */
   dense?: boolean
+  /**
+   * Zone chip after the label (the Power tile only): 1 to 7, or null to hide
+   * it. The slot keeps its width either way, so nothing beside it moves.
+   */
+  zone?: number | null
   /** The value is a placeholder ("--"): there is no reading. */
   empty?: boolean
   /**
@@ -33,6 +38,7 @@ export function MetricTile({
   dim = false,
   action,
   dense = false,
+  zone,
   empty = false,
   enterDelayMs,
   className = '',
@@ -43,7 +49,14 @@ export function MetricTile({
   return (
     <div className={`flex min-w-0 flex-col justify-between ${dense ? 'gap-2' : 'gap-4'} ${className}`}>
       <div className={`flex items-center justify-between gap-3 ${size === 'hero' || !dense ? 'min-h-8' : ''}`}>
-        <span className="ww-label whitespace-nowrap">{label}</span>
+        {zone === undefined ? (
+          <span className="ww-label whitespace-nowrap">{label}</span>
+        ) : (
+          <span className="flex items-center gap-2">
+            <span className="ww-label whitespace-nowrap">{label}</span>
+            <ZoneChip zone={zone} />
+          </span>
+        )}
         {action}
       </div>
       <div
@@ -56,5 +69,28 @@ export function MetricTile({
         {unit && <span className="ww-unit">{unit}</span>}
       </div>
     </div>
+  )
+}
+
+/**
+ * The power zone right now: an 8px swatch in the zone token with its code in
+ * mono, as in the workout strip's hover details. Fixed width, so Z1 to Z7 and
+ * hidden all take the same room. The swatch color eases; the tile and its
+ * number are never tinted.
+ */
+function ZoneChip({ zone }: { zone: number | null }) {
+  // While hidden it keeps its last zone, so it fades out in the color it had.
+  const last = useRef(zone ?? 1)
+  if (zone !== null) last.current = zone
+  const z = last.current
+  return (
+    <span
+      data-zone-chip
+      aria-hidden={zone === null}
+      className={`ww-zone-chip font-mono text-mono text-fg ${zone === null ? 'opacity-0' : ''}`}
+    >
+      <span aria-hidden className="h-2 w-2 shrink-0" style={{ background: `var(--ww-z${z})` }} />
+      <span className="sr-only">Zone </span>Z{z}
+    </span>
   )
 }

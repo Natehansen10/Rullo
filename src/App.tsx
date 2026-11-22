@@ -25,7 +25,9 @@ import {
   FIRST_DATA_STAGGER_MS,
   RESISTANCE_STEPS_PCT,
   SMOOTHING_OPTIONS,
+  ZONE_HOLD_S,
 } from './config'
+import { useHeld } from './hooks/useHeld'
 import { ride, useRide } from './hooks/useRide'
 import { go, href, isRoute, useRoute, useSummaryId } from './hooks/useRoute'
 import { downloadBackup, restoreBackup } from './lib/backup'
@@ -34,6 +36,7 @@ import { addRider, listRiders, onRiderChanged, removeRider, renameRider, switchR
 import { useStrava } from './hooks/useStrava'
 import type { RideSnapshot } from './lib/ride'
 import { strava } from './lib/strava'
+import { zoneAt } from './lib/workout'
 import { builder, type ReturnTo } from './lib/workoutDraft'
 
 const EMPTY = '--'
@@ -484,6 +487,9 @@ export default function App() {
   const power = live && s.powerW !== null ? String(s.powerW) : EMPTY
   const cadence = live && s.cadenceRpm !== null ? String(s.cadenceRpm) : EMPTY
   const speed = live && s.speedMph !== null ? s.speedMph.toFixed(1) : EMPTY
+  // The zone of the power on screen (smoothed), from the same list as ZoneTable and the strip. Hidden when the number is not live.
+  const zoneNow = dimLive || s.powerW === null ? null : zoneAt((s.powerW / s.profile.ftpW) * 100, s.profile.ftpW)
+  const zone = useHeld(zoneNow, ZONE_HOLD_S * 1000)
 
   return (
     <div className="flex min-h-full flex-col">
@@ -686,6 +692,7 @@ export default function App() {
               dim={dimLive || s.powerW === null}
               dense={dense}
               empty={power === EMPTY}
+              zone={zone}
               enterDelayMs={FIRST_DATA_STAGGER_MS * 0}
               className={`border-b border-line xl:border-r xl:border-b-0 ${pad}`}
               action={
