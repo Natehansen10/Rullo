@@ -2,9 +2,9 @@
 
 A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, heart rate, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, runs structured workouts in ERG (built-ins, imported ZWO files, or ones you build in the app), saves every second to the browser, and exports a FIT file.
 
-**Live:** https://weem-watts.vercel.app
+**Live:** https://rullo.vercel.app
 
-**Try it without the bike:** https://weem-watts.vercel.app/?fake=1
+**Try it without the bike:** https://rullo.vercel.app/?fake=1
 
 Chrome or Edge on desktop only (needs Web Bluetooth).
 
@@ -211,7 +211,7 @@ Import your own GPX on the **Profile** tab. An imported course is picked in step
 
 ## Ride with the Kickr
 
-1. Open https://weem-watts.vercel.app in Chrome or Edge.
+1. Open https://rullo.vercel.app in Chrome or Edge.
 2. Close the Wahoo app and Zwift on your phone and computer. The Kickr allows only one controlling connection.
 3. Press **Connect** and pick the Kickr in the browser's device list. The status shows **Not recording**. Power, cadence and speed are live and the trainer already takes your resistance level, ERG target or the course's grade, but time and distance stay at zero and nothing is saved.
 4. Press **Start ride** (**Start workout** with a workout loaded). It is the blue button where Connect was. Time, distance and the recording start from zero at that moment. If you forget, the ride is not saved. Pressed while you are not pedaling, the ride starts paused at 0:00 and begins on your first pedal stroke. Press **Disconnect** to back out before Start. You can still change the course or workout on the Workout tab until you press Start.
@@ -254,13 +254,13 @@ Speed comes from power on a flat road, not from the trainer, so it reads the sam
 
 ## Deploy
 
-Hosted on Vercel at https://weem-watts.vercel.app. The GitHub repo is connected, so every push to `main` deploys automatically. Vercel detects Vite: build `npm run build`, output `dist`.
+Hosted on Vercel at https://rullo.vercel.app. The GitHub repo is connected, so every push to `main` deploys automatically. The app used to live at `weem-watts.vercel.app`. Rides are saved per address, so rides made there do not show up here: on the old address, open **Profile** and press **Back up**, then press **Restore** on the new one. Vercel detects Vite: build `npm run build`, output `dist`.
 
 The app runs entirely in the browser, with one exception: Strava upload. Strava's sign-in needs a client secret that must not reach a browser, so four small functions in `/api/strava` do that part. They keep nothing: no database, no accounts, no logs of tokens or rides. Everything else works without them.
 
 **To turn Strava upload on:**
 
-1. Create an API application at https://www.strava.com/settings/api. Set **Authorization Callback Domain** to `weem-watts.vercel.app`.
+1. Create an API application at https://www.strava.com/settings/api. Set **Authorization Callback Domain** to `rullo.vercel.app`.
 2. In the Vercel project, open Settings, Environment Variables, and add `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` from that page, for Production. Never put the secret in a file, a commit or a chat.
 3. Redeploy (Deployments, the latest one, Redeploy), so the functions see the variables.
 
