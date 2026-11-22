@@ -124,6 +124,19 @@ export function backupFileName(t: number): string {
   return `rullo-backup-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.json`
 }
 
+/** When this rider last pressed Back up on this browser. Per rider: it is in `RIDER_KEYS`. */
+const LAST_BACKUP_KEY = 'ww.lastBackupAt'
+
+/** The time of the rider's last backup from this browser, or null when there has been none. */
+export function lastBackupAt(): number | null {
+  try {
+    const t = Number(localStorage.getItem(LAST_BACKUP_KEY))
+    return Number.isFinite(t) && t > 0 ? t : null
+  } catch {
+    return null
+  }
+}
+
 /** Build the backup and hand it to the browser as a download. */
 export async function downloadBackup(): Promise<BackupCounts> {
   const { file, counts } = await buildBackup()
@@ -135,6 +148,11 @@ export async function downloadBackup(): Promise<BackupCounts> {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 10000)
+  try {
+    localStorage.setItem(LAST_BACKUP_KEY, String(file.exportedAt))
+  } catch {
+    // storage unavailable: the file was still made
+  }
   return counts
 }
 

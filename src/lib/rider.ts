@@ -34,6 +34,8 @@ const RIDER_KEYS = [
   'ww.builderList',
   // The rider's Strava connection: one rider's rides must never upload to another rider's Strava.
   'ww.strava',
+  // When the rider last backed up: one rider's backup says nothing about another's rides.
+  'ww.lastBackupAt',
 ] as const
 
 export const MAX_RIDER_NAME_CHARS = 30

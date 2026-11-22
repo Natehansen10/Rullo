@@ -29,7 +29,7 @@ import {
 } from './config'
 import { useHeld } from './hooks/useHeld'
 import { ride, useRide } from './hooks/useRide'
-import { go, href, isRoute, useRoute, useSummaryId } from './hooks/useRoute'
+import { go, goProfile, href, isRoute, profileHref, useProfileSection, useRoute, useSummaryId } from './hooks/useRoute'
 import { downloadBackup, restoreBackup } from './lib/backup'
 import * as recorder from './lib/recorder'
 import { addRider, listRiders, onRiderChanged, removeRider, renameRider, switchRider } from './lib/rider'
@@ -244,6 +244,7 @@ export default function App() {
   const endedAtRef = useRef(0)
   const route = useRoute()
   const summaryId = useSummaryId()
+  const profileSection = useProfileSection()
   /** The outcome of the last back up or restore, shown on the Profile tab. */
   const [backupNote, setBackupNote] = useState<string | null>(null)
 
@@ -384,7 +385,7 @@ export default function App() {
     void strava.finishSignIn().then(async (back) => {
       if (!back) return
       if (back.rideId !== null && (await ride.reopenEnded(back.rideId))) go('ride')
-      else go('profile')
+      else goProfile('data')
     })
   }, [])
 
@@ -504,7 +505,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           {/* Only on a shared browser: with one rider there is nothing to tell apart. */}
           {riders && riders.riders.length > 1 && riderName && (
-            <a href={href('profile')} aria-label={`Riding as ${riderName}. Switch on the Profile tab.`} title={riderName}
+            <a href={profileHref('riders')} aria-label={`Riding as ${riderName}. Switch on the Profile tab.`} title={riderName}
               className="ww-label hidden max-w-[14ch] shrink-0 truncate no-underline hover:text-fg xl:block">
               {riderName}
             </a>
@@ -553,7 +554,7 @@ export default function App() {
                   onUpload={() => void onUpload()}
                   onConnect={() => {
                     strava.clearMessage()
-                    go('profile')
+                    goProfile('data')
                   }}
                 />
               )}
@@ -583,6 +584,8 @@ export default function App() {
       ) : route === 'profile' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
           <ProfilePage
+            section={profileSection}
+            ridePhase={s.phase}
             profile={s.profile}
             onChange={ride.setProfile}
             editable={s.canEditProfile}

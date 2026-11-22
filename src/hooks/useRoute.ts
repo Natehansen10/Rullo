@@ -12,11 +12,18 @@ export type Route = (typeof ROUTES)[number]
 const HASH: Record<Route, string> = { home: '#/', ride: '#/ride', workout: '#/workout', profile: '#/profile', builder: '#/workout/build', summary: '#/rides' }
 /** One finished ride's summary: `#/rides/12`. A side trip from Home, not a tab of its own. */
 const SUMMARY = /^#\/rides\/(\d+)$/
+/**
+ * The Profile tab shows one section at a time: `#/profile` is the first
+ * ("Your numbers"), `#/profile/data` another. An unknown section is the first.
+ */
+export const PROFILE_SECTIONS = ['numbers', 'riders', 'files', 'data'] as const
+export type ProfileSection = (typeof PROFILE_SECTIONS)[number]
+const PROFILE = /^#\/profile(?:\/([a-z]+))?$/
 
 function current(): Route {
   const h = window.location.hash
   if (SUMMARY.test(h)) return 'summary'
-  return h === HASH.ride ? 'ride' : h === HASH.workout ? 'workout' : h === HASH.profile ? 'profile' : h === HASH.builder ? 'builder' : 'home'
+  return h === HASH.ride ? 'ride' : h === HASH.workout ? 'workout' : PROFILE.test(h) ? 'profile' : h === HASH.builder ? 'builder' : 'home'
 }
 
 function subscribe(fn: () => void) {
@@ -52,4 +59,22 @@ export function useSummaryId(): number | null {
 
 export function summaryHref(rideId: number): string {
   return `${HASH.summary}/${rideId}`
+}
+
+function profileSection(): ProfileSection {
+  const name = PROFILE.exec(window.location.hash)?.[1]
+  return PROFILE_SECTIONS.find((p) => p === name) ?? 'numbers'
+}
+
+/** The section of the Profile tab the address names. */
+export function useProfileSection(): ProfileSection {
+  return useSyncExternalStore(subscribe, profileSection)
+}
+
+export function profileHref(section: ProfileSection): string {
+  return section === 'numbers' ? HASH.profile : `${HASH.profile}/${section}`
+}
+
+export function goProfile(section: ProfileSection): void {
+  window.location.hash = profileHref(section).slice(1)
 }
