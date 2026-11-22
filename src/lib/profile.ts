@@ -55,6 +55,18 @@ export function loadProfile(): Profile {
   return DEFAULT_PROFILE
 }
 
+/**
+ * Whether the rider has ever set a number. Until then the profile is the
+ * app's starting numbers, and the Profile tab says so.
+ */
+export function hasSavedProfile(): boolean {
+  try {
+    return localStorage.getItem(KEY) !== null
+  } catch {
+    return false
+  }
+}
+
 export function saveProfile(p: Profile): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(p))

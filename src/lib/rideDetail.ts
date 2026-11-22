@@ -13,7 +13,11 @@ export interface RideDetail {
   ride: recorder.RideRow
   totals: RideTotals
   bests: Bests
-  /** Seconds in each zone, Z1 first, at the FTP given. */
+  /** The FTP the zones are worked out at: the ride's own when it saved one, else the FTP given. */
+  zoneFtpW: number
+  /** Whether that FTP is the one the ride was ridden at. */
+  ownFtp: boolean
+  /** Seconds in each zone, Z1 first, at `zoneFtpW`. */
   zoneS: number[]
   /** One value per recorded second (moving time; pauses take no room). */
   powerW: number[]
@@ -38,11 +42,13 @@ export async function loadRideDetail(id: number, ftpW: number): Promise<RideDeta
   if (!ride || ride.status !== 'ended') return null
   const samples = await recorder.getSamples(id)
   if (samples.length === 0) return null
+  const ownFtp = typeof ride.ftpW === 'number' && ride.ftpW > 0
+  const zoneFtpW = ownFtp ? (ride.ftpW as number) : ftpW
   const zoneS = ZONES.map(() => 0)
   const lapStarts: number[] = []
   const stops: number[] = []
   samples.forEach((s, i) => {
-    zoneS[zoneOfWatts(s.powerW, ftpW) - 1]++
+    zoneS[zoneOfWatts(s.powerW, zoneFtpW) - 1]++
     if (i > 0 && s.lap !== samples[i - 1].lap) lapStarts.push(i)
     if (i > 0 && stoppedBetween(samples[i - 1], s)) stops.push(i)
   })
@@ -50,6 +56,8 @@ export async function loadRideDetail(id: number, ftpW: number): Promise<RideDeta
     ride,
     totals: rideTotals(samples),
     bests: bestsOf(samples),
+    zoneFtpW,
+    ownFtp,
     zoneS,
     powerW: samples.map((s) => s.powerW),
     cadenceRpm: samples.map((s) => s.cadenceRpm),

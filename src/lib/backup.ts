@@ -10,7 +10,7 @@
  */
 import { customFromRow } from './customWorkouts'
 import { MAX_GPX_BYTES } from './gpx'
-import { normalizeProfile, type Profile } from './profile'
+import { normalizeProfile, PROFILE_LIMITS, type Profile } from './profile'
 import * as recorder from './recorder'
 import { cleanRiderName, currentRider, isRiderId, knownRiderIds, renameRider, type Rider } from './rider'
 import type { CustomWorkoutRow, ImportedCourseRow, ImportedWorkoutRow, RideRow, SampleRow } from './recorder'
@@ -32,7 +32,7 @@ const MAX_SETTING_CHARS = 4000
 
 const PROFILE_KEY = 'ww.profile'
 /** Settings that travel with a backup. Each is restored only where this browser has none saved. */
-const SETTING_KEYS = [PROFILE_KEY, 'ww.resistancePct', 'ww.mode', 'ww.gradeFeelPct', 'ww.ergW', 'ww.builderUnit', 'ww.builderList'] as const
+const SETTING_KEYS = [PROFILE_KEY, 'ww.resistancePct', 'ww.mode', 'ww.gradeFeelPct', 'ww.ergW', 'ww.builderUnit', 'ww.builderList', 'ww.ftpHistory'] as const
 
 /** Sample fields every sample has, then the ones only some rides have. Each is one column in the file. */
 const REQUIRED = ['powerW', 'cadenceRpm', 'speedMps', 'distanceM'] as const
@@ -45,6 +45,8 @@ interface BackupRide {
   startOffsetM?: number
   workoutId?: string
   workoutSnapshot?: unknown
+  /** The rider's FTP when the ride started. Rides saved before Nov 22, 2026 have none. */
+  ftpW?: number
   /** Columns, one value per sample. `t` is ms after the first sample's time `t0`. Optional columns hold null where a sample has none. */
   samples: { t0: number; t: number[] } & Record<string, unknown>
 }
@@ -90,6 +92,7 @@ export async function buildBackup(): Promise<{ file: BackupFile; counts: BackupC
       ...(r.startOffsetM !== undefined ? { startOffsetM: r.startOffsetM } : {}),
       ...(r.workoutId !== undefined ? { workoutId: r.workoutId } : {}),
       ...(r.workoutSnapshot !== undefined ? { workoutSnapshot: r.workoutSnapshot } : {}),
+      ...(r.ftpW !== undefined ? { ftpW: r.ftpW } : {}),
       samples: columns(samples),
     })
   }
@@ -124,6 +127,19 @@ export function backupFileName(t: number): string {
   return `rullo-backup-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.json`
 }
 
+/** When this rider last pressed Back up on this browser. Per rider: it is in `RIDER_KEYS`. */
+const LAST_BACKUP_KEY = 'ww.lastBackupAt'
+
+/** The time of the rider's last backup from this browser, or null when there has been none. */
+export function lastBackupAt(): number | null {
+  try {
+    const t = Number(localStorage.getItem(LAST_BACKUP_KEY))
+    return Number.isFinite(t) && t > 0 ? t : null
+  } catch {
+    return null
+  }
+}
+
 /** Build the backup and hand it to the browser as a download. */
 export async function downloadBackup(): Promise<BackupCounts> {
   const { file, counts } = await buildBackup()
@@ -135,6 +151,11 @@ export async function downloadBackup(): Promise<BackupCounts> {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 10000)
+  try {
+    localStorage.setItem(LAST_BACKUP_KEY, String(file.exportedAt))
+  } catch {
+    // storage unavailable: the file was still made
+  }
   return counts
 }
 
@@ -202,6 +223,8 @@ function readRide(v: unknown): ImportRide {
   }
   // Kept as it came: the app already treats a ride's workout copy as untrusted when it reads it.
   if (isObject(v.workoutSnapshot)) ride.workoutSnapshot = v.workoutSnapshot
+  // A ride with no FTP, or one out of range, simply has none: its zones then use the FTP of the day it is looked at.
+  if (isNum(v.ftpW) && v.ftpW >= PROFILE_LIMITS.ftpW[0] && v.ftpW <= PROFILE_LIMITS.ftpW[1]) ride.ftpW = Math.round(v.ftpW)
   return { ride, samples }
 }
 

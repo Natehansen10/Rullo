@@ -41,6 +41,7 @@ import { createFakeTrainer, isFakeMode } from './fakeTrainer'
 import { createBleHeartRate, type HeartRateSensor, type HeartRateStatus } from './heartRate'
 import { buildFit, downloadFit, type RideOrigin } from './fit'
 import { FEET_PER_METER, METERS_PER_MILE, MPS_TO_MPH, SpeedModel } from './physics'
+import { logFtpChange, type FtpSource } from './ftpHistory'
 import { loadProfile, normalizeProfile, riderParams, saveProfile, type Profile } from './profile'
 import * as recorder from './recorder'
 import { PowerSmoother } from './smoothing'
@@ -784,8 +785,10 @@ export class RideController {
   applyTestFtp = () => {
     const live = this.workoutLive()?.rampTest
     if (!live?.ftpW) return
+    const fromW = this.profile.ftpW
     this.profile = normalizeProfile({ ...this.profile, ftpW: live.ftpW })
     saveProfile(this.profile)
+    logFtpChange(fromW, this.profile.ftpW, 'ramp')
     this.testApplied = true
     this.emit()
   }
@@ -1267,7 +1270,7 @@ export class RideController {
         this.workout?.id,
         // A custom workout can be edited or deleted later; the ride keeps its own copy for recovery.
         this.workout?.source === 'custom' ? snapshotOf(this.workout) : undefined,
-        { origin: this.rideOrigin, name: this.rideName },
+        { origin: this.rideOrigin, name: this.rideName, ftpW: this.profile.ftpW },
       )
       .then((id) => {
         this.rideRowId = id
@@ -1577,11 +1580,14 @@ export class RideController {
 
   // --- rider profile ---
 
-  setProfile = (p: Partial<Profile>) => {
+  /** `ftpSource` says where a new FTP came from, for the FTP history: typed unless told otherwise. */
+  setProfile = (p: Partial<Profile>, ftpSource: FtpSource = 'typed') => {
     // Open until Start, like the setup: connected and waiting is not a ride yet.
     if (this.phase === 'riding') return
+    const fromW = this.profile.ftpW
     this.profile = normalizeProfile({ ...this.profile, ...p })
     saveProfile(this.profile)
+    logFtpChange(fromW, this.profile.ftpW, ftpSource)
     this.speed.setRider(riderParams(this.profile))
     this.emit()
   }

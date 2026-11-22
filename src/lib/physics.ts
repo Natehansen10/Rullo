@@ -50,15 +50,19 @@ function resistiveForce(r: RiderParams, v: number, grade = 0): number {
   return r.massKg * G * (CRR * Math.cos(a) + Math.sin(a)) + 0.5 * AIR_DENSITY * r.cdaM2 * v * v
 }
 
-/** Steady-state speed (m/s) for a constant power on a flat road. */
-export function steadySpeedMps(r: RiderParams, powerW: number): number {
+/**
+ * Steady-state speed (m/s) for a constant power: on a flat road, or on a
+ * steady grade (rise over run, 0.05 for 5%) when one is given.
+ */
+export function steadySpeedMps(r: RiderParams, powerW: number, grade = 0): number {
   const p = Math.max(0, powerW) * DRIVETRAIN_EFFICIENCY
   if (p === 0) return 0
+  const a = Math.atan(grade)
   // Newton's method on f(v) = F(v) * v - p
   let v = 8
   for (let i = 0; i < 30; i++) {
-    const f = resistiveForce(r, v) * v - p
-    const df = r.massKg * G * CRR + 1.5 * AIR_DENSITY * r.cdaM2 * v * v
+    const f = resistiveForce(r, v, grade) * v - p
+    const df = r.massKg * G * (CRR * Math.cos(a) + Math.sin(a)) + 1.5 * AIR_DENSITY * r.cdaM2 * v * v
     const next = v - f / df
     if (Math.abs(next - v) < 1e-6) return Math.max(0, next)
     v = Math.max(0.1, next)
