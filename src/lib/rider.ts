@@ -39,6 +39,8 @@ const RIDER_KEYS = [
   // The rider's FTP over time, and the suggested FTP they turned down.
   'ww.ftpHistory',
   'ww.ftpSuggestionDismissedW',
+  // Interval sounds on or off.
+  'ww.intervalSounds',
 ] as const
 
 export const MAX_RIDER_NAME_CHARS = 30
