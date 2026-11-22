@@ -486,3 +486,10 @@
     transition: transform var(--ww-glide-for, var(--ww-dur-glide)) linear;
   }
 }
+
+@layer components {
+  /* StatusPill: its width follows the label (set from StatusPill.tsx) and eases when the words change. */
+  .ww-pill {
+    transition: width var(--ww-dur-base) var(--ww-ease);
+  }
+}

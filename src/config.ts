@@ -117,3 +117,9 @@ export const GRADE_SEND_EVERY_MS = 1000
 export const INTENSITY_STEPS_PCT = [1, 5, 10] as const
 export const INTENSITY_MIN_PCT = 50
 export const INTENSITY_MAX_PCT = 150
+
+/**
+ * Motion (see "Motion" in DESIGN.md; durations are tokens in src/styles/tokens.css).
+ * First data: Power, Cadence and Speed enter this far apart when their first readings land.
+ */
+export const FIRST_DATA_STAGGER_MS = 40
