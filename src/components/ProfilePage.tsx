@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { POSITIONS, type Position } from '../config'
 import { PROFILE_SECTIONS, profileHref, type ProfileSection } from '../hooks/useRoute'
-import { lastBackupAt } from '../lib/backup'
+import { BACKUP_NUDGE_RIDES, lastBackupAt, ridesSinceBackup } from '../lib/backup'
 import { dismissFtpSuggestion, FTP_SOURCE_LABEL, loadFtpHistory, SUGGEST_DAYS, suggestFtp } from '../lib/ftpHistory'
 import { loadHistory, peekHistory, type RideSummary } from '../lib/history'
 import { MPS_TO_MPH, steadySpeedMps } from '../lib/physics'
 import { hasSavedProfile, riderParams, type Profile } from '../lib/profile'
 import { dateOf } from '../lib/rideFormat'
+import { askToKeep, formatBytes, storageStatus, type StorageStatus } from '../lib/storage'
 import { MAX_RIDER_NAME_CHARS, MAX_RIDERS, type Riders } from '../lib/rider'
 import type { CourseOption, WorkoutOption } from '../lib/ride'
 import { formatDuration } from '../lib/workout'
@@ -359,6 +360,31 @@ export function ProfilePage({
 
   // Read again after a back up, a restore or a change to the numbers: each can change the answer.
   const backedUpAt = useMemo(() => lastBackupAt(), [backupNote])
+  const unsaved = rides ? ridesSinceBackup(rides, backedUpAt) : 0
+
+  /** What the browser says about this site's storage. Null until it answers; read again after a back up or a restore. */
+  const [storage, setStorage] = useState<StorageStatus | null>(null)
+  /** The outcome of asking the browser to keep the data, in plain words. */
+  const [keepNote, setKeepNote] = useState<string | null>(null)
+  useEffect(() => {
+    if (section !== 'data') return
+    let live = true
+    void storageStatus().then((st) => live && setStorage(st))
+    return () => {
+      live = false
+    }
+  }, [section, backupNote, ridePhase])
+  const onKeep = () => {
+    void askToKeep().then(async (kept) => {
+      setKeepNote(
+        kept
+          ? null
+          : 'This browser said no for now. Browsers decide this on their own, so it may say yes later. A backup file is the sure way.',
+      )
+      setStorage(await storageStatus())
+    })
+  }
+
   const starting = useMemo(() => !hasSavedProfile(), [profile, backupNote])
 
   /** Oldest first. Read again when the FTP changes, and after a restore, which can bring a history with it. */
@@ -398,6 +424,14 @@ export function ProfilePage({
               <Fact label="Riding since" value={since !== null ? day(since) : EMPTY} dim={since === null} />
               <Fact label="Last backup" value={backedUpAt !== null ? day(backedUpAt) : 'Never'} dim={backedUpAt === null} />
             </dl>
+            {unsaved >= BACKUP_NUDGE_RIDES && (
+              <p className="border-t border-line px-6 py-3 text-fg">
+                {unsaved} rides are not in a backup.{' '}
+                <a className="ww-link" href={profileHref('data')}>
+                  Back up
+                </a>
+              </p>
+            )}
           </section>
 
           <nav aria-label="Profile sections" className="flex flex-col gap-1">
@@ -666,7 +700,7 @@ export function ProfilePage({
                   label="Back up everything"
                   help={`One file: your rides, courses, workouts, profile and settings. ${
                     backedUpAt !== null ? `Last backed up ${day(backedUpAt)}.` : 'Not backed up from this browser yet.'
-                  }`}
+                  }${unsaved > 0 ? ` ${unsaved} ${unsaved === 1 ? 'ride is' : 'rides are'} not in a backup.` : ''}`}
                 >
                   <Button onClick={onBackup}>Back up</Button>
                 </Row>
@@ -693,6 +727,30 @@ export function ProfilePage({
                 {backupNote && (
                   <p className="border-t border-line px-6 py-3 text-fg" aria-live="polite">
                     {backupNote}
+                  </p>
+                )}
+              </section>
+
+              <section aria-label="Storage" className="rounded-lg border border-line bg-surface">
+                <Row
+                  label="Storage in this browser"
+                  help={
+                    storage === null
+                      ? 'Asking the browser.'
+                      : `${storage.usedBytes !== null ? `Rullo uses ${formatBytes(storage.usedBytes)} here. ` : ''}${
+                          storage.kept === true
+                            ? 'This browser has agreed not to clear it on its own. Clearing site data yourself still wipes it.'
+                            : storage.kept === false
+                              ? 'This browser may clear it if the disk runs low.'
+                              : 'This browser does not say whether it may clear it.'
+                        }`
+                  }
+                >
+                  {storage?.kept === false && <Button onClick={onKeep}>Ask to keep it</Button>}
+                </Row>
+                {keepNote && storage?.kept !== true && (
+                  <p className="border-t border-line px-6 py-3 text-fg" aria-live="polite">
+                    {keepNote}
                   </p>
                 )}
               </section>
