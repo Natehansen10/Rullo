@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { RideSnapshot } from '../lib/ride'
 import { METERS_PER_MILE } from '../lib/physics'
+import { MOVE_ANY, MOVE_STEP, moveLayout, moveStyle } from '../lib/viewTransition'
 import { formatDuration } from '../lib/workout'
 import { Button } from './Button'
 import { CoursePicker } from './CoursePicker'
@@ -75,6 +76,10 @@ function setupDetail(x: Setup): string {
   return where ? `${where} · ${what}` : what
 }
 
+/** Layout moves (see moveLayout): the step's content slides, and the setup line under it moves to its new place. */
+const STEP_BODY = moveStyle('ww-step')
+const SETUP_LINE = moveStyle('ww-setup-line')
+
 const STEPS = [
   { title: '1. Choose your course', help: 'Where you ride. The course sets elevation, speed and distance.' },
   { title: '2. Choose your workout', help: 'What the trainer does. A workout sets power targets; a free ride leaves it to the course or to you.' },
@@ -105,6 +110,10 @@ export function WorkoutPage({
   onDetail,
 }: WorkoutPageProps) {
   const locked = !s.canChooseCourse
+  /** Step slide: forward comes in from the right, back from the left. */
+  const goStep = (to: 0 | 1) => void moveLayout(() => setStep(to), to > step ? 'step-next' : 'step-back')
+  /** Looking at a workout, or back to the grid: the card opens into the overview and closes back into the card. */
+  const setDetail = (id: string | null) => void moveLayout(() => onDetail(id), 'open')
   // Locked: the ride's own setup. Otherwise: the picks on this tab, and what the Ride tab has if that differs.
   const shown = locked ? rideSetup(s) : stagedSetup(s)
   const summary = (
@@ -141,7 +150,7 @@ export function WorkoutPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
+      <div className={`flex flex-col gap-1 ${MOVE_STEP}`} style={moveStyle('ww-step-head')}>
         <span className="font-mono text-mono text-fg-subtle">Step {step + 1} of 2</span>
         <h1 className="text-title font-semibold text-fg">{STEPS[step].title}</h1>
         <p className="text-fg-muted">{STEPS[step].help}</p>
@@ -149,16 +158,26 @@ export function WorkoutPage({
       {notice}
       {step === 0 ? (
         <>
-          <CoursePicker courses={s.courses} loaded={s.coursesLoaded} selected={s.staged.course} onSelect={onStageCourse} onStartMi={onStartMi} />
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4">
+          <div className={MOVE_STEP} style={STEP_BODY}>
+            <CoursePicker
+              courses={s.courses}
+              loaded={s.coursesLoaded}
+              selected={s.staged.course}
+              // The overview opens under the grid and the setup line moves down to make room.
+              onSelect={(id) => void moveLayout(() => onStageCourse(id), 'course')}
+              onStartMi={onStartMi}
+            />
+          </div>
+          <div className={`flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4 ${MOVE_ANY}`} style={SETUP_LINE}>
             {summary}
-            <Button variant="primary" onClick={() => setStep(1)}>
+            <Button variant="primary" onClick={() => goStep(1)}>
               Next: choose your workout
             </Button>
           </div>
         </>
       ) : (
         <>
+          <div className={MOVE_STEP} style={STEP_BODY}>
           <WorkoutPicker
             workouts={s.workouts}
             loaded={s.workoutsLoaded}
@@ -168,17 +187,18 @@ export function WorkoutPage({
             ftpW={s.profile.ftpW}
             onFreeRide={() => onStageWorkout(null)}
             detail={detail}
-            onDetail={onDetail}
+            onDetail={setDetail}
             onRide={onConfirm}
             onNew={onNewWorkout}
             onEdit={onEditWorkout}
             onCopy={onCopyWorkout}
             onRemove={onRemoveWorkout}
           />
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4">
+          </div>
+          <div className={`flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4 ${MOVE_ANY}`} style={SETUP_LINE}>
             {summary}
             <div className="flex shrink-0 gap-3">
-              <Button onClick={() => setStep(0)}>Back</Button>
+              <Button onClick={() => goStep(0)}>Back</Button>
               {/* In a workout's overview, "Ride this workout" is the one primary button. */}
               {!detail && (
                 // Confirms exactly the line beside it: the picked course with the picked workout or free ride.
