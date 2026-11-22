@@ -176,6 +176,8 @@ export function WorkoutStrip({
         {posX !== null && (
           <>
             <rect x={0} y={0} width={posX} height={h} fill="var(--ww-surface)" opacity={0.6} />
+            {/* Two-tone, like the outline below: Olive alone is 2.3:1 on z3, so it gets a 1px surface hairline on each side. */}
+            <line x1={posX} x2={posX} y1={0} y2={h} stroke="var(--ww-surface)" strokeWidth={4.5} />
             <line x1={posX} x2={posX} y1={0} y2={h} stroke="var(--ww-accent)" strokeWidth={2.5} />
           </>
         )}
