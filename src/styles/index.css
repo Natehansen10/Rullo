@@ -168,12 +168,14 @@
     margin-left: var(--ww-space-1);
     letter-spacing: 0;
   }
+  /* The Rullo wordmark, solid version (under 48px tall). The SVG is a mask, so the color is a token. */
   .ww-wordmark {
-    font-size: var(--ww-title-size);
-    font-weight: 600;
-    font-stretch: var(--ww-num-stretch);
-    letter-spacing: -0.01em;
-    color: var(--ww-fg);
+    display: block;
+    height: var(--ww-wordmark-height);
+    aspect-ratio: 1583 / 511;
+    background-color: var(--ww-fg);
+    -webkit-mask: url('/brand/rullo-wordmark-solid.svg') center / contain no-repeat;
+    mask: url('/brand/rullo-wordmark-solid.svg') center / contain no-repeat;
   }
   .ww-label {
     font-size: var(--ww-label-size);

@@ -16,7 +16,7 @@ const variants: Record<Variant, string> = {
   danger: 'bg-raised text-state-over border-state-over hover:bg-surface',
 }
 
-/** Cobalt (primary) is for the one main action on screen. */
+/** Olive (primary) is for the one main action on screen. */
 export function Button({ variant = 'secondary', size = 'md', className = '', type = 'button', ...rest }: ButtonProps) {
   return (
     <button

@@ -487,8 +487,9 @@ export default function App() {
     <div className="flex min-h-full flex-col">
       <header className="flex items-center justify-between gap-6 border-b border-line px-8 py-4">
         <div className="flex items-center gap-8">
-          <a href={href('home')} className="ww-wordmark no-underline">
-            Weem Watts
+          <a href={href('home')} className="flex items-center no-underline">
+            {/* The solid wordmark: the full one's inline cuts close up under 48px. */}
+            <span className="ww-wordmark" role="img" aria-label="Rullo" />
           </a>
           <TabNav tabs={TABS} current={route === 'builder' ? 'workout' : route === 'summary' ? 'home' : route} />
         </div>
@@ -646,7 +647,7 @@ export default function App() {
           <h1 className="sr-only">Ride</h1>
           {!s.supported && (
             <Notice title="This browser can't connect to your trainer">
-              Web Bluetooth is not available here. Open Weem Watts in Chrome or Edge on a desktop computer.
+              Web Bluetooth is not available here. Open Rullo in Chrome or Edge on a desktop computer.
             </Notice>
           )}
           {s.connection.kind === 'failed' && (

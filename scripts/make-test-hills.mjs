@@ -50,7 +50,7 @@ const trkpts = pts
   .map((p) => `      <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"><ele>${p.ele.toFixed(1)}</ele></trkpt>`)
   .join('\n')
 const gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Weem Watts test course generator" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="Rullo test course generator" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>Test Hills</name><desc>Made-up 12 mile loop for testing: a 1.5 mi climb at 6%, rollers, and a steep kicker.</desc></metadata>
   <trk>
     <name>Test Hills</name>

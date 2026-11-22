@@ -1,4 +1,4 @@
-# Weem Watts
+# Rullo
 
 A free browser app for riding a Wahoo Kickr Core 2. It shows live power, cadence, heart rate, speed, distance, and time, lets you change resistance or hold a target power (ERG) while riding in one gear, rides GPX courses with an elevation profile, runs structured workouts in ERG (built-ins, imported ZWO files, or ones you build in the app), saves every second to the browser, and exports a FIT file.
 
@@ -132,7 +132,7 @@ The Ride tab has a **Heart rate** tile. It reads any standard Bluetooth heart ra
 - **Disconnect** is in the same tile. After a page reload, Chrome needs you to pick the sensor again.
 - No zones or targets. The tile is a number.
 
-**Apple Watch.** The watch does not broadcast heart rate on its own. A relay app makes it show up as a standard sensor. None of these has been tested with Weem Watts yet:
+**Apple Watch.** The watch does not broadcast heart rate on its own. A relay app makes it show up as a standard sensor. None of these has been tested with Rullo yet:
 
 | App | Runs on | Needs |
 | --- | --- | --- |
@@ -140,13 +140,13 @@ The Ride tab has a **Heart rate** tile. It reads any standard Bluetooth heart ra
 | HeartCast | Watch and iPhone | The iPhone nearby with the app open; the phone is what the browser sees. |
 | HR Broadcast | Watch and iPhone | The same: the phone relays the watch. |
 
-Start the session on the watch (in the relay app). Weem Watts cannot start it for you; it only listens. A strap works the same way with no app at all.
+Start the session on the watch (in the relay app). Rullo cannot start it for you; it only listens. A strap works the same way with no app at all.
 
 ### Back up and restore
 
 Everything is saved in this browser only. Clearing site data wipes it, and another browser or computer starts empty.
 
-- **Back up** downloads one file (`weem-watts-backup-<date>.json`) with your finished rides, courses, workouts, profile and settings. About 220 KB per hour ridden.
+- **Back up** downloads one file (`rullo-backup-<date>.json`) with your finished rides, courses, workouts, profile and settings. About 220 KB per hour ridden. A backup made when the app was called Weem Watts (`weem-watts-backup-<date>.json`) still restores.
 - **Restore** reads a backup file and adds the rides, courses and workouts this browser does not have. It never changes or removes anything already here, so restoring twice is safe. Your profile and settings are restored only where this browser has none saved.
 - A damaged file, or one that is not a backup, is refused and nothing is changed.
 - A ride that was never ended is not in a backup. End it first.
@@ -156,12 +156,12 @@ Everything is saved in this browser only. Clearing site data wipes it, and anoth
 
 After a ride, **Upload to Strava** sends the ride to your Strava account. It is always a click; nothing is uploaded on its own.
 
-1. **Connect once.** Open **Profile**, scroll to **Strava**, and press **Connect with Strava**. Strava asks you to allow Weem Watts to upload activities. That is the only permission it asks for; it reads nothing from your account. Leave the box checked and approve.
+1. **Connect once.** Open **Profile**, scroll to **Strava**, and press **Connect with Strava**. Strava asks you to allow Rullo to upload activities. That is the only permission it asks for; it reads nothing from your account. Leave the box checked and approve.
 2. **Ride**, then press **End Ride** and **Confirm end**.
 3. Press **Upload to Strava**, beside Download FIT. It reads "Uploading to Strava", then "Strava is processing", then turns into **View on Strava**, a link to the activity.
 
 - **What the activity contains:** the same FIT file Download FIT gives you. Power, cadence, speed, distance, one lap per workout interval, moving time, heart rate if a sensor was connected, work and calories, and elevation on a course. It is posted as a Virtual Ride on a trainer, named after the setup ("Sweet Spot 3x12 on Test Hills", or "Free ride").
-- **Turn off Strava's Apple Health import for rides.** If your Apple Watch workouts sync to Strava through Apple Health, each ride will show up twice: once from the watch and once from Weem Watts. In the Strava app's settings, find the Apple Health connection and turn the automatic workout import off, or delete the watch's copy after each ride. (The exact menu was not checked here; it has moved between app versions.)
+- **Turn off Strava's Apple Health import for rides.** If your Apple Watch workouts sync to Strava through Apple Health, each ride will show up twice: once from the watch and once from Rullo. In the Strava app's settings, find the Apple Health connection and turn the automatic workout import off, or delete the watch's copy after each ride. (The exact menu was not checked here; it has moved between app versions.)
 - **Uploaded twice?** Strava spots it. The button reads "Already on Strava" with the link.
 - **If it fails** the reason is shown in plain words and Download FIT is still there. You can add the file by hand on strava.com (Upload activity, File).
 - **Not connected** when you end a ride? The button reads "Connect Strava to upload" and takes you to Profile. After you connect, the ride is waiting on the Ride tab with Upload to Strava.
