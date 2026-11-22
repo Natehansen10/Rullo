@@ -476,7 +476,7 @@ export function buildFit(samples: SampleRow[], origin?: RideOrigin): Uint8Array 
 export function fitFileName(startedAt: number): string {
   const d = new Date(startedAt)
   const p = (n: number) => String(n).padStart(2, '0')
-  return `weem-watts-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.fit`
+  return `rullo-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.fit`
 }
 
 export function downloadFit(samples: SampleRow[], startedAt: number, origin?: RideOrigin): void {

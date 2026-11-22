@@ -1,5 +1,5 @@
 /*
- * Weem Watts Design System tokens.
+ * Rullo Design System tokens.
  * Single source of truth. This is the only file allowed to contain hex colors.
  * Mirrors DESIGN.md. Change a value here, nowhere else.
  */
@@ -16,11 +16,13 @@
   --ww-fg-muted: #5c5850;
   --ww-fg-subtle: #6e6960;
 
-  /* Cobalt accent: primary action, live power, route progress only */
-  --ww-accent: #1f4fd1;
-  --ww-accent-hover: #1a43b3;
-  --ww-accent-press: #163996;
+  /* Olive accent: primary action, live power, route progress only */
+  --ww-accent: #4b5320;
+  --ww-accent-hover: #42491c;
+  --ww-accent-press: #393f18;
   --ww-accent-ink: #ffffff;
+  /* The accent on a dark background. Olive on fg is 2.1:1: never use --ww-accent there. */
+  --ww-accent-on-dark: #a3ac6b;
 
   /* Channels and states (darkened to read on a light background) */
   --ww-cadence: #0f7591;
@@ -63,6 +65,7 @@
   --ww-label-weight: 500;
   --ww-label-tracking: 0.06em;
   --ww-title-size: 20px;
+  --ww-wordmark-height: 20px;
   --ww-body-size: 14px;
   --ww-mono-size: 11px;
 

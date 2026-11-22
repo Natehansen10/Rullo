@@ -16,6 +16,7 @@ import { cleanRiderName, currentRider, isRiderId, knownRiderIds, renameRider, ty
 import type { CustomWorkoutRow, ImportedCourseRow, ImportedWorkoutRow, RideRow, SampleRow } from './recorder'
 import { MAX_ZWO_BYTES } from './zwo'
 
+/** The id stays as it was before the app was renamed Rullo, so every old backup still restores. Do not rename it. */
 const FORMAT = 'weem-watts-backup'
 /** 2 added `rider`. A version 1 file has none and restores the same way otherwise. */
 const VERSION = 2
@@ -120,7 +121,7 @@ export async function buildBackup(): Promise<{ file: BackupFile; counts: BackupC
 export function backupFileName(t: number): string {
   const d = new Date(t)
   const p = (n: number) => String(n).padStart(2, '0')
-  return `weem-watts-backup-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.json`
+  return `rullo-backup-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.json`
 }
 
 /** Build the backup and hand it to the browser as a download. */
@@ -139,7 +140,7 @@ export async function downloadBackup(): Promise<BackupCounts> {
 
 // --- reading a backup ---
 
-const BAD = 'This is not a Weem Watts backup, or the file is damaged.'
+const BAD = 'This is not a Rullo backup, or the file is damaged.'
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isText = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max
@@ -226,7 +227,7 @@ function readCustom(v: unknown): CustomWorkoutRow {
 /** Check a parsed backup from top to bottom. Throws with a rider-facing message; writes nothing. */
 export function readBackup(data: unknown): { rows: recorder.ImportRows; settings: Record<string, string>; riderId: string | null; riderName: string } {
   if (!isObject(data) || data.format !== FORMAT || !isNum(data.version)) throw new Error(BAD)
-  if (data.version > VERSION) throw new Error('This backup was made by a newer Weem Watts. Reload the app to update it, then restore again.')
+  if (data.version > VERSION) throw new Error('This backup was made by a newer Rullo. Reload the app to update it, then restore again.')
   const settings: Record<string, string> = {}
   if (isObject(data.settings)) {
     for (const k of SETTING_KEYS) {

@@ -45,7 +45,7 @@ function clock(s: number): string {
 /**
  * Every interval as a block: width is duration, height is % FTP, color is the
  * power zone. Ramps are sloped. Each block is labeled with its watts (ramps as
- * start→end) when it is wide enough. The part done is washed out and a Cobalt
+ * start→end) when it is wide enough. The part done is washed out and an Olive
  * line marks the current position. Pointing at a block shows its details in an
  * overlay that is positioned over the page, so nothing around the strip moves.
  */

@@ -24,7 +24,7 @@ function niceTickMi(lengthMi: number): number {
   return 100
 }
 
-/** Course elevation profile. Cobalt marks the part ridden this ride and the current position. */
+/** Course elevation profile. Olive marks the part ridden this ride and the current position. */
 export function ElevationProfile({ live, dim = false, compact = false, note, className = '' }: ElevationProfileProps) {
   const { course } = live
   const boxRef = useRef<HTMLDivElement>(null)

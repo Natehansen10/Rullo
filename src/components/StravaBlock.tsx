@@ -43,7 +43,7 @@ export function StravaBlock({ canLeave, endedRideId }: StravaBlockProps) {
         {st.athlete
           ? row(
               `Connected as ${st.athlete}`,
-              'After a ride, press Upload to Strava. Disconnect removes Weem Watts from your Strava account.',
+              'After a ride, press Upload to Strava. Disconnect removes Rullo from your Strava account.',
               <Button onClick={() => void strava.disconnect()} disabled={st.busy}>
                 {st.busy ? 'Disconnecting' : 'Disconnect'}
               </Button>,
@@ -58,7 +58,7 @@ export function StravaBlock({ canLeave, endedRideId }: StravaBlockProps) {
               : row(
                   'Not connected',
                   canLeave
-                    ? 'Connect once. Weem Watts asks only for permission to upload, and reads nothing from your account.'
+                    ? 'Connect once. Rullo asks only for permission to upload, and reads nothing from your account.'
                     : 'End the ride first: connecting opens Strava in this tab.',
                   canLeave && (
                     <button

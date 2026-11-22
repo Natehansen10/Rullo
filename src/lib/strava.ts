@@ -303,7 +303,7 @@ class Strava {
     this.forget(
       r.status === 200 || errorOf(r) === 'unauthorized'
         ? null
-        : 'Disconnected here. Strava could not be reached to remove access: remove Weem Watts under Settings, My Apps on strava.com.',
+        : 'Disconnected here. Strava could not be reached to remove access: remove Rullo under Settings, My Apps on strava.com.',
     )
   }
 
