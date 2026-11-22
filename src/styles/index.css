@@ -434,3 +434,55 @@
     }
   }
 }
+
+@layer components {
+  /*
+   * Motion (see "Motion" in DESIGN.md). Transform and opacity only. Each of
+   * these is switched off under prefers-reduced-motion in tokens.css.
+   */
+  /* Breathe: the status dot while connecting or reconnecting. The only loop in the app. */
+  .ww-breathe {
+    animation: ww-breathe var(--ww-dur-breathe) ease-in-out infinite;
+  }
+  @keyframes ww-breathe {
+    50% {
+      opacity: 0.35;
+    }
+  }
+  /*
+   * Enter: a value arrives once, from a few pixels away. Played by mounting the
+   * element (a new React key), never by a later update of the same value.
+   */
+  .ww-enter {
+    animation: ww-enter var(--ww-enter-dur, var(--ww-dur-base)) var(--ww-ease) var(--ww-enter-delay, 0ms) both;
+  }
+  @keyframes ww-enter {
+    from {
+      opacity: var(--ww-enter-from, 0);
+      transform: translateY(var(--ww-enter-y, var(--ww-enter-shift)));
+    }
+  }
+  /* Fades for a label that is swapped or an outline that appears. */
+  .ww-fade-in {
+    animation: ww-fade-in var(--ww-fade-dur, var(--ww-dur-fast)) var(--ww-ease) both;
+  }
+  @keyframes ww-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  /* At rest it is gone, so with animations off it never shows. */
+  .ww-fade-out {
+    opacity: 0;
+    animation: ww-fade-out var(--ww-dur-fast) var(--ww-ease);
+  }
+  @keyframes ww-fade-out {
+    from {
+      opacity: 1;
+    }
+  }
+  /* Glide: a position follows the ride snapshot. Linear, and only ever forward (see useGlide). */
+  .ww-glide {
+    transition: transform var(--ww-glide-for, var(--ww-dur-glide)) linear;
+  }
+}
