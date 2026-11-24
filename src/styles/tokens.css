@@ -16,7 +16,7 @@
   --ww-fg-muted: #5c5850;
   --ww-fg-subtle: #6e6960;
 
-  /* Olive accent: primary action, live power, route progress only */
+  /* Olive accent: the primary action and route progress. Live power too, but only with zone color off (POWER_ZONE_COLOR in config.ts). */
   --ww-accent: #4b5320;
   --ww-accent-hover: #42491c;
   --ww-accent-press: #393f18;

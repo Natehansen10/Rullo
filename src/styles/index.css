@@ -919,6 +919,8 @@
    * less the space above and below that keeps it clear of the label row and
    * the number. Nothing here animates: the line is redrawn when a reading
    * arrives. Its color eases with the number's on a state change (stale, paused).
+   * With zone color on there is one path per zone (data-zone), so a path
+   * never changes zone and the only color that ever eases is the gray-out.
    */
   .ww-power-trace {
     position: absolute;
@@ -937,8 +939,42 @@
     stroke-linecap: round;
     transition: stroke var(--ww-dur-base) var(--ww-ease);
   }
+  .ww-power-trace-line[data-zone='1'] {
+    stroke: var(--ww-z1);
+  }
+  .ww-power-trace-line[data-zone='2'] {
+    stroke: var(--ww-z2);
+  }
+  .ww-power-trace-line[data-zone='3'] {
+    stroke: var(--ww-z3);
+  }
+  .ww-power-trace-line[data-zone='4'] {
+    stroke: var(--ww-z4);
+  }
+  .ww-power-trace-line[data-zone='5'] {
+    stroke: var(--ww-z5);
+  }
+  .ww-power-trace-line[data-zone='6'] {
+    stroke: var(--ww-z6);
+  }
+  .ww-power-trace-line[data-zone='7'] {
+    stroke: var(--ww-z7);
+  }
+  /* After the zone rules, so stale and paused win over every zone. */
   .ww-power-trace-dim .ww-power-trace-line {
     stroke: var(--ww-fg-subtle);
+  }
+  /*
+   * A 1px surface hairline on each side of a zone-colored line (the two-tone
+   * rule under Power zones in DESIGN.md). Four zones are under 3:1 on the
+   * target band's `raised`; with the hairline the line always sits on `surface`.
+   */
+  .ww-power-trace-halo {
+    fill: none;
+    stroke: var(--ww-surface);
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
   }
   .ww-power-trace-band {
     fill: var(--ww-raised);

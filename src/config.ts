@@ -126,6 +126,14 @@ export const FIRST_DATA_STAGGER_MS = 40
 /** Zone chip on the Power tile: the zone shown changes only after power has been out of it for this long, so it never flickers at an edge. */
 export const ZONE_HOLD_S = 2
 /**
+ * Zone color on live power: the Power tile's number takes the color of the
+ * zone its chip shows, and each second of the power trace takes the color of
+ * its own zone. A matter of taste that Nate may reverse (he asked for it on
+ * Nov 24, 2026): set this to false and the number and the line are Olive
+ * again, as before. The zone chip is the same either way. See docs/zone-color.md.
+ */
+export const POWER_ZONE_COLOR = true
+/**
  * Glide (the workout playhead and the course dot). A position only changes when
  * a reading arrives, about once a second from a trainer, so a glide takes as
  * long as the last gap between two changes: at least one snapshot (TICK_MS in

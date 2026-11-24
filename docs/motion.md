@@ -37,7 +37,7 @@ Built ahead as an exception (see `CLAUDE.md`). Ride test pending. No new depende
 | Interval left, Workout left | They are clocks. They change every second and must not draw the eye at the interval change. |
 | The control row's status lines and key hint | They are fixed in place so nothing moves at 1280x720. |
 | "Not recording" | DESIGN: said in three calm places, nothing flashes. |
-| The Power tile and its number | Power stays Olive. A zone tint would give Olive a fourth job. |
+| The Power tile and its number | Power stays Olive. A zone tint would give Olive a fourth job. (Changed on Nov 24, 2026: the number is in its zone's color now and that color eases. The digits and the tile still never animate. See `docs/zone-color.md`.) |
 | The stale gray-out beyond its color | It already eases over 200ms; a second effect on bad news is noise. |
 | The heads-up leaving | It goes when the interval changes, the same moment the values enter. One event, one move. |
 | Sounds, countdown numbers, a color on Interval left | Not asked for, and not calm. |
