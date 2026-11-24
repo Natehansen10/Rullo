@@ -27,6 +27,7 @@ import {
   FIRST_DATA_STAGGER_MS,
   RESISTANCE_STEPS_PCT,
   SMOOTHING_OPTIONS,
+  POWER_ZONE_COLOR,
   ZONE_HOLD_S,
 } from './config'
 import { useHeld } from './hooks/useHeld'
@@ -784,6 +785,8 @@ export default function App() {
               dense={dense}
               empty={power === EMPTY}
               zone={zone}
+              // The number takes the color of the zone the chip shows: the same held zone, so both change together.
+              tint={POWER_ZONE_COLOR ? zone : null}
               enterDelayMs={FIRST_DATA_STAGGER_MS * 0}
               chart={
                 <PowerTrace
@@ -791,6 +794,7 @@ export default function App() {
                   series={SMOOTHING_OPTIONS.indexOf(s.smoothing)}
                   ftpW={s.profile.ftpW}
                   dim={dimLive}
+                  zoneColor={POWER_ZONE_COLOR}
                 />
               }
               className={`border-b border-line xl:border-r xl:border-b-0 ${pad}`}

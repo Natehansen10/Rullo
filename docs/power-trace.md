@@ -4,6 +4,8 @@ Asked for by Nate on Nov 24, 2026. On the Ride tab the Power tile is two fifths 
 
 The rules are in `DESIGN.md`: `PowerTrace` in the Components table, "One ride panel" and "Fit a laptop" under Layout, and "Power trace" under Motion.
 
+Later the same day Nate asked for zone color on live power. The line is now colored by zone, a second at a time, and no longer Olive. Where this doc says Olive, or "never tinted by zone", read `docs/zone-color.md`. Everything else here stands.
+
 ## What was built
 
 - **A line of the last 3 minutes of power** in the Power tile, between the label row and the big number. Newest at the right edge, one point a second. `POWER_TRACE_WINDOW_S` (180) in `src/config.ts`.
