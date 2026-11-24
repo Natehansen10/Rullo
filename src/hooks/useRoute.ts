@@ -61,6 +61,10 @@ export function summaryHref(rideId: number): string {
   return `${HASH.summary}/${rideId}`
 }
 
+export function goSummary(rideId: number): void {
+  window.location.hash = summaryHref(rideId).slice(1)
+}
+
 function profileSection(): ProfileSection {
   const name = PROFILE.exec(window.location.hash)?.[1]
   return PROFILE_SECTIONS.find((p) => p === name) ?? 'numbers'

@@ -31,6 +31,8 @@ interface HomePageProps {
   onSetup: () => void
   /** To the Ride tab. */
   onRide: () => void
+  /** A ride was deleted for good. */
+  onDeleted?: (rideId: number) => void
 }
 
 /** Rows of history shown at first, and added by each Show more. */
@@ -62,7 +64,7 @@ export function PrChip({ windows, shrink = false }: { windows: BestWindow[]; /**
  * screen and drawn with this system's tokens. Read-only: nothing here changes
  * a ride in progress.
  */
-export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
+export function HomePage({ s, riderName, onSetup, onRide, onDeleted }: HomePageProps) {
   /** Null until the first rides are read. Newest first; may be the top of the list only while `complete` is false. */
   const [rides, setRides] = useState<RideSummary[] | null>(peekHistory)
   /** Every finished ride has been read, so the totals can be shown. */
@@ -127,7 +129,10 @@ export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
     setConfirming(null)
     setMessage(null)
     deleteRide(r.id)
-      .then(() => setRides((list) => list && list.filter((x) => x.id !== r.id)))
+      .then(() => {
+        setRides((list) => list && list.filter((x) => x.id !== r.id))
+        onDeleted?.(r.id)
+      })
       .catch((err) => {
         console.error('Could not delete the ride:', err)
         setMessage('Could not delete that ride.')

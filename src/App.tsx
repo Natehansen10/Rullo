@@ -31,7 +31,7 @@ import {
 } from './config'
 import { useHeld } from './hooks/useHeld'
 import { ride, useRide } from './hooks/useRide'
-import { go, goProfile, href, isRoute, profileHref, useProfileSection, useRoute, useSummaryId } from './hooks/useRoute'
+import { go, goProfile, goSummary, href, isRoute, profileHref, useProfileSection, useRoute, useSummaryId } from './hooks/useRoute'
 import { downloadBackup, restoreBackup } from './lib/backup'
 import * as recorder from './lib/recorder'
 import { addRider, listRiders, onRiderChanged, removeRider, renameRider, switchRider } from './lib/rider'
@@ -244,6 +244,8 @@ export default function App() {
   const startedAtRef = useRef(0)
   /** When Confirm end was last pressed. See onNewRide. */
   const endedAtRef = useRef(0)
+  /** The ride whose summary is about to open straight from End Ride: it draws itself in once. See showFinish. */
+  const arrivalRef = useRef<number | null>(null)
   const route = useRoute()
   const summaryId = useSummaryId()
   const profileSection = useProfileSection()
@@ -382,11 +384,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Back from signing in at Strava? Check it, then show the ride that was waiting to be uploaded, or Profile.
+  // Back from signing in at Strava? Check it, then show the summary of the ride that was waiting to be uploaded, or Profile.
   useEffect(() => {
     void strava.finishSignIn().then(async (back) => {
       if (!back) return
-      if (back.rideId !== null && (await ride.reopenEnded(back.rideId))) go('ride')
+      // The ended ride comes back on its summary, where End Ride left the rider, with its buttons in the top bar.
+      if (back.rideId !== null && (await ride.reopenEnded(back.rideId))) goSummary(back.rideId)
       else goProfile('data')
     })
   }, [])
@@ -447,16 +450,25 @@ export default function App() {
   const dimRide = s.phase === 'riding' ? s.stale || s.paused : true
   const connecting = s.connection.kind === 'connecting'
   const lost = live && (s.connection.kind === 'failed' || s.connection.kind === 'disconnected')
+  /**
+   * The summary on screen is the ride that just ended. It is the finish
+   * screen: the ride's buttons are the top bar's, with the same primary as on
+   * the ended Ride tab, and the page has no Download FIT of its own.
+   */
+  const endedId = s.ended?.id ?? null
+  const finished = route === 'summary' && endedId !== null && endedId === summaryId
+  /** A summary opened from Home's history has its own primary, Download FIT. */
+  const historySummary = route === 'summary' && !finished
   /** One primary per screen: where the page has its own (Home, Workout, the builder), the top bar's buttons are secondary. */
   const pagePrimary =
     route === 'home' ||
-    route === 'summary' ||
+    historySummary ||
     route === 'workout' ||
     route === 'builder' ||
     // The watch card is a pop-up with its own primary (Connect); the page under it is inert.
     s.pairing === 'heartRate'
-  /** Home and its ride summary have their own primary, whatever the ride is doing. */
-  const homeSide = route === 'home' || route === 'summary'
+  /** Home and a ride summary from its history have their own primary, whatever the ride is doing. */
+  const homeSide = route === 'home' || historySummary
 
   const onStart = () => {
     startedAtRef.current = Date.now()
@@ -473,7 +485,26 @@ export default function App() {
     }
     setConfirmEnd(false)
     endedAtRef.current = Date.now()
-    void ride.endRide()
+    void ride.endRide().then(showFinish)
+  }
+
+  /**
+   * A ride has just ended: show its summary, the finish screen. Only when the
+   * ride was saved with something in it. With nothing recorded there is no
+   * summary, and the rider stays on the Ride tab.
+   */
+  const showFinish = () => {
+    const ended = ride.getSnapshot().ended
+    if (!ended) return
+    arrivalRef.current = ended.id
+    goSummary(ended.id)
+  }
+
+  /** A saved ride was deleted. If it was the ride that just ended, its buttons go with it: the top bar is back to Connect. */
+  const onRideDeleted = (rideId: number) => {
+    if (ride.getSnapshot().ended?.id !== rideId) return
+    strava.clearMessage()
+    ride.newRide()
   }
 
   const onNewRide = () => {
@@ -481,6 +512,8 @@ export default function App() {
     if (Date.now() - endedAtRef.current < START_GUARD_MS) return
     strava.clearMessage()
     ride.newRide()
+    // From the finish screen the next ride starts where rides do. From any other page the rider stays put, as before.
+    if (finished) go('ride')
   }
 
   const modeSwitch = (
@@ -584,11 +617,32 @@ export default function App() {
 
       {route === 'home' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
-          <HomePage s={s} riderName={riderName} onSetup={() => go('workout')} onRide={() => go('ride')} />
+          <HomePage s={s} riderName={riderName} onSetup={() => go('workout')} onRide={() => go('ride')} onDeleted={onRideDeleted} />
         </main>
       ) : route === 'summary' && summaryId !== null ? (
         <main className="flex flex-1 flex-col px-8 py-6">
-          <RideSummaryPage key={summaryId} rideId={summaryId} s={s} onBack={() => go('home')} />
+          <RideSummaryPage
+            key={summaryId}
+            rideId={summaryId}
+            s={s}
+            onBack={() => go('home')}
+            onDeleted={onRideDeleted}
+            finished={finished}
+            arrive={arrivalRef.current === summaryId}
+            onArrived={() => {
+              arrivalRef.current = null
+            }}
+            // What the Ride tab would say about the ended ride: a failed FIT file, a failed upload.
+            notice={
+              finished &&
+              (s.notice || st.message) && (
+                <>
+                  {s.notice && <Notice title={s.notice} />}
+                  {st.message && <Notice title={st.message} />}
+                </>
+              )
+            }
+          />
         </main>
       ) : route === 'profile' ? (
         <main className="flex flex-1 flex-col px-8 py-6">
@@ -681,7 +735,16 @@ export default function App() {
               actions={
                 <>
                   <Button onClick={ride.resumeRecovered}>Resume</Button>
-                  <Button onClick={() => void ride.endRecovered()}>End and download</Button>
+                  <Button
+                    onClick={() =>
+                      void ride
+                        .endRecovered()
+                        .then(showFinish)
+                        .catch((err) => console.error('Could not end the unfinished ride:', err))
+                    }
+                  >
+                    End and download
+                  </Button>
                 </>
               }
             >
@@ -703,6 +766,11 @@ export default function App() {
             />
           )}
           {s.phase === 'ended' && st.message && <Notice title={st.message} />}
+          {endedId !== null && (
+            <Notice title="Ride saved" actions={<Button onClick={() => goSummary(endedId)}>Ride summary</Button>}>
+              Its summary has the charts, time in zone and power bests.
+            </Notice>
+          )}
           <section
             aria-label="Live ride data"
             className="grid flex-1 auto-rows-auto grid-cols-1 grid-rows-[1fr] rounded-lg border border-line bg-surface xl:grid-cols-[2fr_3fr]"

@@ -308,6 +308,34 @@ export function prsByRide(rides: RideSummary[]): Map<number, BestWindow[]> {
   return out
 }
 
+/** One PR a ride set: the window, its watts, and the whole watts it beat. */
+export interface PrGain {
+  win: BestWindow
+  w: number
+  prevW: number
+}
+
+/**
+ * The PRs one ride set, each with the best it beat: for the finish screen's
+ * "New best" lines. The same rule as prsByRide: whole watts, and the first
+ * ride with a number for a window is not a PR.
+ */
+export function prGainsOf(rides: RideSummary[], rideId: number): PrGain[] {
+  const mark: Record<BestWindow, number | null> = { 5: null, 60: null, 300: null, 1200: null }
+  for (const r of [...rides].sort((a, b) => a.startedAt - b.startedAt)) {
+    const set: PrGain[] = []
+    for (const win of BEST_WINDOWS_S) {
+      const w = r.bests[win]
+      if (w === null) continue
+      const prev = mark[win]
+      if (prev !== null && Math.round(w) > prev) set.push({ win, w: Math.round(w), prevW: prev })
+      if (prev === null || Math.round(w) > prev) mark[win] = Math.round(w)
+    }
+    if (r.id === rideId) return set
+  }
+  return []
+}
+
 /** Rides that started in the last 7 days (7 x 24 hours back from now, not a calendar week). */
 export function lastDays(rides: RideSummary[], now: number, days = LAST_DAYS): RideSummary[] {
   const from = now - days * 24 * 3600 * 1000
