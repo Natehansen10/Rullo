@@ -50,8 +50,8 @@ The rules are in `DESIGN.md`: Color tokens (both tables, "How Dark is built", "H
 | `state-on` | #1B7A43 | #6ED399 |
 | `state-under` | #8A5A00 | #E8B65A |
 | `state-over` | #C0282F | #F58282 |
-| `z1` | #8C9096 | #C4CBD6 |
-| `z2` | #6E86A0 | #7C9ABB |
+| `z1` | #474C55 | #C4CBD6 |
+| `z2` | #44648B | #7C9ABB |
 | `z3` | #2E9A58 | #3FA568 |
 | `z4` | #B5850E | #C4911F |
 | `z5` | #D9661F | #E57A35 |
@@ -94,8 +94,8 @@ WCAG contrast ratio, from `npm run contrast`. Text needs 4.5:1, live numbers and
 
 | Zone | On surface, Light | On surface, Dark | On raised, Light | On raised, Dark |
 | --- | --- | --- | --- | --- |
-| Z1 | 3.21 | 10.32 | 2.68 | 8.53 |
-| Z2 | 3.76 | 5.78 | 3.14 | 4.78 |
+| Z1 | 8.63 | 10.32 | 7.20 | 8.53 |
+| Z2 | 6.10 | 5.78 | 5.09 | 4.78 |
 | Z3 | 3.57 | 5.45 | 2.98 | 4.51 |
 | Z4 | 3.32 | 5.95 | 2.77 | 4.92 |
 | Z5 | 3.58 | 5.75 | 2.98 | 4.76 |
@@ -103,24 +103,24 @@ WCAG contrast ratio, from `npm run contrast`. Text needs 4.5:1, live numbers and
 | Z7 | 6.37 | 4.61 | 5.31 | 3.81 |
 
 - The rule is 3:1 on `surface`. All pass in both.
-- On `raised` four zones are under 3:1 in Light, which is why the trace has its `surface` hairline. In Dark all seven pass there too. The hairline stays.
-- **The two-tone outline:** the `surface` hairline against a zone fill is the "on surface" column, so 3.21 or better in Light and 4.61 or better in Dark. The `fg` line on its hairline is 17.39 and 14.31.
-- **`fg` alone on a zone** (why the outline needs its hairline): 2.73 on Z7 in Light; in Dark 1.39, 2.48, 2.62, 2.40, 2.49, 2.79, 3.10 for Z1 to Z7.
+- On `raised` three zones are under 3:1 in Light, which is why the trace has its `surface` hairline. In Dark all seven pass there too. The hairline stays.
+- **The two-tone outline:** the `surface` hairline against a zone fill is the "on surface" column, so 3.32 or better in Light and 4.61 or better in Dark. The `fg` line on its hairline is 17.39 and 14.31.
+- **`fg` alone on a zone** (why the outline needs its hairline): 2.01 on Z1, 2.85 on Z2 and 2.73 on Z7 in Light; in Dark 1.39, 2.48, 2.62, 2.40, 2.49, 2.79, 3.10 for Z1 to Z7.
 - **The position line:** `accent` on its `surface` hairline is 8.21 and 6.96. Alone on a zone it is 1.29 to 2.56 in Light and 1.17 to 1.51 in Dark, so the hairlines matter more in Dark.
 
 **The done wash** (`surface` at 60% over a block)
 
 | Zone | Washed, against the panel: Light | Dark | Washed, against the block not done: Light | Dark |
 | --- | --- | --- | --- | --- |
-| Z1 | 1.50 | 2.79 | 2.14 | 3.71 |
-| Z2 | 1.58 | 2.02 | 2.38 | 2.87 |
+| Z1 | 2.01 | 2.79 | 4.30 | 3.71 |
+| Z2 | 1.83 | 2.02 | 3.34 | 2.87 |
 | Z3 | 1.59 | 1.93 | 2.24 | 2.83 |
 | Z4 | 1.55 | 2.02 | 2.14 | 2.94 |
 | Z5 | 1.62 | 1.98 | 2.21 | 2.90 |
 | Z6 | 1.90 | 1.85 | 2.74 | 2.77 |
 | Z7 | 1.96 | 1.76 | 3.26 | 2.61 |
 
-- The check: no zone in Dark may be under the weakest zone in Light (1.50 and 2.14). The weakest in Dark are 1.76 and 2.61.
+- The check: no zone in Dark may be under the weakest zone in Light (1.55 and 2.14). The weakest in Dark are 1.76 and 2.61.
 - Z6 and Z7 wash a little more in Dark than they do in Light (1.85 against 1.90, 1.76 against 1.96; Z7 done against not done 2.61 against 3.26). They are still over every other Light zone.
 
 **Edges and steps** (Dark must be no weaker than Light)
@@ -150,7 +150,7 @@ WCAG contrast ratio, from `npm run contrast`. Text needs 4.5:1, live numbers and
 
 | Pair | Light | Dark |
 | --- | --- | --- |
-| Stale number (`fg-subtle`) against a Z1 number | 1.70 | 1.82 |
+| Stale number (`fg-subtle`) against a Z1 number | 1.58 | 1.82 |
 | `accent` against `state-on` / `z3` / `state-under` | 1.53 / 2.30 / 1.39 | 1.32 / 1.28 / 1.30 |
 | `z3` against `state-on` | 1.50 | 1.68 |
 | `z4` against `state-under` | 1.79 | 1.52 |
@@ -213,3 +213,5 @@ In a dim room, on the trainer, a few feet from the screen:
 ## Screenshots
 
 `docs/screenshots/`, 1280x720 at 2x: `dark-home.png`, `dark-ride.png`, `dark-ride-paused.png`, `dark-workout.png`, `dark-builder.png`, `dark-profile.png`, `dark-summary.png`, `dark-watch-card.png`.
+
+Note, Nov 24, 2026: the Light values of `z1` and `z2` were darkened after this was written (see `docs/zone-color.md`, "Darker Z1 and Z2"). The tables above carry the new Light numbers. In Light a Z1 number is now darker than a stale one; in Dark it is still the lighter.

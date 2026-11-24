@@ -38,8 +38,8 @@ WCAG contrast ratio, worked out from the hex values in `tokens.css`. Live number
 
 | Zone | Token | On `surface` (the number, the line) | On `raised` (the line over the target band) |
 | --- | --- | --- | --- |
-| Z1 | #8C9096 | 3.21 | 2.68 |
-| Z2 | #6E86A0 | 3.76 | 3.14 |
+| Z1 | #474C55 | 8.63 | 7.20 |
+| Z2 | #44648B | 6.10 | 5.09 |
 | Z3 | #2E9A58 | 3.57 | 2.98 |
 | Z4 | #B5850E | 3.32 | 2.77 |
 | Z5 | #D9661F | 3.58 | 2.98 |
@@ -47,7 +47,7 @@ WCAG contrast ratio, worked out from the hex values in `tokens.css`. Live number
 | Z7 | #A8306A | 6.37 | 5.31 |
 
 - **On `surface` all seven pass.** No zone token was changed.
-- **Z1 (3.21) and Z4 (3.32) are close to the limit.** Olive was 8.2. The number is much lighter than it was in every zone up to Z5.
+- **Z4 (3.32) is close to the limit.** Z1 and Z2 were 3.21 and 3.76 when this was built; see "Darker Z1 and Z2" below. Olive was 8.2. The number is much lighter than it was in every zone up to Z5.
 - **On the target band four zones fail** (Z1, Z3, Z4, Z5). In ERG and in a workout the line rides on the band's top edge, so half of it is over `raised`. The fix used is the two-tone rule DESIGN.md already has for zone blocks: a 1px `surface` hairline on each side of the line. The line is then always next to `surface`. It is drawn under the target's edge and the baseline, so it clears only the band's fill.
 - With `POWER_ZONE_COLOR` off there is no hairline: Olive is 6.8 on `raised`.
 
@@ -122,3 +122,20 @@ Headless Chromium against `vite preview` of the production build, `?fake=1`, FTP
 ## Switching it off
 
 Set `POWER_ZONE_COLOR` to `false` in `src/config.ts` and build. The number and the line are Olive, the hairline is gone and the chip is as it was. Then put the old sentences back in `DESIGN.md` (the Olive principle and Power zones are the two that matter).
+
+## Darker Z1 and Z2 (Nov 24, 2026)
+
+Nate asked for Z1 and Z2 to be darker so the big number reads better. This is the first of the two fixes named above. Light theme only; the Dark values did not change.
+
+| Zone | Was | Now | On `surface` | On `raised` |
+| --- | --- | --- | --- | --- |
+| Z1 | #8C9096 | #474C55 | 3.21 to 8.63 | 2.68 to 7.20 |
+| Z2 | #6E86A0 | #44648B | 3.76 to 6.10 | 3.14 to 5.09 |
+
+- **Z1 had to go well past the stale gray, not up to it.** A stale number is `fg-subtle` (5.5 on `surface`). A Z1 a little darker than before would have sat on top of it: at 6.0 on `surface` the two are 1.1:1 apart. So Z1 is now darker than stale by 1.6:1 (it was lighter by 1.7:1). A live Z1 number is the stronger of the two.
+- **Z1 is a slate gray, 2.0:1 from the black of the other tiles.** It still reads as "the gray zone" beside Cadence and Speed, by its cool tint and by the chip.
+- **Z2 is a slate blue.** It is told from Z1 by hue more than by lightness (1.4:1 apart).
+- **These are the same tokens the workout strip, the builder, the zone table, the time-in-zone bars and the workout cards use.** Recovery and endurance blocks are now the darkest blocks on a strip. Height still shows how hard a block is. This is the cost of the change; look at the workout library and say if it is too heavy.
+- **The rules still hold.** `npm run contrast` passes in both themes. The white hairline against a Z1 or Z2 fill went up (8.6 and 6.1). The Olive position line is 1.1:1 on Z1 and 1.4:1 on Z2 alone, which is why it has its hairlines. The done wash on Z1 and Z2 reads better than before (2.01 and 1.83 against the panel).
+- **Checked:** the Z1 and Z2 numbers on a fake ride have the new colors and the chip agrees; the Ride tab is still 720 tall; every number updates; no console errors.
+- **To undo:** two hex values in `src/styles/tokens.css`.
