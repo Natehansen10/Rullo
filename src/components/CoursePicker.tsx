@@ -9,8 +9,19 @@ const CARD = 'ww-press flex min-h-[9rem] cursor-pointer flex-col justify-between
 /** Keep a near-flat course from looking like a mountain on its card. */
 const MIN_RANGE_M = 15
 
-/** The course's elevation as a small filled line, the course twin of the workout card's strip. */
-function CardProfile({ points, onRaised }: { points: [number, number][]; onRaised: boolean }) {
+/**
+ * The course's elevation as a small filled line, the course twin of the workout card's strip.
+ * `heightClass` is `ww-profile-compact` on a card; Home's next ride draws it at `ww-profile`.
+ */
+export function CardProfile({
+  points,
+  onRaised = false,
+  heightClass = 'ww-profile-compact',
+}: {
+  points: [number, number][]
+  onRaised?: boolean
+  heightClass?: string
+}) {
   const last = points[points.length - 1]?.[0] || 1
   let lo = Infinity
   let hi = -Infinity
@@ -22,7 +33,7 @@ function CardProfile({ points, onRaised }: { points: [number, number][]; onRaise
   const base = lo - (range - (hi - lo)) / 2
   const line = points.map(([s, e], i) => `${i === 0 ? 'M' : 'L'}${((s / last) * 100).toFixed(2)},${(44 - ((e - base) / range) * 40).toFixed(2)}`).join('')
   return (
-    <svg viewBox="0 0 100 48" preserveAspectRatio="none" className="ww-profile-compact block w-full" aria-hidden>
+    <svg viewBox="0 0 100 48" preserveAspectRatio="none" className={`${heightClass} block w-full`} aria-hidden>
       <path d={`${line}L100,48L0,48Z`} fill={onRaised ? 'var(--ww-line)' : 'var(--ww-raised)'} />
       <path d={line} fill="none" stroke="var(--ww-fg-subtle)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
     </svg>

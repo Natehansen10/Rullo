@@ -33,6 +33,8 @@ At FTP 249, 220, 100 and 317, a workout with a block on each side of every bound
 
 A new first tab: Home, Ride, Workout, Profile. Laid out after Zwift's home screen, drawn with this system's tokens.
 
+On Nov 24, 2026 the Next panel became the next ride, drawn, a training chart was added, and "Last 7 days" moved into it: see `docs/home-training.md`.
+
 | Zwift | Here |
 | --- | --- |
 | Opens on Home after pairing | Opens on Home. Connect is in the top bar, as on every tab |

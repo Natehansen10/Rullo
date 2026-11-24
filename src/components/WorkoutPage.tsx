@@ -49,7 +49,7 @@ function stagedSetup(s: RideSnapshot): Setup {
 }
 
 /** What the Ride tab has: the confirmed setup. */
-function rideSetup(s: RideSnapshot): Setup {
+export function rideSetup(s: RideSnapshot): Setup {
   const c = s.course
   const w = s.workout
   return {
@@ -59,12 +59,12 @@ function rideSetup(s: RideSnapshot): Setup {
 }
 
 /** The setup in one line: "Test Hills · Sweet Spot 3x12", "Test Hills · Free ride", "Flat road · Free ride". */
-function setupName(x: Setup): string {
+export function setupName(x: Setup): string {
   return `${x.course?.name ?? 'Flat road'} · ${x.workout?.name ?? 'Free ride'}`
 }
 
 /** What the trainer will do with this setup, in a few words. */
-function setupDetail(x: Setup): string {
+export function setupDetail(x: Setup): string {
   const c = x.course
   const w = x.workout
   const where = c ? `${(c.lengthMi - c.startMi).toFixed(1)} mi${c.startMi > 0 ? ` from mile ${c.startMi.toFixed(1)}` : ''}` : null

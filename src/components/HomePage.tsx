@@ -5,21 +5,22 @@ import {
   bestHolders,
   deleteRide,
   downloadRide,
-  lastDays,
   loadHistory,
   peekHistory,
   prsByRide,
   totalsOf,
   type BestWindow,
   type RideSummary,
-  type Totals,
 } from '../lib/history'
 import { dateOf, feet, hms, miles, setupOf } from '../lib/rideFormat'
 import { profileHref, summaryHref } from '../hooks/useRoute'
+import { useToday } from '../hooks/useToday'
 import { BACKUP_NUDGE_RIDES, ridesSinceBackup } from '../lib/backup'
 import type { RideSnapshot } from '../lib/ride'
 import { Button } from './Button'
+import { NextRide } from './NextRide'
 import { Stat } from './Stat'
+import { TrainingChart } from './TrainingChart'
 import { ZoneTable } from './ZoneTable'
 
 interface HomePageProps {
@@ -38,20 +39,6 @@ const EMPTY = '--'
 /** How long Confirm delete stays up before it goes back to Delete. */
 const CONFIRM_MS = 3000
 
-/** What the rider should do next, and where its button goes. One primary button on the screen. */
-function nextStep(s: RideSnapshot): { text: string; ride: boolean } {
-  if (s.phase === 'riding') return { text: 'Your ride is on.', ride: true }
-  if (s.phase === 'ended') return { text: 'Your ride has ended. Download it or start a new one on the Ride tab.', ride: true }
-  if (s.resuming) return { text: 'Your unfinished ride is ready to resume on the Ride tab.', ride: true }
-  if (s.recovery) return { text: 'An unfinished ride is waiting on the Ride tab.', ride: true }
-  if (s.course || s.workout) {
-    const setup = `${s.course?.course.name ?? 'Flat road'} · ${s.workout?.workout.name ?? 'Free ride'}`
-    return { text: `On the Ride tab now: ${setup}.`, ride: true }
-  }
-  if (s.phase === 'ready') return { text: 'The trainer is connected. Flat road · Free ride is on the Ride tab.', ride: true }
-  return { text: 'Pick a course and a workout. Or press Connect to ride free on a flat road.', ride: false }
-}
-
 /**
  * A PR tag: this ride beat every earlier ride over these stretches. Neutral
  * chip with the words written out; color carries nothing here.
@@ -68,24 +55,10 @@ export function PrChip({ windows, shrink = false }: { windows: BestWindow[]; /**
   )
 }
 
-/** One line of totals. `t` is null while rides are still being read: the numbers wait as "--", nothing moves when they land. */
-function TotalsRow({ title, t }: { title: string; t: Totals | null }) {
-  return (
-    <div className="flex flex-col gap-3 border-t border-line px-6 py-4 first:border-t-0">
-      <h3 className="font-semibold text-fg">{title}</h3>
-      <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
-        <Stat label="Rides" value={t ? String(t.rides) : EMPTY} dim={!t} />
-        <Stat label="Time" value={t ? hms(t.movingMs) : EMPTY} dim={!t} />
-        <Stat label="Distance" value={t ? miles(t.distanceM, 1) : EMPTY} unit={t ? 'mi' : undefined} dim={!t} />
-        <Stat label="Climbed" value={t ? feet(t.ascentM) : EMPTY} unit={t ? 'ft' : undefined} dim={!t} />
-      </div>
-    </div>
-  )
-}
-
 /**
  * Home: the rider at a glance. A left rail (rider summary, power zones) and a
- * main column (next step, totals, ride history), laid out after Zwift's home
+ * main column led by the next ride, the one large thing on the page, then
+ * training by day, totals, bests and ride history. Laid out after Zwift's home
  * screen and drawn with this system's tokens. Read-only: nothing here changes
  * a ride in progress.
  */
@@ -97,13 +70,18 @@ export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
   const [failed, setFailed] = useState(false)
   const [shown, setShown] = useState(PAGE)
   const [message, setMessage] = useState<string | null>(null)
-  /** Fixed for this visit, so "last 7 days" and the row dates do not shift while the page is open. */
+  /** Fixed for this visit, so the row dates do not shift while the page is open. */
   const [now] = useState(() => Date.now())
+  /** The start of today, which moves on at midnight: the training chart always ends on the real today. */
+  const today = useToday()
 
   // Read again when a ride starts or ends: End Ride adds a row.
   useEffect(() => {
     let live = true
-    loadHistory((partial) => live && setRides(partial))
+    // With a full list already drawn (the saved one, or the last read), it stays until the new full list lands:
+    // a partial list would take rides away for a moment, and the chart's bars and the totals with them.
+    const had = peekHistory() !== null
+    loadHistory((partial) => live && !had && setRides(partial))
       .then((all) => {
         if (!live) return
         setRides(all)
@@ -131,7 +109,8 @@ export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
   const holders = useMemo(() => (rides && complete ? bestHolders(rides) : null), [rides, complete])
   const prs = useMemo(() => (rides && complete ? prsByRide(rides) : new Map<number, BestWindow[]>()), [rides, complete])
 
-  const next = nextStep(s)
+  /** "--" until every ride is read, so nothing moves when the numbers land. */
+  const totals = useMemo(() => (rides && complete ? totalsOf(rides) : null), [rides, complete])
   /** Rides that are in no backup. Waits for the full list, like the totals. */
   const unsaved = useMemo(() => (rides && complete ? ridesSinceBackup(rides) : 0), [rides, complete])
 
@@ -175,18 +154,9 @@ export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
-          <section
-            aria-label="Next step"
-            className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-6 py-4"
-          >
-            <div className="flex min-w-0 flex-col gap-1">
-              <h2 className="font-semibold text-fg">Next</h2>
-              <p className="text-fg-muted">{next.text}</p>
-            </div>
-            <Button variant="primary" onClick={next.ride ? onRide : onSetup}>
-              {next.ride ? 'Go to Ride' : 'Set up a ride'}
-            </Button>
-          </section>
+          <NextRide s={s} onSetup={onSetup} onRide={onRide} />
+
+          <TrainingChart rides={complete ? rides : null} today={today} failed={failed} />
 
           {unsaved >= BACKUP_NUDGE_RIDES && (
             <section aria-label="Back up" className="rounded-lg border border-line bg-surface px-6 py-4">
@@ -200,9 +170,14 @@ export function HomePage({ s, riderName, onSetup, onRide }: HomePageProps) {
           )}
 
           {rides && rides.length > 0 && (
-            <section aria-label="Totals" className="rounded-lg border border-line bg-surface">
-              <TotalsRow title="All rides" t={complete ? totalsOf(rides) : null} />
-              <TotalsRow title="Last 7 days" t={complete ? totalsOf(lastDays(rides, now)) : null} />
+            <section aria-label="Totals" className="flex flex-col gap-3 rounded-lg border border-line bg-surface px-6 py-4">
+              <h2 className="font-semibold text-fg">All rides</h2>
+              <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+                <Stat label="Rides" value={totals ? String(totals.rides) : EMPTY} dim={!totals} />
+                <Stat label="Time" value={totals ? hms(totals.movingMs) : EMPTY} dim={!totals} />
+                <Stat label="Distance" value={totals ? miles(totals.distanceM, 1) : EMPTY} unit={totals ? 'mi' : undefined} dim={!totals} />
+                <Stat label="Climbed" value={totals ? feet(totals.ascentM) : EMPTY} unit={totals ? 'ft' : undefined} dim={!totals} />
+              </div>
             </section>
           )}
 

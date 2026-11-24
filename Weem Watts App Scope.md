@@ -169,6 +169,7 @@ Nate asked for six design features on Nov 23, 2026, built overnight and ahead of
 
 - **Scrubbable charts (built Nov 24, 2026; no ride test needed):** pointing at the ride summary's charts puts one line through power, cadence, heart rate and elevation and shows the values at that second; arrow keys do the same. The course overview's profile shows mile, feet and grade under the pointer. See `docs/scrubbable-charts.md`.
 - **Live power trace (built Nov 24, 2026; ride test pending):** the last 3 minutes of power as a line in the Power tile, above the big number, with the workout or ERG target as a band behind it. A dropout is a gap, a pause takes no width. It uses only room that was already empty, so at 1280x720 with a course and a workout together it is not drawn. On the Kickr, check how often gaps appear in a steady ride. See `docs/power-trace.md`.
+- **Home that shows training (built Nov 24, 2026; no ride test needed):** the next ride is the first thing on Home, named and drawn (the course profile and the workout strip) beside the page's one primary button. Under it a Training panel has a bar per day for the last 6 weeks (moving time), with the last 7 days in one sentence and a day's numbers on hover or with the arrow keys. "Last 7 days" moved out of Totals into that panel. See `docs/home-training.md`.
 
 ### Later: Movie Mode overlay
 

@@ -26,6 +26,11 @@ export interface RideSummary {
   distanceM: number
   avgPowerW: number
   ascentM: number
+  /**
+   * Work in joules, the FIT file's own number. Absent only on a summary saved
+   * before Nov 24, 2026, and only until the read that follows works it out.
+   */
+  workJ?: number
   /** Best average power over 5 s, 1 min, 5 min and 20 min without a stop. */
   bests: Bests
   courseId?: string
@@ -82,6 +87,7 @@ function summarize(ride: recorder.RideRow, samples: SampleRow[]): RideSummary | 
     distanceM: t.distanceM,
     avgPowerW: t.avgPowerW,
     ascentM: t.ascentM,
+    workJ: t.workJ,
     bests: bestsOf(samples),
     ...(ride.courseId ? { courseId: ride.courseId } : {}),
     ...(ride.workoutId ? { workoutId: ride.workoutId } : {}),
@@ -137,6 +143,7 @@ function cleanSaved(id: number, v: unknown): Saved | null {
       distanceM: r.distanceM,
       avgPowerW: r.avgPowerW,
       ascentM: r.ascentM,
+      ...(isNum(r.workJ) ? { workJ: r.workJ } : {}),
       bests: { 5: best(5), 60: best(60), 300: best(300), 1200: best(1200) },
       ...(typeof r.courseId === 'string' ? { courseId: r.courseId } : {}),
       ...(typeof r.workoutId === 'string' ? { workoutId: r.workoutId } : {}),
@@ -219,7 +226,10 @@ export async function loadHistory(onPartial?: (rides: RideSummary[]) => void): P
   for (const r of rides) {
     if (cache.has(r.id)) continue
     const e = saved.get(r.id)
-    if (e && e.rideStartedAt === r.startedAt && e.endedAt === (r.endedAt ?? -1)) cache.set(r.id, e.summary)
+    // A summary saved before work was kept is drawn at first (peekHistory) and read again here, once.
+    if (e && e.rideStartedAt === r.startedAt && e.endedAt === (r.endedAt ?? -1) && (e.summary === null || e.summary.workJ !== undefined)) {
+      cache.set(r.id, e.summary)
+    }
   }
   // Saved entries whose ride is gone (deleted in another tab, site data cleared in part).
   const ids = new Set(rides.map((r) => r.id))
