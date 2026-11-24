@@ -47,6 +47,7 @@ import { intervalCue, playCue } from './sound'
 import { loadProfile, normalizeProfile, riderParams, saveProfile, type Profile } from './profile'
 import * as recorder from './recorder'
 import { PowerSmoother } from './smoothing'
+import { PowerTrace, type PowerTraceLive } from './powerTrace'
 import type { ConnectionStatus, ControlResult, Trainer, TrainerReading } from './types'
 import { keepAwake } from './wakeLock'
 import {
@@ -300,6 +301,11 @@ export interface RideSnapshot {
   pairing: PairKind | null
   smoothing: SmoothingSeconds
   powerW: number | null
+  /**
+   * The last few minutes of power, a slot a second, for the line in the Power
+   * tile. For drawing only. The same object until a reading changes it.
+   */
+  powerTrace: PowerTraceLive
   cadenceRpm: number | null
   speedMph: number | null
   distanceMi: number
@@ -365,6 +371,8 @@ export class RideController {
   private connection: ConnectionStatus = { kind: 'disconnected' }
   private smoothing: SmoothingSeconds = DEFAULT_SMOOTHING
   private smoother = new PowerSmoother(Math.max(...SMOOTHING_OPTIONS))
+  /** The live power trace. Written by onReading, read by the snapshot; nothing sent to the trainer looks at it. */
+  private trace = new PowerTrace()
   private speed = new SpeedModel(riderParams(loadProfile()))
 
   private rideId: Promise<number> | null = null
@@ -521,6 +529,7 @@ export class RideController {
       pairing: this.pairing,
       smoothing: this.smoothing,
       powerW: avg === null ? null : Math.max(0, Math.round(avg)),
+      powerTrace: this.trace.view(),
       cadenceRpm: hasData ? Math.round(this.cadenceRpm) : null,
       speedMph: hasData ? this.speed.speedMps * MPS_TO_MPH : null,
       distanceMi: this.distanceM / METERS_PER_MILE,
@@ -1109,11 +1118,14 @@ export class RideController {
         this.lastDataAt = 0
         this.lastPhysicsAt = 0
         if (!this.rideId) this.speed.reset()
+        this.trace.clear()
         keepAwake(true)
       }
     }
     if ((s.kind === 'failed' || s.kind === 'disconnected') && this.phase === 'ready') {
       this.phase = 'idle'
+      // The trainer is gone and no ride is on: its trace goes with it.
+      this.trace.clear()
       keepAwake(false)
     }
     this.emit()
@@ -1143,10 +1155,27 @@ export class RideController {
         if (!this.paused) this.advance(r.t, power, pedaling)
       }
       this.lastPhysicsAt = r.t
+      // The trace gets every reading the tile shows, except while paused: time that was not ridden is not drawn.
+      if (!(this.phase === 'riding' && this.paused)) this.trace.push(r.t, this.traceWatts(), this.traceTargetW())
     }
 
     if (this.phase === 'riding' && !this.paused) this.record(r.t, sinceLastMs)
     this.emit()
+  }
+
+  /** What the Power tile shows right now for each smoothing window, in the order of SMOOTHING_OPTIONS. */
+  private traceWatts(): number[] {
+    return SMOOTHING_OPTIONS.map((s) => Math.max(0, Math.round(this.smoother.average(s) ?? this.lastPowerW)))
+  }
+
+  /**
+   * What is being asked of the rider right now, for the band behind the
+   * trace: the workout's target while it runs, else the ERG target in ERG,
+   * else nothing (a resistance or Grade ride has no target power).
+   */
+  private traceTargetW(): number | null {
+    if (this.workout && this.workoutStarted && this.workoutS < totalS(this.intervals)) return this.plannedW()
+    return this.mode === 'erg' && !this.ergUnsupported ? this.ergW() : null
   }
 
   /**
@@ -1228,6 +1257,7 @@ export class RideController {
     this.lastRecordedSec = mark.lastRecordedSec
     this.lastSample = mark.lastSample
     this.testWindow = this.testWindow.filter((x) => x.t < this.pausedAt)
+    this.trace.dropFrom(this.pausedAt)
     this.zeroSince = null
     this.zeroMark = null
     this.heldSamples = []
@@ -1254,6 +1284,7 @@ export class RideController {
   private resume(t: number) {
     this.pausedTotalMs += Math.max(0, t - this.pausedAt)
     this.paused = false
+    this.trace.breakLine()
     this.lastPhysicsAt = t
     // Never back before a second already recorded, or before Start.
     this.lastRecordedSec = Math.max(this.lastRecordedSec, Math.floor(t / 1000) - 1)
@@ -1300,6 +1331,8 @@ export class RideController {
     this.lastSample = null
     this.climbedM = 0
     this.resetPause()
+    // The trace is of the ride: what was pedaled before Start is not part of it.
+    this.trace.clear()
     // A fake ride is marked as one for good: on its row and in its FIT file. It can never be uploaded.
     this.rideOrigin = this.fake ? 'fake' : 'trainer'
     this.rideName = this.setupName()
@@ -1815,6 +1848,7 @@ export class RideController {
     this.climbedM = 0
     this.resetPause()
     this.smoother.clear()
+    this.trace.clear()
     this.speed.reset()
     this.resetWorkoutRun()
   }

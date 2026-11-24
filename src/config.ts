@@ -136,3 +136,21 @@ export const GLIDE_MAX_MS = 1200
 export const GLIDE_JUMP_SHARE = 0.02
 /** Interval heads-up: the next block in the workout strip is outlined for the last seconds of an interval. */
 export const INTERVAL_HEADS_UP_S = 5
+
+/**
+ * Power trace: the line of recent power in the Power tile (src/lib/powerTrace.ts,
+ * the PowerTrace component). It shows this many seconds, one point a second,
+ * newest at the right edge. Kept in memory only.
+ */
+export const POWER_TRACE_WINDOW_S = 180
+/** The trace only takes space the Power tile has free. With less than this (in px) it is not drawn at all. */
+export const POWER_TRACE_MIN_HEIGHT_PX = 48
+/**
+ * The trace's scale runs from 0 to a top that leaves room above the rider's
+ * FTP (this share of it) and above the highest power or target in the window
+ * (this much headroom), rounded up to a whole step. So it moves rarely, and
+ * only by a step.
+ */
+export const POWER_TRACE_FTP_SHARE = 1.2
+export const POWER_TRACE_HEADROOM = 1.1
+export const POWER_TRACE_SCALE_STEP_W = 50
