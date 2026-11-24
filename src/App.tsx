@@ -34,6 +34,7 @@ import { useHeld } from './hooks/useHeld'
 import { ride, useRide } from './hooks/useRide'
 import { go, goProfile, goSummary, href, isRoute, profileHref, useProfileSection, useRoute, useSummaryId } from './hooks/useRoute'
 import { downloadBackup, restoreBackup } from './lib/backup'
+import { applyTheme } from './lib/theme'
 import * as recorder from './lib/recorder'
 import { addRider, listRiders, onRiderChanged, removeRider, renameRider, switchRider } from './lib/rider'
 import { useStrava } from './hooks/useStrava'
@@ -330,6 +331,8 @@ export default function App() {
     restoreBackup(file)
       .then(async (r) => {
         if (r.profile) ride.setProfile(r.profile)
+        // A backup carries the rider's appearance; it is restored only where none was chosen here.
+        applyTheme()
         await ride.reloadLists()
         const kept = r.ridesKept + r.filesKept
         setBackupNote(

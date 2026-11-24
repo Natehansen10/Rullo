@@ -8,6 +8,7 @@ import { MPS_TO_MPH, steadySpeedMps } from '../lib/physics'
 import { hasSavedProfile, riderParams, type Profile } from '../lib/profile'
 import { dateOf } from '../lib/rideFormat'
 import { playCue, setSoundsOn, soundsOn } from '../lib/sound'
+import { appearance, APPEARANCE_LABEL, APPEARANCES, setAppearance, type Appearance } from '../lib/theme'
 import { askToKeep, formatBytes, storageStatus, type StorageStatus } from '../lib/storage'
 import { MAX_RIDER_NAME_CHARS, MAX_RIDERS, type Riders } from '../lib/rider'
 import type { CourseOption, WorkoutOption } from '../lib/ride'
@@ -396,6 +397,14 @@ export function ProfilePage({
     if (v === 'on') playCue('change')
   }
 
+  const [look, setLook] = useState(appearance)
+  const onLook = (v: Appearance) => {
+    setAppearance(v)
+    setLook(v)
+  }
+  // A restore can bring the setting with it.
+  useEffect(() => setLook(appearance()), [backupNote])
+
   const starting = useMemo(() => !hasSavedProfile(), [profile, backupNote])
 
   /** Oldest first. Read again when the FTP changes, and after a restore, which can bring a history with it. */
@@ -602,13 +611,16 @@ export function ProfilePage({
                 )}
               </section>
 
-              {/* Open mid-ride too: a rider must be able to turn a sound off without ending the ride. */}
-              <section aria-label="Sounds" className="rounded-lg border border-line bg-surface">
+              {/* Open mid-ride too: a rider must be able to turn a sound off, or go dark at dusk, without ending the ride. */}
+              <section aria-label="Sounds and appearance" className="rounded-lg border border-line bg-surface">
                 <Row
                   label="Interval sounds"
                   help="In a workout: three soft beeps in the last three seconds of an interval, and a tone when the next one starts. Nothing sounds while a ride is paused."
                 >
                   <SegmentedControl label="Interval sounds" options={SOUND_OPTIONS} value={sounds ? 'on' : 'off'} onChange={onSounds} format={(v) => (v === 'on' ? 'On' : 'Off')} />
+                </Row>
+                <Row label="Appearance" help="Light, or Dark for a dim room. Match my computer follows your computer's own setting as it changes.">
+                  <SegmentedControl label="Appearance" options={APPEARANCES} value={look} onChange={onLook} format={(v) => APPEARANCE_LABEL[v]} />
                 </Row>
               </section>
             </>

@@ -32,7 +32,7 @@ const MAX_SETTING_CHARS = 4000
 
 const PROFILE_KEY = 'ww.profile'
 /** Settings that travel with a backup. Each is restored only where this browser has none saved. */
-const SETTING_KEYS = [PROFILE_KEY, 'ww.resistancePct', 'ww.mode', 'ww.gradeFeelPct', 'ww.ergW', 'ww.builderUnit', 'ww.builderList', 'ww.ftpHistory', 'ww.intervalSounds'] as const
+const SETTING_KEYS = [PROFILE_KEY, 'ww.resistancePct', 'ww.mode', 'ww.gradeFeelPct', 'ww.ergW', 'ww.builderUnit', 'ww.builderList', 'ww.ftpHistory', 'ww.intervalSounds', 'ww.appearance'] as const
 
 /** Sample fields every sample has, then the ones only some rides have. Each is one column in the file. */
 const REQUIRED = ['powerW', 'cadenceRpm', 'speedMps', 'distanceM'] as const

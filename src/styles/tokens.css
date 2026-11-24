@@ -2,9 +2,13 @@
  * Rullo Design System tokens.
  * Single source of truth. This is the only file allowed to contain hex colors.
  * Mirrors DESIGN.md. Change a value here, nowhere else.
+ *
+ * Two themes. :root is Light, the default. The dark values are at the end of
+ * this file, under :root[data-theme='dark']: the same names, so no component
+ * knows which theme it is in. `npm run contrast` checks both.
  */
 :root {
-  /* Surfaces: warm off-white page, white panels. Depth from steps and hairlines. */
+  /* Light. Surfaces: warm off-white page, white panels. Depth from steps and hairlines. */
   --ww-bg: #f5f2ec;
   --ww-surface: #ffffff;
   --ww-raised: #eeeae3;
@@ -160,4 +164,54 @@
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/*
+ * The dark theme (Nate asked for it on Nov 24, 2026): the same tokens with
+ * dark values. `data-theme` is set on <html> by index.html before the first
+ * paint and by src/lib/theme.ts after it. Warm, never blue-black and never
+ * pure black. Lighter is nearer: the page is the darkest step, a panel is one
+ * step up and a control one more. Every color here is checked by
+ * `npm run contrast`; do not change one without running it.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ww-bg: #121110;
+  --ww-surface: #1e1d1a;
+  --ww-raised: #2e2c28;
+  --ww-line: #3b3935;
+  --ww-line-strong: #6e6961;
+
+  --ww-fg: #f0ece4;
+  --ww-fg-muted: #b9b3a8;
+  --ww-fg-subtle: #9a958c;
+
+  /* The accent on a dark background is its own token. The ink on it is dark. */
+  --ww-accent: var(--ww-accent-on-dark);
+  --ww-accent-hover: #b0b97a;
+  --ww-accent-press: #bcc48a;
+  --ww-accent-ink: #121110;
+
+  --ww-cadence: #4fb3ce;
+  --ww-state-on: #6ed399;
+  --ww-state-under: #e8b65a;
+  --ww-state-over: #f58282;
+
+  --ww-z1: #c4cbd6;
+  --ww-z2: #7c9abb;
+  --ww-z3: #3fa568;
+  --ww-z4: #c4911f;
+  --ww-z5: #e57a35;
+  --ww-z6: #ee5d62;
+  --ww-z7: #d65a93;
+
+  /*
+   * Dimming with the text color would light the page up here, so the scrim and
+   * the shadow use a warm near-black of their own. A shadow hardly shows on a
+   * dark page: the card reads by the scrim, its hairline and its lighter step.
+   */
+  --ww-shade: #080706;
+  --ww-scrim: color-mix(in srgb, var(--ww-shade) 60%, transparent);
+  --ww-shadow-ink: color-mix(in srgb, var(--ww-shade) 28%, transparent);
 }

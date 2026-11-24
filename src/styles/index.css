@@ -88,6 +88,17 @@
   }
 }
 
+/*
+ * A theme switch (src/lib/theme.ts sets this for two frames): no color eases,
+ * so the page changes in one step and not piece by piece. Movement that is
+ * under way (a glide, the pill's width, a fade) carries on.
+ */
+:root[data-theme-switch] *,
+:root[data-theme-switch] *::before,
+:root[data-theme-switch] *::after {
+  transition-property: transform, width, opacity !important;
+}
+
 @layer components {
   /* Live numbers: Archivo 600 at 112% width, tabular, tight leading. */
   .ww-num {
@@ -232,7 +243,8 @@
    * Strava's own "Connect with Strava" button (the white one), shown at its
    * given size and never restyled: the one brand exception to this system.
    * The asset is white with no edge, so on a white panel it gets a hairline
-   * frame; the frame is ours, the image is untouched.
+   * frame; the frame is ours, the image is untouched. In Dark it is the same
+   * white image: never inverted, filtered or dimmed.
    */
   .ww-strava-connect {
     display: inline-flex;

@@ -12,7 +12,7 @@ const variants: Record<Variant, string> = {
   primary:
     'bg-accent text-accent-ink border-accent hover:bg-accent-hover hover:border-accent-hover active:bg-accent-press active:border-accent-press',
   secondary: 'bg-raised text-fg border-line-strong hover:bg-line',
-  // Hover goes lighter, not darker: state-over on `line` would drop under 4.5:1.
+  // Hover goes to `surface`, not `line`: state-over on `line` would drop under 4.5:1 in Light. `surface` is lighter in Light and darker in Dark.
   danger: 'bg-raised text-state-over border-state-over hover:bg-surface',
 }
 
