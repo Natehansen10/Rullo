@@ -13,10 +13,17 @@ interface RideChartProps {
   minRange?: number
   /** Indexes to mark with a hairline: where each workout interval starts. */
   marks?: number[]
+  /** Index of the second the summary's cursor is on, or null. Draws a dot on the line there; the cursor line itself is shared by the stack (see RideCharts). */
+  cursor?: number | null
   className?: string
 }
 
 const PAD_Y = 4
+
+/** Where second `i` of `n` sits across a chart `w` wide. The cursor line, the dots and the interval marks all use it. */
+export function secondX(i: number, n: number, w: number): number {
+  return n <= 1 ? 0 : (i / (n - 1)) * w
+}
 
 /**
  * One line over a ride's moving time, for the ride summary: a small chart
@@ -24,7 +31,7 @@ const PAD_Y = 4
  * axis is shared under the stack). Each pixel column is the average of the
  * seconds that fall in it.
  */
-export function RideChart({ values, color, fill = false, fromZero = true, minRange = 1, marks = [], className = '' }: RideChartProps) {
+export function RideChart({ values, color, fill = false, fromZero = true, minRange = 1, marks = [], cursor = null, className = '' }: RideChartProps) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 800, h: 72 })
 
@@ -88,8 +95,12 @@ export function RideChart({ values, color, fill = false, fromZero = true, minRan
       runs.push(cur)
       areas.push(`${cur}L${x(cols - 1).toFixed(1)},${h}L${x(start).toFixed(1)},${h}Z`)
     }
-    return { runs, areas, markX: marks.map((i) => (n <= 1 ? 0 : (i / (n - 1)) * w)) }
+    return { runs, areas, y, markX: marks.map((i) => secondX(i, n, w)) }
   }, [values, w, h, fromZero, minRange, marks])
+
+  // The dot sits at that second's own reading, the number the row shows. On a ride longer than the chart is wide the drawn line is an average, so the dot can sit a little off it.
+  const at = cursor === null ? null : (values[cursor] ?? null)
+  const dotY = at === null ? null : Math.min(h, Math.max(0, shape.y(at)))
 
   return (
     <div ref={boxRef} className={`ww-ride-chart relative ${className}`}>
@@ -103,6 +114,14 @@ export function RideChart({ values, color, fill = false, fromZero = true, minRan
           <path key={`r${i}`} d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
         ))}
       </svg>
+      {cursor !== null && dotY !== null && (
+        <span
+          aria-hidden
+          data-scrub-dot
+          className="ww-scrub-dot"
+          style={{ background: color, transform: `translate(${secondX(cursor, values.length, w)}px, ${dotY}px)` }}
+        />
+      )}
     </div>
   )
 }

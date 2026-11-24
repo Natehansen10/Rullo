@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { downloadFit } from '../lib/fit'
 import { BEST_LABEL, BEST_WINDOWS_S, deleteRide, loadHistory, peekHistory, prsByRide, type BestWindow, type RideSummary } from '../lib/history'
-import { FEET_PER_METER } from '../lib/physics'
 import type { RideSnapshot } from '../lib/ride'
 import { loadRideDetail, type RideDetail } from '../lib/rideDetail'
 import { dateOf, feet, hms, miles, setupOf } from '../lib/rideFormat'
 import { ZONES } from '../lib/workout'
 import { Button } from './Button'
 import { PrChip } from './HomePage'
-import { RideChart } from './RideChart'
+import { RideCharts } from './RideCharts'
 import { Stat } from './Stat'
 
 interface RideSummaryPageProps {
@@ -19,20 +18,6 @@ interface RideSummaryPageProps {
 }
 
 const CONFIRM_MS = 3000
-/** Elevation charts span at least this much, so a near-flat course does not look like mountains (15 m, as on the course cards). */
-const MIN_ELEVATION_RANGE_FT = 50
-
-function ChartRow({ label, detail, children }: { label: string; detail: string; children: React.ReactNode }) {
-  return (
-    <div className="ww-ride-chart-row">
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="ww-label">{label}</span>
-        <span className="truncate font-mono text-mono text-fg-muted">{detail}</span>
-      </div>
-      {children}
-    </div>
-  )
-}
 
 /**
  * One finished ride: its numbers, a line each for power, cadence, heart rate
@@ -74,7 +59,6 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
   }, [confirmDelete])
 
   const prs = useMemo(() => (history ? (prsByRide(history).get(rideId) ?? []) : []), [history, rideId])
-  const altitudeFt = useMemo(() => detail?.altitudeM.map((m) => (m === null ? null : m * FEET_PER_METER)) ?? [], [detail])
 
   if (detail === undefined) return <p className="text-fg-subtle">Loading ride</p>
   if (detail === null) {
@@ -99,8 +83,6 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
   })
   const totalS = detail.powerW.length
   const paused = t.elapsedMs - t.timerMs
-  const max = (v: (number | null)[]) => Math.round(Math.max(...v.filter((x): x is number => x !== null)))
-  const min = (v: (number | null)[]) => Math.round(Math.min(...v.filter((x): x is number => x !== null)))
   const zoneMax = Math.max(1, ...detail.zoneS)
 
   const onDelete = () => {
@@ -173,30 +155,7 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
               {detail.lapStarts.length > 0 ? ' The faint lines are the workout intervals.' : ''}
             </p>
           </div>
-          <ChartRow label="Power" detail={`avg ${Math.round(t.avgPowerW)} · max ${Math.round(t.maxPowerW)} W`}>
-            <RideChart values={detail.powerW} color="var(--ww-fg)" marks={detail.lapStarts} minRange={100} />
-          </ChartRow>
-          <ChartRow label="Cadence" detail={`avg ${Math.round(t.avgCadenceRpm)} · max ${max(detail.cadenceRpm)} rpm`}>
-            <RideChart values={detail.cadenceRpm} color="var(--ww-cadence)" marks={detail.lapStarts} minRange={60} />
-          </ChartRow>
-          {detail.hasHeartRate && t.avgHeartRateBpm !== null && (
-            <ChartRow label="Heart rate" detail={`avg ${Math.round(t.avgHeartRateBpm)} · max ${t.maxHeartRateBpm} bpm`}>
-              <RideChart values={detail.heartRateBpm} color="var(--ww-fg-muted)" fromZero={false} marks={detail.lapStarts} minRange={30} />
-            </ChartRow>
-          )}
-          {detail.hasAltitude && (
-            <ChartRow label="Elevation" detail={`${min(altitudeFt).toLocaleString()} to ${max(altitudeFt).toLocaleString()} ft`}>
-              <RideChart values={altitudeFt} color="var(--ww-fg-subtle)" fill fromZero={false} minRange={MIN_ELEVATION_RANGE_FT} />
-            </ChartRow>
-          )}
-          <div className="ww-ride-chart-row" aria-hidden>
-            <span />
-            <div className="flex justify-between font-mono text-mono text-fg-muted">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <span key={i}>{hms(((totalS * i) / 4) * 1000)}</span>
-              ))}
-            </div>
-          </div>
+          <RideCharts detail={detail} />
         </div>
 
         <div className="flex flex-col gap-4 border-t border-line px-6 py-4">

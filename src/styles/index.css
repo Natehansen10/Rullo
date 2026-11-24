@@ -391,6 +391,66 @@
     align-items: center;
     column-gap: var(--ww-space-4);
   }
+  /*
+   * The ride summary's cursor. The area lies over the chart column of every
+   * row, so one line crosses them all. Nothing here takes space: the line, the
+   * dots and the time chip are positioned over what is already there.
+   */
+  .ww-scrub-area {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: calc(var(--ww-ride-chart-label) + var(--ww-space-4));
+  }
+  /* The one tab stop, over the dots. It takes the pointer and the keys and draws nothing but its focus ring. */
+  .ww-scrub {
+    z-index: 20;
+    border-radius: var(--ww-radius-sm);
+    cursor: crosshair;
+  }
+  /*
+   * Two-tone: a 1px fg line with a 1px surface hairline on each side, so it
+   * reads over the elevation fill and every chart line. Placed with a
+   * transform and never eased: it is where the pointer is.
+   */
+  .ww-scrub-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    margin-left: -1.5px;
+    background: var(--ww-surface);
+    pointer-events: none;
+  }
+  .ww-scrub-line::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 1px;
+    width: 1px;
+    background: var(--ww-fg);
+  }
+  /* Where the cursor meets a line: 6px in the line's color inside a 2px surface ring. */
+  .ww-scrub-dot {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border: 2px solid var(--ww-surface);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  /* The time at the cursor, on the shared time axis: the strip tip's chip, centered on the axis line. */
+  .ww-scrub-time {
+    top: 50%;
+    margin-top: -11px;
+  }
   /* Time in zone: code, name, bar, time, share. */
   .ww-zone-bars {
     display: grid;
