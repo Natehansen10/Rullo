@@ -68,3 +68,13 @@ Nate asked for three things: free app options (HeartBLE costs money), a pop-up c
 - **From the field guide, used:** ease-out motion (01), a staggered reveal (02), microinteractions (05: the press scale, the arrow that nudges on a link row), typography (11: a label, a title-size heading), whitespace (12), restrained color (13: one Olive button), no layout shift (19), transform and opacity only (22), reduced motion (23).
 - **From the field guide, left out, and why:** layered shadows (14) and glass or grain (15) are banned by DESIGN.md, so depth is the scrim and a hairline. Springs (01, 27) would need a library or a JavaScript loop. Magnetic buttons, custom cursors, parallax, smooth scrolling and text reveals are for marketing pages, not a card read from the saddle. Haptics and gestures need a phone.
 - **Checked (headless Chromium, Bluetooth stand-in), at 1280x720, 1024x600 and 800x600:** opens as a modal with focus on Connect; one Olive button on screen; the ride panel does not move; no sideways scroll; Escape, Cancel and a scrim click close it with nothing asked of the browser; Connect asks for the device list once; reduced motion snaps; the trainer's step is unchanged; `?fake=1` shows no card and the numbers update.
+
+## The pop-up card gets a shadow (Nov 24, 2026)
+
+Nate asked for the layered shadow that was held back. It is a written exception in DESIGN.md, for the pop-up card only.
+
+- **Six soft layers** of growing size (1 to 32px), each the text color at 7%, so the shadow is warm and never black (`--ww-dialog-shadow` in `tokens.css`; no hex).
+- **The scrim went from 45% to 32%.** A shadow does not show on a page that is already dark, and with the shadow the card needs less dimming to stand off the page.
+- The hairline border stays, so the edge is crisp where the shadow is faint.
+- Nothing else in the app has a shadow. Blur and glow are still banned.
+- Checked: the same headless run as above passes at 1280x720, 1024x600 and 800x600.
