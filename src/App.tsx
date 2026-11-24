@@ -447,7 +447,13 @@ export default function App() {
   const connecting = s.connection.kind === 'connecting'
   const lost = live && (s.connection.kind === 'failed' || s.connection.kind === 'disconnected')
   /** One primary per screen: where the page has its own (Home, Workout, the builder), the top bar's buttons are secondary. */
-  const pagePrimary = route === 'home' || route === 'summary' || route === 'workout' || route === 'builder'
+  const pagePrimary =
+    route === 'home' ||
+    route === 'summary' ||
+    route === 'workout' ||
+    route === 'builder' ||
+    // The watch card is a pop-up with its own primary (Connect); the page under it is inert.
+    s.pairing === 'heartRate'
   /** Home and its ride summary have their own primary, whatever the ride is doing. */
   const homeSide = route === 'home' || route === 'summary'
 
@@ -689,8 +695,8 @@ export default function App() {
             <PairingStep
               key={s.pairing}
               kind={s.pairing}
-              // One primary: the trainer's step takes it from Connect. A sensor's step leaves it with the top bar.
-              primary={s.pairing === 'trainer'}
+              // One primary: the step's button takes it from the top bar (see pagePrimary for the watch card).
+              primary
               onContinue={ride.confirmPairing}
               onCancel={ride.cancelPairing}
             />

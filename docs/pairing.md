@@ -57,3 +57,14 @@ Nate asked for more on the heart rate sensor's step: what to do to connect a wat
 - **Not built:** a "do not show this again" choice, detecting which watch the rider has, Garmin or Wear OS instructions, app logos (they would need each brand's assets).
 - **Checked (headless Chromium, Bluetooth stand-in):** the tile's Connect opens the card with focus on Connect; Escape and Cancel close it with nothing asked of the browser; Connect asks for the device list once; three links with the right addresses and a new tab; no sideways scroll at 1280 and 1024; `?fake=1` shows no card and the numbers update.
 - **Needs the real watch:** which of the three apps works with Chrome, and what name it shows in the list. The card's wording on that ("HeartBLE or your iPhone") comes from the listings.
+
+## The watch card becomes a pop-up (Nov 24, 2026)
+
+Nate asked for three things: free app options (HeartBLE costs money), a pop-up card in place of the panel above the ride, and a more premium feel, with a field guide of 27 effects as the reference.
+
+- **Free apps first.** HR Broadcast (its listing calls it free) and HeartCast (free to use; its paid extras are optional) lead the list, each with a "Free" tag. HeartBLE stays, tagged "Paid", because it is the only one that needs no iPhone. Prices come from the App Store listings and from Nate; none was installed here.
+- **A pop-up.** A native modal `<dialog>` centered over a scrim. The page behind is inert, focus stays inside, Escape, Cancel or a click on the scrim closes it. It no longer pushes the ride panel down, which removes the earlier trade-off (the Ride tab scrolling while the card was open).
+- **Connect is now the primary.** The page is under the scrim, so the card owns the one Olive button and the top bar's turn secondary while it is open.
+- **From the field guide, used:** ease-out motion (01), a staggered reveal (02), microinteractions (05: the press scale, the arrow that nudges on a link row), typography (11: a label, a title-size heading), whitespace (12), restrained color (13: one Olive button), no layout shift (19), transform and opacity only (22), reduced motion (23).
+- **From the field guide, left out, and why:** layered shadows (14) and glass or grain (15) are banned by DESIGN.md, so depth is the scrim and a hairline. Springs (01, 27) would need a library or a JavaScript loop. Magnetic buttons, custom cursors, parallax, smooth scrolling and text reveals are for marketing pages, not a card read from the saddle. Haptics and gestures need a phone.
+- **Checked (headless Chromium, Bluetooth stand-in), at 1280x720, 1024x600 and 800x600:** opens as a modal with focus on Connect; one Olive button on screen; the ride panel does not move; no sideways scroll; Escape, Cancel and a scrim click close it with nothing asked of the browser; Connect asks for the device list once; reduced motion snaps; the trainer's step is unchanged; `?fake=1` shows no card and the numbers update.

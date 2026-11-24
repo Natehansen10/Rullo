@@ -107,6 +107,14 @@
   --ww-dur-draw: 480ms;
   /* How far a step of the setup flow slides. */
   --ww-step-shift: 24px;
+  /* A pop-up card: the page under it is dimmed with the text color, never blurred. */
+  --ww-scrim: color-mix(in srgb, var(--ww-fg) 45%, transparent);
+  --ww-dialog-width: 592px;
+  /* How far the card rises, and the size it grows from, as it opens. */
+  --ww-dialog-shift: 12px;
+  --ww-dialog-scale: 0.98;
+  /* How far a link row's arrow moves on hover. */
+  --ww-nudge: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -123,6 +131,8 @@
   .ww-enter,
   .ww-fade-in,
   .ww-fade-out,
+  .ww-dialog,
+  .ww-dialog::backdrop,
   .ww-draw-in {
     animation: none;
   }
