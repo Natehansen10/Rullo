@@ -60,6 +60,11 @@
   --ww-home-rail: 384px;
   --ww-ride-chart-height: 72px;
   --ww-ride-chart-label: 152px;
+  /* Home's training chart: the height of the tallest bar, and the baseline tick of a day. */
+  --ww-training-height: 104px;
+  --ww-training-tick: 2px;
+  /* The shortest bar: a ride of a few minutes must still read as a bar, not as a tick. */
+  --ww-training-bar-min: 8px;
   --ww-unit-scale: 0.4;
   --ww-label-size: 12px;
   --ww-label-weight: 500;

@@ -497,6 +497,76 @@
 
 @layer components {
   /*
+   * Home's training chart: one column per day, today last. Height is the day's
+   * moving time. Neutral on purpose: bars are fg-muted and today's is fg; Olive
+   * is never used here.
+   */
+  .ww-training {
+    /* Room under the plot for the week labels (a 16px line, 4px down). */
+    padding-bottom: var(--ww-space-6);
+    cursor: default;
+  }
+  .ww-training-plot {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: var(--ww-training-height);
+    border-top: 1px solid var(--ww-line);
+  }
+  .ww-training-day {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  /* A Monday starts a week: a wider gap before it. */
+  .ww-training-day[data-week]:not(:first-child) {
+    margin-left: var(--ww-space-2);
+  }
+  /* The day pointed at, or the one the arrow keys are on. */
+  .ww-training-day[data-on] {
+    background: var(--ww-raised);
+  }
+  .ww-training-bar,
+  .ww-training-tick {
+    position: absolute;
+    right: calc(var(--ww-space-1) / 2);
+    bottom: 0;
+    left: calc(var(--ww-space-1) / 2);
+    background: var(--ww-fg-muted);
+  }
+  .ww-training-bar {
+    min-height: var(--ww-training-bar-min);
+  }
+  /* Every day has a baseline tick; on a day with no ride it is all there is. Above the draw-in cover. */
+  .ww-training-tick {
+    z-index: 2;
+    height: var(--ww-training-tick);
+  }
+  .ww-training-day:not([data-rides]) .ww-training-tick {
+    background: var(--ww-fg-subtle);
+  }
+  .ww-training-day[data-today] .ww-training-bar,
+  .ww-training-day[data-today] .ww-training-tick {
+    background: var(--ww-fg);
+  }
+  .ww-training-plot > .ww-draw-in {
+    z-index: 1;
+  }
+  /* A Monday's date under its column, and "Today" under the last one. */
+  .ww-training-label {
+    position: absolute;
+    top: 100%;
+    margin-top: var(--ww-space-1);
+    font-family: var(--ww-font-mono);
+    font-size: var(--ww-mono-size);
+    line-height: 16px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+}
+
+@layer components {
+  /*
    * Motion (see "Motion" in DESIGN.md). Transform and opacity only. Each of
    * these is switched off under prefers-reduced-motion in tokens.css.
    */
