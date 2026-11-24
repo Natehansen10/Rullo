@@ -163,6 +163,12 @@ Asked for by Nate on Nov 22, 2026, from the complaints research (audio cues are 
 - **Cut:** sounds on a free ride or a course (climbs, laps), a volume control, a mute key on the Ride tab, voice
 - **Done when:** ride a workout on the Kickr with sounds on and hear the beeps land on the countdown and the tone on the change, over the trainer and a fan
 
+### Design pass (started Nov 24, 2026)
+
+Nate asked for six design features on Nov 23, 2026, built overnight and ahead of the ride tests, each merged once its checks passed. The list came from a review of what held the app's look and feel back: every screen was white boxes of equal weight, the best charts were the smallest, the Ride tab was half empty, no chart responded to the pointer, and a ride had no ending.
+
+- **Scrubbable charts (built Nov 24, 2026; no ride test needed):** pointing at the ride summary's charts puts one line through power, cadence, heart rate and elevation and shows the values at that second; arrow keys do the same. The course overview's profile shows mile, feet and grade under the pointer. See `docs/scrubbable-charts.md`.
+
 ### Later: Movie Mode overlay
 
 Moved down the road on Nov 19, 2026. Not scheduled; pick it up after v4 or when it earns its place.
