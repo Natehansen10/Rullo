@@ -6,6 +6,7 @@ import { RideSummaryPage } from './components/RideSummaryPage'
 import { ProfilePage } from './components/ProfilePage'
 import { MetricTile } from './components/MetricTile'
 import { PairingStep } from './components/PairingStep'
+import { PowerTrace } from './components/PowerTrace'
 import { SegmentedControl } from './components/SegmentedControl'
 import { StatusPill, type StatusTone } from './components/StatusPill'
 import { StravaBlock } from './components/StravaBlock'
@@ -716,6 +717,14 @@ export default function App() {
               empty={power === EMPTY}
               zone={zone}
               enterDelayMs={FIRST_DATA_STAGGER_MS * 0}
+              chart={
+                <PowerTrace
+                  trace={s.powerTrace}
+                  series={SMOOTHING_OPTIONS.indexOf(s.smoothing)}
+                  ftpW={s.profile.ftpW}
+                  dim={dimLive}
+                />
+              }
               className={`border-b border-line xl:border-r xl:border-b-0 ${pad}`}
               action={
                 <SegmentedControl

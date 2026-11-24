@@ -832,3 +832,54 @@
     color: var(--ww-fg);
   }
 }
+
+@layer components {
+  /*
+   * The slot a tile gives its chart: whatever height is left between the
+   * label row and the number, and none of its own (MetricTile's `chart`).
+   */
+  .ww-tile-chart {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+  }
+  /*
+   * PowerTrace: the live power line in the Power tile. It fills its slot,
+   * less the space above and below that keeps it clear of the label row and
+   * the number. Nothing here animates: the line is redrawn when a reading
+   * arrives. Its color eases with the number's on a state change (stale, paused).
+   */
+  .ww-power-trace {
+    position: absolute;
+    inset: var(--ww-space-3) 0 var(--ww-space-1) 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .ww-power-trace svg {
+    display: block;
+  }
+  .ww-power-trace-line {
+    fill: none;
+    stroke: var(--ww-accent);
+    stroke-width: 1.5px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    transition: stroke var(--ww-dur-base) var(--ww-ease);
+  }
+  .ww-power-trace-dim .ww-power-trace-line {
+    stroke: var(--ww-fg-subtle);
+  }
+  .ww-power-trace-band {
+    fill: var(--ww-raised);
+  }
+  .ww-power-trace-target {
+    fill: none;
+    stroke: var(--ww-line-strong);
+    stroke-width: 1px;
+  }
+  .ww-power-trace-base {
+    stroke: var(--ww-line);
+    stroke-width: 1px;
+  }
+}

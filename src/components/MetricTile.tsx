@@ -26,6 +26,12 @@ interface MetricTileProps {
    * for a number that is always there (distance, time).
    */
   enterDelayMs?: number
+  /**
+   * A chart for the free space between the label row and the number (the
+   * Power tile's trace). It gets only the room the tile already has spare,
+   * which can be none; it never makes the tile taller or moves the number.
+   */
+  chart?: ReactNode
   className?: string
 }
 
@@ -41,6 +47,7 @@ export function MetricTile({
   zone,
   empty = false,
   enterDelayMs,
+  chart,
   className = '',
 }: MetricTileProps) {
   const arrivals = useFirstValue(!empty)
@@ -59,6 +66,8 @@ export function MetricTile({
         )}
         {action}
       </div>
+      {/* The negative margin takes back the gap this third child would add, so the tile needs no more height than without it. */}
+      {chart !== undefined && <div className={`ww-tile-chart ${dense ? '-mt-2' : '-mt-4'}`}>{chart}</div>}
       <div
         // A new key only when a reading arrives, so the enter plays once and updates stay in place.
         key={arrivals}
