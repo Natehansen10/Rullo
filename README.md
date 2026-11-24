@@ -130,7 +130,7 @@ Under the FTP field, and on Home: your seven power zones (Z1 Active recovery to 
 The Ride tab has a **Heart rate** tile. It reads any standard Bluetooth heart rate sensor: a chest strap, an armband, or an Apple Watch through a relay app.
 
 1. Put the strap on, or start the relay app (below).
-2. Press **Connect** in the Heart rate tile and pick the sensor in the browser's list. It is a second device, separate from the Kickr. You can do this before or during a ride.
+2. Press **Connect** in the Heart rate tile. A card walks through the steps and links the relay apps; press **Connect** on it and pick the sensor in the browser's list. It is a second device, separate from the Kickr. You can do this before or during a ride.
 3. The tile shows bpm. Each recorded second with a reading gets heart rate in the FIT file, with average and max on every lap and the ride.
 
 - The sensor never affects the ride. If it drops, the tile grays out and the app retries every 2 seconds; time, recording and the trainer carry on. Seconds with no reading have no heart rate in the file.
@@ -142,9 +142,9 @@ The Ride tab has a **Heart rate** tile. It reads any standard Bluetooth heart ra
 
 | App | Runs on | Needs |
 | --- | --- | --- |
-| HeartBLE | The watch itself | watchOS 26 or later. No iPhone in the chain. |
-| HeartCast | Watch and iPhone | The iPhone nearby with the app open; the phone is what the browser sees. |
-| HR Broadcast | Watch and iPhone | The same: the phone relays the watch. |
+| [HeartBLE](https://apps.apple.com/us/app/heartble-heart-rate-bluetooth/id6758879454) | The watch itself | watchOS 26 or later. No iPhone in the chain. |
+| [HeartCast](https://apps.apple.com/us/app/heartcast-heart-rate-monitor/id1499771124) | Watch and iPhone | The iPhone nearby with the app open; the phone is what the browser sees. |
+| [HR Broadcast](https://apps.apple.com/us/app/hr-broadcast/id6766073249) | Watch and iPhone | The same: the phone relays the watch. |
 
 Start the session on the watch (in the relay app). Rullo cannot start it for you; it only listens. A strap works the same way with no app at all.
 
