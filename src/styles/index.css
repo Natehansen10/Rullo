@@ -688,8 +688,9 @@
 @layer components {
   /*
    * A pop-up card (the watch card): a native modal <dialog> over a scrim.
-   * Depth comes from the scrim and a line-strong hairline, never a shadow or
-   * a blur. It opens with a rise and a slight grow (transform and opacity).
+   * Depth comes from the scrim, a line-strong hairline and the app's one
+   * shadow (a written exception in DESIGN.md). Never a blur.
+   * It opens with a rise and a slight grow (transform and opacity).
    */
   .ww-dialog {
     margin: auto;
@@ -702,6 +703,7 @@
     border-radius: var(--ww-radius-lg);
     background: var(--ww-surface);
     color: var(--ww-fg);
+    box-shadow: var(--ww-dialog-shadow);
     animation: ww-dialog-in var(--ww-dur-layout) var(--ww-ease) both;
   }
   .ww-dialog::backdrop {

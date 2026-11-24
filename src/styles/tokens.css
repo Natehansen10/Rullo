@@ -108,8 +108,16 @@
   /* How far a step of the setup flow slides. */
   --ww-step-shift: 24px;
   /* A pop-up card: the page under it is dimmed with the text color, never blurred. */
-  --ww-scrim: color-mix(in srgb, var(--ww-fg) 45%, transparent);
+  --ww-scrim: color-mix(in srgb, var(--ww-fg) 32%, transparent);
   --ww-dialog-width: 592px;
+  /*
+   * The one shadow in the app, for the pop-up card only (Nate's exception, Nov 24, 2026).
+   * Six soft layers of growing size, tinted with the text color, never pure black.
+   */
+  --ww-shadow-ink: color-mix(in srgb, var(--ww-fg) 7%, transparent);
+  --ww-dialog-shadow:
+    0 1px 1px var(--ww-shadow-ink), 0 2px 2px var(--ww-shadow-ink), 0 4px 4px var(--ww-shadow-ink),
+    0 8px 8px var(--ww-shadow-ink), 0 16px 16px var(--ww-shadow-ink), 0 32px 32px var(--ww-shadow-ink);
   /* How far the card rises, and the size it grows from, as it opens. */
   --ww-dialog-shift: 12px;
   --ww-dialog-scale: 0.98;
