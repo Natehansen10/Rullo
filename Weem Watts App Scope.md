@@ -168,6 +168,7 @@ Asked for by Nate on Nov 22, 2026, from the complaints research (audio cues are 
 Nate asked for six design features on Nov 23, 2026, built overnight and ahead of the ride tests, each merged once its checks passed. The list came from a review of what held the app's look and feel back: every screen was white boxes of equal weight, the best charts were the smallest, the Ride tab was half empty, no chart responded to the pointer, and a ride had no ending.
 
 - **Scrubbable charts (built Nov 24, 2026; no ride test needed):** pointing at the ride summary's charts puts one line through power, cadence, heart rate and elevation and shows the values at that second; arrow keys do the same. The course overview's profile shows mile, feet and grade under the pointer. See `docs/scrubbable-charts.md`.
+- **Live power trace (built Nov 24, 2026; ride test pending):** the last 3 minutes of power as a line in the Power tile, above the big number, with the workout or ERG target as a band behind it. A dropout is a gap, a pause takes no width. It uses only room that was already empty, so at 1280x720 with a course and a workout together it is not drawn. On the Kickr, check how often gaps appear in a steady ride. See `docs/power-trace.md`.
 
 ### Later: Movie Mode overlay
 
