@@ -167,7 +167,7 @@ Calls:
 - **Every number in the top row is the FIT file's own** (`rideTotals`). Checked against the decoded session: time, miles, feet, average and max power, work, cadence, average and max heart rate.
 - **Nothing is stored for it.** The page reads the ride's samples when it opens, about 20 ms per hour ridden.
 - **Delete** is here too, with the same two presses, and goes back to Home.
-- **No hover on the charts** in this pass.
+- **No hover on the charts** in this pass. Added Nov 24, 2026: see `docs/scrubbable-charts.md`.
 - **A ride that is not saved here** (deleted, never ended, a bad link) shows one sentence and a way back.
 
 ## Part 7: back up and restore, Nov 21, 2026
