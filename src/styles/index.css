@@ -684,3 +684,89 @@
     }
   }
 }
+
+@layer components {
+  /*
+   * A pop-up card (the watch card): a native modal <dialog> over a scrim.
+   * Depth comes from the scrim and a line-strong hairline, never a shadow or
+   * a blur. It opens with a rise and a slight grow (transform and opacity).
+   */
+  .ww-dialog {
+    margin: auto;
+    padding: 0;
+    width: min(calc(100% - 2 * var(--ww-space-4)), var(--ww-dialog-width));
+    max-width: none;
+    max-height: calc(100dvh - 2 * var(--ww-space-6));
+    overflow-y: auto;
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius-lg);
+    background: var(--ww-surface);
+    color: var(--ww-fg);
+    animation: ww-dialog-in var(--ww-dur-layout) var(--ww-ease) both;
+  }
+  .ww-dialog::backdrop {
+    background: var(--ww-scrim);
+    animation: ww-fade-in var(--ww-dur-base) var(--ww-ease) both;
+  }
+  @keyframes ww-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(var(--ww-dialog-shift)) scale(var(--ww-dialog-scale));
+    }
+  }
+  /* A numbered step: a small mono mark, then its words. */
+  .ww-step {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--ww-space-4);
+    align-items: start;
+  }
+  .ww-step-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ww-space-6);
+    height: var(--ww-space-6);
+    background: var(--ww-raised);
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius-sm);
+  }
+  /* A row that is one link: name, price tag, note, and an arrow that nudges on hover. */
+  .ww-app-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--ww-space-3);
+    padding: var(--ww-space-3) 0;
+    border-top: 1px solid var(--ww-line);
+    text-decoration: none;
+  }
+  .ww-app-row-name {
+    flex: none;
+    width: 12ch;
+    font-weight: 600;
+    color: var(--ww-fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color var(--ww-dur-fast) var(--ww-ease);
+  }
+  .ww-app-row-price {
+    flex: none;
+    width: 6ch;
+    text-align: center;
+    background: var(--ww-raised);
+    border: 1px solid var(--ww-line-strong);
+    border-radius: var(--ww-radius-sm);
+  }
+  .ww-app-row-arrow {
+    flex: none;
+    transition: transform var(--ww-dur-fast) var(--ww-ease), color var(--ww-dur-fast) var(--ww-ease);
+  }
+  .ww-app-row:hover .ww-app-row-name {
+    color: var(--ww-fg-muted);
+  }
+  .ww-app-row:hover .ww-app-row-arrow,
+  .ww-app-row:focus-visible .ww-app-row-arrow {
+    transform: translateX(var(--ww-nudge));
+    color: var(--ww-fg);
+  }
+}
