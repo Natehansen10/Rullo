@@ -43,6 +43,8 @@ const RIDER_KEYS = [
   'ww.hrDeviceId',
   // Interval sounds on or off.
   'ww.intervalSounds',
+  // Light, Dark or Match my computer (`theme.ts`). The script in index.html reads this key too.
+  'ww.appearance',
 ] as const
 
 export const MAX_RIDER_NAME_CHARS = 30
