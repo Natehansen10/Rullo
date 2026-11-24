@@ -44,7 +44,7 @@ function ChartRow({ label, detail, at, children }: { label: string; detail: stri
  * row's mono line then shows that second's value in place of the ride's
  * numbers, and the time sits on the axis. Nothing takes or gives up space.
  */
-export function RideCharts({ detail }: { detail: RideDetail }) {
+export function RideCharts({ detail, drawIn = false }: { detail: RideDetail; /** Uncover the charts left to right, once, when they are first drawn (the finish screen). */ drawIn?: boolean }) {
   const t = detail.totals
   const n = detail.powerW.length
   const altitudeFt = useMemo(() => detail.altitudeM.map((m) => (m === null ? null : m * FEET_PER_METER)), [detail])
@@ -178,6 +178,8 @@ export function RideCharts({ detail }: { detail: RideDetail }) {
         )}
         {/* The cursor line: one line through every row. Over the charts and their fills, under the dots. */}
         <div aria-hidden className="ww-scrub-area pointer-events-none">
+          {/* The cover that draws the charts in: over every row at once, gone after --ww-dur-draw. */}
+          {drawIn && <span className="ww-draw-in" />}
           {i !== null && <span data-scrub-line className="ww-scrub-line" style={{ transform: `translateX(${x}px)` }} />}
         </div>
         {/* The chart area is one tab stop, and the only thing here that takes the pointer. */}

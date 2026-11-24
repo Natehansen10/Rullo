@@ -179,7 +179,7 @@ This changes one byte of every FIT made on a real trainer from now on (product 0
 
 **Remembered on the ride.** The upload id and activity id are saved on the ride's row (`strava`), with the ride's `name` and `origin`. No new table; Dexie stays at version 4. A stored id must be digits before it is used in a link.
 
-**Connecting after the ride has ended.** Signing in leaves the page, which would lose the "Ride ended" screen. So the ride's id travels with the sign-in, and on the way back the app reopens that ride on the Ride tab with its buttons. For the same reason Connect is not offered while a trainer is connected or a ride is on: the Profile block says to end the ride first.
+**Connecting after the ride has ended.** Signing in leaves the page, which would lose the "Ride ended" screen. So the ride's id travels with the sign-in, and on the way back the app reopens that ride on the Ride tab with its buttons. (Since Nov 24, 2026 it comes back to the ride's summary, the finish screen, with the same buttons in the top bar. See `finish-screen.md`.) For the same reason Connect is not offered while a trainer is connected or a ride is on: the Profile block says to end the ride first.
 
 **An expired token** is refreshed before the upload when it has under 5 minutes left. If Strava refuses the token anyway, on the upload or on a status check, the app refreshes once and repeats that one call. If the refresh is refused, access was removed on Strava's side: the tokens are cleared and the app says to connect again.
 

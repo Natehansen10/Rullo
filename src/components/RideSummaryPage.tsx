@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
 import { downloadFit } from '../lib/fit'
-import { BEST_LABEL, BEST_WINDOWS_S, deleteRide, loadHistory, peekHistory, prsByRide, type BestWindow, type RideSummary } from '../lib/history'
+import { BEST_LABEL, BEST_WINDOWS_S, deleteRide, loadHistory, peekHistory, prGainsOf, type BestWindow, type RideSummary } from '../lib/history'
 import type { RideSnapshot } from '../lib/ride'
 import { loadRideDetail, type RideDetail } from '../lib/rideDetail'
 import { dateOf, feet, hms, miles, setupOf } from '../lib/rideFormat'
@@ -15,9 +15,30 @@ interface RideSummaryPageProps {
   s: RideSnapshot
   /** Back to Home. */
   onBack: () => void
+  /** The ride was deleted for good. Called before onBack. */
+  onDeleted?: (rideId: number) => void
+  /**
+   * This is the ride that just ended: the finish screen. The header says the
+   * ride is saved, a PR is written out under it, and Download FIT is in the
+   * top bar with the ride's other buttons, not on the page.
+   */
+  finished?: boolean
+  /** The rider has come straight from End Ride: the stats enter and the charts draw in, once. */
+  arrive?: boolean
+  /** The arrival has been taken: opening this page again plays nothing. */
+  onArrived?: () => void
+  /** Notices about the ended ride, shown above the panel on the finish screen. */
+  notice?: ReactNode
 }
 
 const CONFIRM_MS = 3000
+/** On arrival each stat enters this long after the one before it. */
+const ARRIVE_STAGGER_MS = 40
+
+/** The one-time enter of the `i`th stat on arrival, or nothing. */
+function enterAt(on: boolean, i: number): { className?: string; style?: CSSProperties } {
+  return on ? { className: 'ww-enter', style: { '--ww-enter-delay': `${i * ARRIVE_STAGGER_MS}ms` } as CSSProperties } : {}
+}
 
 /**
  * One finished ride: its numbers, a line each for power, cadence, heart rate
@@ -25,10 +46,18 @@ const CONFIRM_MS = 3000
  * bests. A side trip from Home. Everything is read from the saved samples;
  * the totals are the FIT file's own.
  */
-export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
+export function RideSummaryPage({ rideId, s, onBack, onDeleted, finished = false, arrive = false, onArrived, notice }: RideSummaryPageProps) {
   /** undefined: reading. null: no such finished ride. */
   const [detail, setDetail] = useState<RideDetail | null | undefined>(undefined)
   const [history, setHistory] = useState<RideSummary[] | null>(peekHistory)
+  /** Every ride has been read this visit, the one on screen included: its PRs are known. */
+  const [historyRead, setHistoryRead] = useState(false)
+  /** Taken once when the page opens, so nothing plays again on a later draw or a later visit. */
+  const [arriving] = useState(arrive)
+  useEffect(() => {
+    if (arriving) onArrived?.()
+    // Once, when the page opens.
+  }, [])
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [now] = useState(() => Date.now())
@@ -45,8 +74,12 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
       })
     // The PR tags need every ride's bests; this is a memory read after Home has been open.
     loadHistory()
-      .then((all) => live && setHistory(all))
-      .catch(() => undefined)
+      .then((all) => {
+        if (!live) return
+        setHistory(all)
+        setHistoryRead(true)
+      })
+      .catch(() => live && setHistoryRead(true))
     return () => {
       live = false
     }
@@ -58,15 +91,18 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
     return () => clearTimeout(t)
   }, [confirmDelete])
 
-  const prs = useMemo(() => (history ? (prsByRide(history).get(rideId) ?? []) : []), [history, rideId])
+  const gains = useMemo(() => (history ? prGainsOf(history, rideId) : []), [history, rideId])
+  const prs = useMemo(() => gains.map((g) => g.win), [gains])
 
-  if (detail === undefined) return <p className="text-fg-subtle">Loading ride</p>
+  // The finish screen waits for the PRs too, so the "New best" lines never push the page down after it has drawn.
+  if (detail === undefined || (finished && detail !== null && !historyRead)) return <p className="text-fg-subtle">Loading ride</p>
   if (detail === null) {
     return (
       <div className="flex max-w-7xl flex-col items-start gap-4">
         <h1 className="text-title font-semibold text-fg">Ride not found</h1>
         <p className="text-fg-muted">This ride is not saved in this browser. It may have been deleted, or it was never ended.</p>
-        <Button variant="primary" onClick={onBack}>
+        {/* On the finish screen the top bar still has the ended ride's primary. */}
+        <Button variant={finished ? 'secondary' : 'primary'} onClick={onBack}>
           ← Home
         </Button>
       </div>
@@ -89,7 +125,10 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
     if (!confirmDelete) return setConfirmDelete(true)
     setConfirmDelete(false)
     deleteRide(rideId)
-      .then(onBack)
+      .then(() => {
+        onDeleted?.(rideId)
+        onBack()
+      })
       .catch((err) => {
         console.error('Could not delete the ride:', err)
         setMessage('Could not delete this ride.')
@@ -107,16 +146,19 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
   }
 
   return (
-    <div className="flex max-w-7xl flex-col gap-6">
+    <div className="flex max-w-7xl flex-col gap-4">
+      {notice}
       <section aria-label="Ride summary" className="rounded-lg border border-line bg-surface">
         <div className="flex flex-wrap items-center gap-4 border-b border-line px-6 py-3">
           <Button onClick={onBack}>← Home</Button>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
+            {finished && <span className="ww-label">Ride saved</span>}
             <div className="flex min-w-0 items-center gap-3">
               <h1 className="truncate text-title font-semibold text-fg">
                 {day}, {time}
               </h1>
-              {prs.length > 0 && <PrChip windows={prs} />}
+              {/* The finish screen writes each PR out in the band below. */}
+              {!finished && prs.length > 0 && <PrChip windows={prs} />}
             </div>
             <span className="truncate font-mono text-mono text-fg-subtle">{setup}</span>
           </div>
@@ -124,9 +166,12 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
             <Button variant={confirmDelete ? 'danger' : 'secondary'} onClick={onDelete}>
               {confirmDelete ? 'Confirm delete' : 'Delete'}
             </Button>
-            <Button variant="primary" onClick={onDownload}>
-              Download FIT
-            </Button>
+            {/* The ride that just ended has its Download FIT in the top bar, with Upload to Strava and New ride. */}
+            {!finished && (
+              <Button variant="primary" onClick={onDownload}>
+                Download FIT
+              </Button>
+            )}
           </div>
         </div>
         {message && (
@@ -134,17 +179,43 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
             {message}
           </p>
         )}
+        {finished && gains.length > 0 && (
+          <ul aria-label="New power bests" className="flex flex-col gap-2 border-b border-line px-6 py-4">
+            {gains.map((g, i) => (
+              <li key={g.win} {...enterAt(arriving, i)}>
+                <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <PrChip windows={[g.win]} />
+                  <span className="font-semibold text-fg">
+                    New best: {BEST_LABEL[g.win]}, {g.w} W
+                  </span>
+                  <span className="font-mono text-mono text-fg-muted">
+                    up {g.w - g.prevW} W from {g.prevW} W
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="flex flex-wrap items-start gap-x-8 gap-y-4 px-6 py-4">
-          <Stat label="Moving time" value={hms(t.timerMs)} dim={false} />
-          <Stat label="Distance" value={miles(t.distanceM, 2)} unit="mi" dim={false} />
-          {detail.hasAltitude && <Stat label="Climbed" value={feet(t.ascentM)} unit="ft" dim={false} />}
-          <Stat label="Avg power" value={String(Math.round(t.avgPowerW))} unit="W" dim={false} />
-          <Stat label="Max power" value={String(Math.round(t.maxPowerW))} unit="W" dim={false} />
-          <Stat label="Work" value={Math.round(t.workJ / 1000).toLocaleString()} unit="kJ" dim={false} />
-          <Stat label="Avg cadence" value={String(Math.round(t.avgCadenceRpm))} unit="rpm" dim={false} />
-          {t.avgHeartRateBpm !== null && <Stat label="Avg heart rate" value={String(Math.round(t.avgHeartRateBpm))} unit="bpm" dim={false} />}
-          {t.maxHeartRateBpm !== null && <Stat label="Max heart rate" value={String(Math.round(t.maxHeartRateBpm))} unit="bpm" dim={false} />}
+          {[
+            <Stat key="time" label="Moving time" value={hms(t.timerMs)} dim={false} />,
+            <Stat key="dist" label="Distance" value={miles(t.distanceM, 2)} unit="mi" dim={false} />,
+            detail.hasAltitude && <Stat key="climb" label="Climbed" value={feet(t.ascentM)} unit="ft" dim={false} />,
+            <Stat key="avgw" label="Avg power" value={String(Math.round(t.avgPowerW))} unit="W" dim={false} />,
+            <Stat key="maxw" label="Max power" value={String(Math.round(t.maxPowerW))} unit="W" dim={false} />,
+            <Stat key="work" label="Work" value={Math.round(t.workJ / 1000).toLocaleString()} unit="kJ" dim={false} />,
+            <Stat key="cad" label="Avg cadence" value={String(Math.round(t.avgCadenceRpm))} unit="rpm" dim={false} />,
+            t.avgHeartRateBpm !== null && <Stat key="avghr" label="Avg heart rate" value={String(Math.round(t.avgHeartRateBpm))} unit="bpm" dim={false} />,
+            t.maxHeartRateBpm !== null && <Stat key="maxhr" label="Max heart rate" value={String(Math.round(t.maxHeartRateBpm))} unit="bpm" dim={false} />,
+          ]
+            .filter((x): x is ReactElement => !!x)
+            // On arrival each stat enters once, a step after the one before. Opened from Home they are just there.
+            .map((stat, i) => (
+              <div key={stat.key} {...enterAt(arriving, gains.length + i)}>
+                {stat}
+              </div>
+            ))}
         </div>
 
         <div className="flex flex-col gap-4 border-t border-line px-6 py-4">
@@ -155,7 +226,7 @@ export function RideSummaryPage({ rideId, s, onBack }: RideSummaryPageProps) {
               {detail.lapStarts.length > 0 ? ' The faint lines are the workout intervals.' : ''}
             </p>
           </div>
-          <RideCharts detail={detail} />
+          <RideCharts detail={detail} drawIn={arriving} />
         </div>
 
         <div className="flex flex-col gap-4 border-t border-line px-6 py-4">
